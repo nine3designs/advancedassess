@@ -153,24 +153,30 @@
 
     <div class="form-card fb-form reveal" style="margin-top:52px">
       <h3>Submit Your Feedback</h3>
-      <form action="mailto:sara@advancedassessmentandsolutions.co.uk" method="post" enctype="text/plain">
+      <div id="form-thanks" style="display:none;background:rgba(46,160,67,.1);border:1px solid rgba(46,160,67,.35);color:#1a7f37;padding:14px 18px;border-radius:12px;margin-bottom:18px;font-weight:600;font-size:.92rem">Thank you &ndash; your feedback has been submitted. We really appreciate it.</div>
+      <form action="https://formsubmit.co/sara@advancedassessmentandsolutions.co.uk" method="POST">
+        <input type="hidden" name="_subject" value="Website feedback submission">
+        <input type="hidden" name="_template" value="table">
+        <input type="hidden" name="_captcha" value="false">
+        <input type="text" name="_honey" style="display:none">
+        <input type="hidden" name="_next" value="https://advancedassessmentandsolutions.co.uk/feedback.html?sent=1">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px" class="form-row">
           <div class="form-group">
             <label for="fb-name">Your Name</label>
-            <input class="form-control" id="fb-name" type="text" placeholder="Full name" required>
+            <input class="form-control" id="fb-name" name="name" type="text" placeholder="Full name" required>
           </div>
           <div class="form-group">
             <label for="fb-role">Role / Organisation</label>
-            <input class="form-control" id="fb-role" type="text" placeholder="Solicitor, Local Authority, Parent&hellip;">
+            <input class="form-control" id="fb-role" name="role" type="text" placeholder="Solicitor, Local Authority, Parent&hellip;">
           </div>
         </div>
         <div class="form-group">
           <label for="fb-email">Email Address</label>
-          <input class="form-control" id="fb-email" type="email" placeholder="name@domain.com" required>
+          <input class="form-control" id="fb-email" name="email" type="email" placeholder="name@domain.com" required>
         </div>
         <div class="form-group">
           <label for="fb-msg">Feedback &amp; Comments</label>
-          <textarea class="form-control" id="fb-msg" placeholder="Share your experience working with Advanced Assessment &amp; Solutions LTD&hellip;" required></textarea>
+          <textarea class="form-control" id="fb-msg" name="feedback" placeholder="Share your experience working with Advanced Assessment &amp; Solutions LTD&hellip;" required></textarea>
         </div>
         <button type="submit" class="btn btn-primary">Submit Feedback</button>
       </form>
@@ -249,5 +255,6 @@
   });
 })();
 </script>
+<script>if(location.search.indexOf("sent=1")>-1){var d=document.getElementById("form-thanks");if(d){d.style.display="block";d.scrollIntoView({behavior:"smooth",block:"center"});}}</script>
 </body>
 </html>

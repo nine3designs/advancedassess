@@ -91,22 +91,28 @@
     </div>
     <div class="form-card reveal" style="--d:.14s">
       <h3>Send an Enquiry</h3>
-      <form action="mailto:sara@advancedassessmentandsolutions.co.uk" method="post" enctype="text/plain">
+      <div id="form-thanks" style="display:none;background:rgba(46,160,67,.1);border:1px solid rgba(46,160,67,.35);color:#1a7f37;padding:14px 18px;border-radius:12px;margin-bottom:18px;font-weight:600;font-size:.92rem">Thank you &ndash; your enquiry has been sent. Sara will be in touch shortly.</div>
+      <form action="https://formsubmit.co/sara@advancedassessmentandsolutions.co.uk" method="POST">
+        <input type="hidden" name="_subject" value="New enquiry from the Advanced Assessment &amp; Solutions website">
+        <input type="hidden" name="_template" value="table">
+        <input type="hidden" name="_captcha" value="false">
+        <input type="text" name="_honey" style="display:none">
+        <input type="hidden" name="_next" value="https://advancedassessmentandsolutions.co.uk/contact.html?sent=1">
         <div class="form-group">
           <label for="ct-name">Your Name / Instructor Name</label>
-          <input class="form-control" id="ct-name" type="text" placeholder="e.g. Jane Smith" required>
+          <input class="form-control" id="ct-name" name="name" type="text" placeholder="e.g. Jane Smith" required>
         </div>
         <div class="form-group">
           <label for="ct-firm">Instructing Firm or Organisation</label>
-          <input class="form-control" id="ct-firm" type="text" placeholder="e.g. Solicitors / Local Authority" required>
+          <input class="form-control" id="ct-firm" name="firm" type="text" placeholder="e.g. Solicitors / Local Authority" required>
         </div>
         <div class="form-group">
           <label for="ct-email">Email Address</label>
-          <input class="form-control" id="ct-email" type="email" placeholder="name@domain.com" required>
+          <input class="form-control" id="ct-email" name="email" type="email" placeholder="name@domain.com" required>
         </div>
         <div class="form-group">
           <label for="ct-type">Enquiry Type</label>
-          <select class="form-control" id="ct-type">
+          <select class="form-control" id="ct-type" name="enquiry_type">
             <option>New Court Instruction Request</option>
             <option>CV &amp; Availability Enquiry</option>
             <option>General Information</option>
@@ -114,7 +120,7 @@
         </div>
         <div class="form-group">
           <label for="ct-msg">Case Details &amp; Timescale Requirements</label>
-          <textarea class="form-control" id="ct-msg" placeholder="Brief outline of required assessment&hellip;" required></textarea>
+          <textarea class="form-control" id="ct-msg" name="case_details" placeholder="Brief outline of required assessment&hellip;" required></textarea>
         </div>
         <button type="submit" class="btn btn-primary">Send Message</button>
       </form>
@@ -170,5 +176,6 @@
 </footer>
 
 <script src="assets/js/main.js" defer></script>
+<script>if(location.search.indexOf("sent=1")>-1){var d=document.getElementById("form-thanks");if(d){d.style.display="block";d.scrollIntoView({behavior:"smooth",block:"center"});}}</script>
 </body>
 </html>
