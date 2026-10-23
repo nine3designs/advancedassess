@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://advancedassessmentandsolutions.co.uk/sitemap.xml
