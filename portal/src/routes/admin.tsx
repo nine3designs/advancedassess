@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, FileText, Play, Square, Upload, Send, MailCheck } from "lucide-react";
+import { Check, FileText, Play, Square, Upload, Send, MailCheck, Plus, Trash2, ArrowLeft, Printer, ClipboardList, Clock, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { StatusBadge } from "@/components/common";
 import { supabase } from "@/integrations/supabase/client";
 import { portalAction, getPortal } from "@/lib/portal.functions";
+import { Dashboard, Board, InvoiceSheet } from "@/components/portal/PMPortal";
+import { InvoiceDocument } from "@/components/portal/InvoiceDocument";
 import { effectiveStatus, fmtDate, invoiceTotals, money, type LineItem } from "@/lib/format";
 import { fmtMinsLabel, londonDayKey } from "@/lib/admin-utils";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -87,17 +89,56 @@ function AdminPage() {
 
   return (
     <AdminShell
-      act={act} entries={entries} running={running} cards={cards} invoices={invoices}
+      act={act} data={data}
       onSignOut={async () => { await supabase.auth.signOut(); navigate({ to: "/auth" }); }}
     />
   );
 }
 
-function AdminShell({ act, entries, running, cards, invoices, onSignOut }: Any) {
-  const [tab, setTab] = useState<"time" | "invoice" | "availability">("time");
+function AdminShell({ act, data, onSignOut }: Any) {
+  const [tab, setTab] = useState<"dashboard" | "board" | "time" | "finance" | "availability">("dashboard");
+  const entries: Any[] = data.time ?? [];
+  const cards: Any[] = data.board ?? [];
+  const running = entries.find((e: Any) => !e.ended_at);
+  const invoices: Any[] = data.invoices ?? [];
+  const doneEntries = entries.filter((e: Any) => e.ended_at && Number(e.minutes) > 0);
+  const unbilled = doneEntries.filter((e: Any) => !e.billed);
+  const unbilledMins = unbilled.reduce((s: number, e: Any) => s + Number(e.minutes), 0);
+  const rate = Number(data.client?.portal_prefs?.rate ?? 17);
+  const stats = useMemo(() => {
+    const today = londonDayKey(new Date().toISOString());
+    const thisWeek = weekStartKey(today);
+    const thisMonth = today.slice(0, 7);
+    let today_ = 0, week = 0, month = 0;
+    for (const e of doneEntries) {
+      const day = londonDayKey(new Date(e.started_at ?? e.created_at));
+      if (day === today) today_ += Number(e.minutes);
+      if (weekStartKey(day) === thisWeek) week += Number(e.minutes);
+      if (day.slice(0, 7) === thisMonth) month += Number(e.minutes);
+    }
+    if (running) today_ += (Date.now() - Date.parse(running.started_at)) / 60000;
+    const open = cards.filter((c: Any) => c.status !== "done").length;
+    return { today: today_, week, month, open, thisWeek };
+  }, [entries, cards, running?.id]);
+  const weeks = useMemo(() => {
+    const out: { key: string; label: string; mins: number }[] = [];
+    const base = new Date(stats.thisWeek + "T12:00:00Z");
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(base); d.setUTCDate(d.getUTCDate() - i * 7);
+      const key = d.toISOString().slice(0, 10);
+      let mins = 0;
+      for (const e of doneEntries) if (weekStartKey(londonDayKey(new Date(e.started_at ?? e.created_at))) === key) mins += Number(e.minutes);
+      const start = new Date(key + "T12:00:00Z");
+      out.push({ key, label: start.toLocaleDateString("en-GB", { weekday: "short", timeZone: "Europe/London" }) + " " + start.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" }), mins });
+    }
+    return out;
+  }, [entries]);
+  const maxWeek = Math.max(60, ...weeks.map((w) => w.mins));
   const tabs = [
-    { v: "time", l: "Time & billing" },
-    { v: "invoice", l: "Send invoice" },
+    { v: "dashboard", l: "Dashboard" },
+    { v: "board", l: "To-Do Board" },
+    { v: "time", l: "Time tracking" },
+    { v: "finance", l: "Finance" },
     { v: "availability", l: "Availability" },
   ];
   return (
@@ -126,8 +167,10 @@ function AdminShell({ act, entries, running, cards, invoices, onSignOut }: Any) 
             <button type="button" onClick={onSignOut} className="pm-linkbtn">Sign out</button>
           </div>
         </header>
-        {tab === "time" && <AdminTime act={act} entries={entries} running={running} cards={cards} invoices={invoices} />}
-        {tab === "invoice" && <InvoiceUpload act={act} />}
+        {tab === "dashboard" && <Dashboard p={data} stats={stats} weeks={weeks} maxWeek={maxWeek} rate={rate} unbilledMins={unbilledMins} running={running} viewer="Natalie" go={(t: string) => setTab((t === "board" ? "board" : "time") as Any)} act={act} />}
+        {tab === "board" && <Board p={data} viewer="Natalie" act={act} go={(t: string) => setTab((t === "board" ? "board" : "time") as Any)} />}
+        {tab === "time" && <AdminTime act={act} entries={entries} running={running} cards={cards} unbilledMins={unbilledMins} rate={rate} />}
+        {tab === "finance" && <Finance act={act} invoices={invoices} entries={doneEntries} unbilledMins={unbilledMins} rate={rate} client={data.client} />}
         {tab === "availability" && <Availability act={act} />}
       </main>
       <footer className="pm-foot">Advanced Assessment &amp; Solutions · Natalie's workspace</footer>
@@ -135,14 +178,12 @@ function AdminShell({ act, entries, running, cards, invoices, onSignOut }: Any) 
   );
 }
 
-function AdminTime({ act, entries, running, cards, invoices }: Any) {
+function AdminTime({ act, entries, running, cards, unbilledMins, rate }: Any) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [, setTick] = useState(0);
   useEffect(() => { if (!running) return; const t = setInterval(() => setTick((x) => x + 1), 1000); return () => clearInterval(t); }, [running?.id]);
   const doneEntries = entries.filter((e: Any) => e.ended_at && Number(e.minutes) > 0);
-  const unbilled = doneEntries.filter((e: Any) => !e.billed);
-  const unbilledMins = unbilled.reduce((s: number, e: Any) => s + Number(e.minutes), 0);
   const todayKey = londonDayKey(new Date());
   const todayMins = doneEntries.filter((e: Any) => londonDayKey(new Date(e.started_at ?? e.created_at)) === todayKey).reduce((s: number, e: Any) => s + Number(e.minutes), 0);
   const weekKey = weekStartKey(todayKey);
@@ -161,7 +202,7 @@ function AdminTime({ act, entries, running, cards, invoices }: Any) {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#d97406]">Time tracking</p>
             <p className="mt-1 text-sm text-[#5e5e5e]">{running ? (running.note ? `Tracking · ${running.note}` : "Tracking · no note added") : "Ready when you are"}</p>
-            <p className="mt-2 text-sm text-[#5e5e5e]">Today <strong className="text-[#1f2630]">{fmtMinsLabel(todayMins)}</strong> · This week <strong className="text-[#1f2630]">{fmtMinsLabel(weekMins)}</strong></p>
+            <p className="mt-2 text-sm text-[#5e5e5e]">Today <strong className="text-[#1f2630]">{fmtMinsLabel(todayMins)}</strong> · This week <strong className="text-[#1f2630]">{fmtMinsLabel(weekMins)}</strong> · Unbilled <strong className="text-[#1f2630]">{fmtMinsLabel(unbilledMins)}</strong></p>
           </div>
           <div className="md:ml-auto">
             {running ? (
@@ -182,31 +223,7 @@ function AdminTime({ act, entries, running, cards, invoices }: Any) {
 
       <ManualLog act={act} cards={cards} todayKey={todayKey} />
 
-      <div className="pm-card p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold">Unbilled work</h2>
-            <p className="mt-0.5 text-xs text-[#5e5e5e]">Hours logged since the last invoice · £17.00 per hour</p>
-          </div>
-          <div className="text-right">
-            <p className="text-2xl font-semibold tracking-tight">{money((unbilledMins / 60) * 17)}</p>
-            <p className="text-xs text-[#5e5e5e]">{fmtMinsLabel(unbilledMins)}</p>
-          </div>
-        </div>
-        {unbilledMins > 0 && (
-          <div className="mt-4 border-t border-[#f0f1f3] pt-4">
-            <Button className="pm-btn-orange h-10" disabled={busy} onClick={async () => {
-              setBusy(true);
-              const r = await act({ type: "timeInvoice" });
-              setBusy(false);
-              if (r?.number) toast.success(`Invoice ${r.number} created as a draft`);
-            }}><FileText className="h-4 w-4" /> Create invoice · {fmtMinsLabel(unbilledMins)} · {money((unbilledMins / 60) * 17)}</Button>
-          </div>
-        )}
-      </div>
-
       <WorkLog act={act} entries={doneEntries} cards={cards} todayKey={todayKey} />
-      <InvoiceHistory invoices={invoices} />
     </div>
   );
 }
@@ -323,27 +340,177 @@ function EntryRow({ e, cardTitle, act }: Any) {
   );
 }
 
-function InvoiceHistory({ invoices }: Any) {
+
+function Finance({ act, invoices, unbilledMins, rate, client }: Any) {
+  const [editId, setEditId] = useState<string | null>(null);
+  const [viewInv, setViewInv] = useState<Any | null>(null);
+  const editing = invoices.find((i: Any) => i.id === editId) ?? null;
+  if (editing) return <InvoiceEditor inv={editing} client={client} act={act} onDone={() => setEditId(null)} />;
   return (
-    <div className="pm-card p-5">
-      <h2 className="text-lg font-semibold">Invoices</h2>
-      {invoices.length === 0 ? <p className="mt-3 text-sm text-[#5e5e5e]">Invoices you create will collect here.</p> : (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase tracking-wider text-[#5e5e5e]"><tr><th className="pb-2">Invoice</th><th className="pb-2">Issued</th><th className="pb-2">Status</th><th className="pb-2 text-right">Total</th></tr></thead>
-            <tbody>
-              {invoices.map((i: Any) => (
-                <tr key={i.id} className="border-t border-[#f0f1f3]">
-                  <td className="py-2.5 font-medium">{i.number}</td>
-                  <td className="py-2.5 text-[#5e5e5e]">{fmtDate(i.issue_date)}</td>
-                  <td className="py-2.5"><StatusBadge status={effectiveStatus(i)} /></td>
-                  <td className="py-2.5 text-right">{money(invoiceTotals(i.items as LineItem[], i.tax_rate).total)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <div className="space-y-5">
+      <div className="pm-card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Unbilled work</h2>
+            <p className="mt-0.5 text-xs text-[#5e5e5e]">Hours logged since the last invoice · {money(rate)} per hour</p>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-semibold tracking-tight">{money((unbilledMins / 60) * rate)}</p>
+            <p className="text-xs text-[#5e5e5e]">{fmtMinsLabel(unbilledMins)}</p>
+          </div>
         </div>
-      )}
+        {unbilledMins > 0 && (
+          <div className="mt-4 border-t border-[#f0f1f3] pt-4">
+            <Button className="pm-btn-orange h-10" onClick={async () => {
+              const r = await act({ type: "timeInvoice" });
+              if (r?.id) {
+                toast.success(`Invoice ${r.number} drafted · nothing sent to Sara yet`, { action: { label: "Open draft", onClick: () => setEditId(r.id) }, duration: 12000 });
+              }
+            }}><FileText className="h-4 w-4" /> Create draft invoice · {fmtMinsLabel(unbilledMins)} · {money((unbilledMins / 60) * rate)}</Button>
+            <p className="mt-2 text-xs text-[#5e5e5e]">One line per day from your logged hours · check it over, then send it to Sara's email.</p>
+          </div>
+        )}
+      </div>
+
+      <InvoiceUpload act={act} />
+
+      <div className="pm-card p-5">
+        <h2 className="text-lg font-semibold">Invoices</h2>
+        {invoices.length === 0 ? <p className="mt-3 text-sm text-[#5e5e5e]">Invoices you create will collect here.</p> : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs uppercase tracking-wider text-[#5e5e5e]"><tr><th className="pb-2">Invoice</th><th className="pb-2">Issued</th><th className="pb-2">Status</th><th className="pb-2 text-right">Total</th><th className="pb-2 text-right">Actions</th></tr></thead>
+              <tbody>
+                {invoices.map((i: Any) => {
+                  const isDraft = i.status === "draft";
+                  return (
+                    <tr key={i.id} className="border-t border-[#f0f1f3]">
+                      <td className="py-2.5 font-medium">{i.number}{isDraft ? <span className="pm-chip orange ml-2">Draft</span> : null}</td>
+                      <td className="py-2.5 text-[#5e5e5e]">{fmtDate(i.issue_date)}</td>
+                      <td className="py-2.5"><StatusBadge status={effectiveStatus(i)} /></td>
+                      <td className="py-2.5 text-right">{money(invoiceTotals(i.items as LineItem[], i.tax_rate).total)}</td>
+                      <td className="py-2.5 text-right">
+                        <span className="inline-flex justify-end gap-1.5">
+                          {isDraft
+                            ? <button type="button" className="pm-filebtn navy" onClick={() => setEditId(i.id)}>Edit draft</button>
+                            : <button type="button" className="pm-filebtn navy" onClick={() => setViewInv(i)}>View</button>}
+                          {i.status === "sent" && (
+                            <button type="button" className="pm-filebtn" onClick={async () => {
+                              await act({ type: "invoiceUpdate", id: i.id, number: i.number, issue_date: i.issue_date, due_date: i.due_date, tax_rate: i.tax_rate, items: i.items, notes: i.notes, status: "paid" }, "Marked as paid");
+                            }}>Mark paid</button>
+                          )}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <Dialog open={!!viewInv} onOpenChange={(o: boolean) => { if (!o) setViewInv(null); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Invoice {viewInv?.number}</DialogTitle></DialogHeader>
+          <div className="mt-3 max-h-[65vh] overflow-y-auto"><InvoiceSheet inv={viewInv} /></div>
+          <div className="no-print mt-4 flex justify-end gap-2">
+            <Button type="button" variant="outline" className="pm-btn" onClick={() => setViewInv(null)}>Close</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+const SARA_EMAIL = "advancedassessmentandsolutions@gmail.com";
+
+function InvoiceEditor({ inv, client, act, onDone }: Any) {
+  const [v, setV] = useState<Any>(() => ({ ...inv }));
+  const [busy, setBusy] = useState(false);
+  const [confirmSend, setConfirmSend] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+  useEffect(() => { setV({ ...inv }); }, [inv?.id]);
+  const items: LineItem[] = Array.isArray(v.items) ? v.items : [];
+  const total = invoiceTotals(items, v.tax_rate).total;
+  const setItem = (i: number, k: keyof LineItem, val: string) => {
+    const next = [...items]; next[i] = { ...(next[i] as Any), [k]: k === "description" ? val : Number(val) }; setV({ ...v, items: next });
+  };
+  const save = async (extra: Any = {}) => {
+    setBusy(true);
+    const r = await act({ type: "invoiceUpdate", id: v.id, number: v.number, issue_date: v.issue_date, due_date: v.due_date, tax_rate: Number(v.tax_rate) || 0, items, notes: v.notes, ...extra });
+    setBusy(false);
+    return r;
+  };
+  const send = async () => {
+    setBusy(true);
+    const saved = await save();
+    if (!saved) { setBusy(false); return; }
+    const r = await act({ type: "invoiceSend", id: v.id });
+    if (r) {
+      const body = [
+        "Hi Sara,", "",
+        `Invoice ${v.number} from Nine3 Designs is ready · ${money(total)}, due ${fmtDate(v.due_date)}.`, "",
+        "View it any time in your portal:", "https://portal.advancedassessmentandsolutions.co.uk/portal/SaraDawson?tab=time", "",
+        "Payment details · Sort code 04-03-33 · Account 40426946", "Payment due within 7 days of invoice date.", "",
+        "Natalie · Nine3 Designs",
+      ].join("\n");
+      const results = await Promise.allSettled([SARA_EMAIL, ...EMAILS].map((to) => fetch("https://api.web3forms.com/submit", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ access_key: WEB3FORMS_KEY, subject: `Invoice ${v.number} · Nine3 Designs`, from_name: "Nine3 Designs · Client Portal", message: body, replyto: "natalie@nine3designs.co.uk" }) })));
+      if (results.some((x) => x.status === "fulfilled" && (x.value as Any).ok)) toast.success("Invoice sent to Sara's email");
+      else toast.error("Marked as sent, but the email may not have gone out · check with Sara.");
+      onDone();
+    }
+    setBusy(false);
+  };
+  return (
+    <div className="space-y-4">
+      <div className="no-print flex flex-wrap items-center justify-between gap-3">
+        <button type="button" onClick={onDone} className="pm-linkbtn"><ArrowLeft className="mr-1 inline h-3.5 w-3.5" />Back to Finance</button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" className="pm-btn bg-white!" onClick={() => window.print()}><Printer className="h-4 w-4" /> PDF</Button>
+          {v.status === "draft" && (
+            <Button type="button" variant="outline" className="pm-btn bg-white!" onClick={async () => {
+              if (!confirmDel) { setConfirmDel(true); setTimeout(() => setConfirmDel(false), 2800); return; }
+              setBusy(true); const r = await act({ type: "invoiceDelete", id: v.id }, "Draft deleted · hours back in unbilled"); setBusy(false); if (r) onDone();
+            }}>{confirmDel ? "Sure? Delete draft" : <><Trash2 className="h-4 w-4" /> Delete</>}</Button>
+          )}
+          {v.status === "draft" && (
+            <Button type="button" className="pm-btn-orange" disabled={busy} onClick={() => { if (!confirmSend) { setConfirmSend(true); setTimeout(() => setConfirmSend(false), 3200); return; } send(); }}>
+              {busy ? "Working…" : confirmSend ? "Send to Sara's email?" : <><Send className="h-4 w-4" /> Send to Sara</>}
+            </Button>
+          )}
+          <Button type="button" className="pm-btn" disabled={busy} onClick={async () => { const r = await save(); if (r) onDone(); }}>Save</Button>
+        </div>
+      </div>
+      <div className="grid gap-5 xl:grid-cols-[400px_1fr]">
+        <section className="pm-card no-print space-y-4 self-start p-5">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5"><Label>Number</Label><Input value={v.number ?? ""} onChange={(e) => setV({ ...v, number: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label>Status</Label><Input value={v.status ?? "draft"} disabled /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5"><Label>Issued</Label><Input type="date" value={v.issue_date ?? ""} onChange={(e) => setV({ ...v, issue_date: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label>Due</Label><Input type="date" value={v.due_date ?? ""} onChange={(e) => setV({ ...v, due_date: e.target.value || null })} /></div>
+          </div>
+          <div className="space-y-1.5"><Label>VAT %</Label><Input type="number" value={v.tax_rate ?? 0} onChange={(e) => setV({ ...v, tax_rate: Number(e.target.value) })} /></div>
+          <div className="space-y-2">
+            <Label>Line items</Label>
+            {items.map((it, i) => (
+              <div key={i} className="grid grid-cols-[1fr_56px_76px_auto] gap-2">
+                <Input value={it.description ?? ""} onChange={(e) => setItem(i, "description", e.target.value)} />
+                <Input type="number" step="0.01" value={it.quantity ?? 0} onChange={(e) => setItem(i, "quantity", e.target.value)} />
+                <Input type="number" step="0.01" value={it.rate ?? 0} onChange={(e) => setItem(i, "rate", e.target.value)} />
+                <button type="button" className="pm-iconbtn" title="Remove line" onClick={() => setV({ ...v, items: items.filter((_: Any, k: number) => k !== i) })}><Trash2 className="h-3.5 w-3.5" /></button>
+              </div>
+            ))}
+            <Button type="button" size="sm" variant="outline" className="pm-btn bg-white!" onClick={() => setV({ ...v, items: [...items, { description: "", quantity: 1, rate }] })}><Plus className="h-4 w-4" /> Add line</Button>
+          </div>
+          <div className="space-y-1.5"><Label>Notes / payment details</Label><Textarea value={v.notes ?? ""} onChange={(e) => setV({ ...v, notes: e.target.value })} className="min-h-20" /></div>
+        </section>
+        <div className="pm-doczoom">
+          <InvoiceDocument inv={{ ...v, items, clientName: client?.name ?? "Sara Dawson", clientCompany: client?.company ?? "Advanced Assessment & Solutions", clientEmail: SARA_EMAIL }} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -513,6 +680,11 @@ const ADMIN_STYLES = `
 .pm .pm-row { background: var(--pm-soft); border-radius: 1.1rem; transition: background .15s ease; }
 .pm .pm-row:hover { background: #e6e9ee; }
 .pm .pm-dot { width: .55rem; height: .55rem; border-radius: 999px; flex: none; }
+.pm .pm-circle { width: 2.4rem; height: 2.4rem; border-radius: 999px; background: #fff; box-shadow: 0 2px 8px rgba(13,28,52,.08); display: inline-flex; align-items: center; justify-content: center; color: var(--pm-muted); transition: color .15s ease; flex: none; }
+.pm .pm-circle:hover { color: var(--pm-ink); }
+.pm .pm-bar { background: var(--pm-navy); border-radius: 999px; min-height: 4px; width: 100%; max-width: .55rem; margin: 0 auto; }
+.pm .pm-bar.now { background: var(--pm-orange); }
+.pm .pm-dark { background: var(--pm-navy); border-radius: 1.5rem; color: #fff; box-shadow: 0 16px 40px rgba(13,28,52,.28); }
 .pm .pm-iconbtn { width: 1.7rem; height: 1.7rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: .7rem; color: var(--pm-muted); transition: background .15s ease, color .15s ease; }
 .pm .pm-iconbtn:hover { background: #fff; color: var(--pm-ink); box-shadow: 0 2px 8px rgba(13,28,52,.12); }
 .pm .pm-weekpick { border-radius: 999px; border: 1px solid var(--pm-line); background: #fff; padding: .4rem .9rem; font-size: .78rem; font-weight: 500; color: var(--pm-muted); transition: all .15s ease; }
@@ -527,6 +699,25 @@ const ADMIN_STYLES = `
 .pm .pm-daynote { flex: 1; min-width: 0; border: 1px solid var(--pm-line); border-radius: .8rem; padding: .35rem .7rem; font-size: .8rem; background: #fff; }
 .pm .pm-daynote:focus { outline: none; border-color: var(--pm-orange); box-shadow: 0 0 0 3px rgba(245,154,43,.15); }
 .pm input, .pm textarea, .pm select { font-family: 'Poppins', sans-serif; }
+.pm .pm-filebtn { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; border: 1px solid var(--pm-line); background: #fff; color: var(--pm-ink); font-size: .72rem; font-weight: 600; padding: .3rem .7rem; transition: border-color .15s ease, color .15s ease, box-shadow .15s ease; }
+.pm .pm-filebtn:hover { border-color: var(--pm-navy); color: var(--pm-navy); box-shadow: 0 4px 12px rgba(13,28,52,.10); }
+.pm .pm-filebtn.navy { background: var(--pm-navy); border-color: var(--pm-navy); color: #fff; }
+.pm .pm-filebtn.navy:hover { background: var(--pm-navy2); color: #fff; }
+.pm { overflow-x: clip; }
+@media (max-width: 640px) {
+  .pm input, .pm textarea, .pm select { font-size: 16px !important; }
+  .pm .pm-navbar { max-width: calc(100% - 1.25rem); }
+}
+@media (max-width: 719px) {
+  .pm-doczoom { zoom: .45; width: 222%; max-width: none; }
+}
+@media print {
+  body * { visibility: hidden !important; }
+  .no-print, .no-print * { display: none !important; }
+  .pm-doczoom, .pm-doczoom * { visibility: visible !important; }
+  .pm-doczoom { position: absolute !important; left: 0; top: 0; width: 100%; zoom: 1 !important; }
+  .pm-doczoom .invoice-doc { box-shadow: none !important; border-radius: 0 !important; }
+}
 .pm .timer-num { font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 @media (max-width: 640px) { .pm .pm-main { padding-top: 1.1rem; } .pm .pm-card { border-radius: 1.3rem; } }
 `;
