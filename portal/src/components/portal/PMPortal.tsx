@@ -58,7 +58,7 @@ function relDay(iso: string) {
   return new Date(day + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 }
 
-type Act = (action: Any, success?: string) => Promise<Any | null>;
+export type Act = (action: Any, success?: string) => Promise<Any | null>;
 
 export function PMPortal({ p, token }: { p: Any; token: string | null }) {
   const act0 = useServerFn(portalAction);
@@ -295,7 +295,7 @@ function ChipStat({ label, value, tone }: { label: string; value: string; tone: 
 
 const BOARD_ICONS = [ClipboardList, CalendarDays, Clock];
 
-function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, running, viewer, go, act }: Any) {
+export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, running, viewer, go, act }: Any) {
   const cards: Any[] = p.board ?? [];
   const open_ = cards.filter((c: Any) => c.status !== "done");
   const upNext = open_.sort((a: Any, b: Any) => a.position - b.position).slice(0, 4);
@@ -307,6 +307,13 @@ function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, running, view
   const doneCount = cards.length - todoCount - doingCount;
   const todayMins = stats.today ?? 0;
   const frac = running ? (Date.now() - Date.parse(running.started_at)) / (8 * 3600000) : todayMins / 480;
+  const isNat = viewer === "Natalie";
+  const avail = (p.client?.portal_prefs?.availability ?? null) as Any;
+  const dayList = Array.isArray(avail?.days) ? (avail.days as Any[]).filter((d) => d?.available).map((d) => d.day) : [];
+  const availWeek = avail ? new Date(avail.week_start + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" }) : "";
+  const myTasks: Any[] = (p.tasks ?? []).filter((t: Any) => t.status !== "done" && t.due_date).sort((a: Any, b: Any) => String(a.due_date).localeCompare(String(b.due_date))).slice(0, 6);
+  const invLive: Any[] = (p.invoices ?? []).filter((i: Any) => i.status !== "draft");
+  const invTotal = invLive.reduce((s: number, i: Any) => s + Number(invoiceTotals(i.items as LineItem[], i.tax_rate).total || 0), 0);
 
   return (
     <div className="space-y-5">
@@ -314,7 +321,9 @@ function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, running, view
         <Tile icon={<ClipboardList className="h-5 w-5" />} tone="navy" label="Open tasks" value={String(stats.open)} sub="on the board" />
         <Tile icon={<Clock className="h-5 w-5" />} label="This week" value={fmtMins(stats.week)} sub="hours logged" />
         <Tile icon={<CalendarDays className="h-5 w-5" />} tone="navy" label="This month" value={fmtMins(stats.month)} sub="hours logged" />
-        <Tile icon={<FileText className="h-5 w-5" />} label="Unbilled" value={money((unbilledMins / 60) * rate)} sub={`${fmtMins(unbilledMins)} · ${money(rate)}/hr`} />
+        {isNat
+          ? <Tile icon={<FileText className="h-5 w-5" />} label="Unbilled" value={money((unbilledMins / 60) * rate)} sub={`${fmtMins(unbilledMins)} · ${money(rate)}/hr`} />
+          : <Tile icon={<FileText className="h-5 w-5" />} label="Invoices received" value={String(invLive.length)} sub={invLive.length ? `${money(invTotal)} billed` : "none yet"} />}
       </div>
 
       <div className="flex flex-wrap items-start gap-x-8 gap-y-3 px-1">
@@ -348,6 +357,7 @@ function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, running, view
           </div>
         </div>
 
+        {isNat ? (
         <div className="pm-card flex flex-col items-center p-6">
           <div className="flex w-full items-center justify-between">
             <h2 className="text-lg font-semibold">Time tracker</h2>
@@ -360,18 +370,36 @@ function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, running, view
             </Ring>
           </div>
           <p className="mt-2 text-center text-xs text-[#5e5e5e]">{running ? (running.note ? `Tracking · ${running.note}` : "Tracking · no note added") : viewer === "Natalie" ? "Ready when you are" : "Natalie's live work timer"}</p>
-          {viewer === "Natalie" && !running && (
+          {!running && (
             <Button className="pm-btn-orange mt-4 h-10 px-6" disabled={busy} onClick={async () => { setBusy(true); await act({ type: "timeStart", note: "" }, "Timer started"); setBusy(false); }}>
               <Play className="h-4 w-4" /> Start timer
             </Button>
           )}
-          {viewer === "Natalie" && running && (
+          {running && (
             <Button className="pm-btn mt-4 h-10 px-6" disabled={busy} onClick={async () => { setBusy(true); await act({ type: "timeStop", id: running.id }, "Timer stopped · hours logged"); setBusy(false); }}>
               <Square className="h-4 w-4" /> Stop timer
             </Button>
           )}
-          {!running && viewer !== "Natalie" && unbilledMins > 0 && <p className="mt-1 text-[11px] text-[#5e5e5e]">{fmtMins(todayMins)} tracked today</p>}
         </div>
+        ) : (
+        <div className="pm-card flex flex-col p-6">
+          <div className="flex w-full items-center justify-between">
+            <h2 className="text-lg font-semibold">Natalie's availability</h2>
+            <span className="pm-circle"><CalendarDays className="h-4 w-4" /></span>
+          </div>
+          {avail ? (
+            <>
+              <p className="mt-2 text-sm font-medium">Week commencing {availWeek}</p>
+              {dayList.length ? (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {dayList.map((d: string) => <span key={d} className="pm-chip orange">{d.slice(0, 3)}</span>)}
+                </div>
+              ) : <p className="mt-2 text-xs text-[#5e5e5e]">No days ticked yet.</p>}
+              {avail.notes ? <p className="mt-3 text-xs leading-relaxed text-[#5e5e5e]">{avail.notes}</p> : null}
+            </>
+          ) : <p className="mt-3 text-sm text-[#5e5e5e]">Natalie hasn't shared her availability yet · it will appear here as soon as she does.</p>}
+        </div>
+        )}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -429,13 +457,36 @@ function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, running, view
           )}
         </div>
       </div>
+
+      {!isNat && (
+        <div className="pm-card p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Tasks due</h2>
+            <button type="button" aria-label="Open the board" onClick={() => go("board")} className="pm-circle"><ClipboardList className="h-4 w-4" /></button>
+          </div>
+          {myTasks.length === 0 ? <p className="mt-3 text-sm text-[#5e5e5e]">No dated tasks right now.</p> : (
+            <ul className="mt-4 grid gap-2.5 md:grid-cols-2">
+              {myTasks.map((t: Any) => (
+                <li key={t.id} className="pm-row flex items-center gap-3 px-3 py-2.5">
+                  <span className="pm-dot" style={{ background: "#f59a2b" }} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{t.title}</p>
+                    {t.notes ? <p className="truncate text-xs text-[#5e5e5e]">{t.notes}</p> : null}
+                  </div>
+                  <span className="pm-chip line">Due {fmtDate(t.due_date)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 /* ---------------- board ---------------- */
 
-function Board({ p, viewer, act, go }: { p: Any; viewer: string; act: Act; go: Any }) {
+export function Board({ p, viewer, act, go }: { p: Any; viewer: string; act: Act; go: Any }) {
   const cards: Any[] = p.board ?? [];
   const [dragId, setDragId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);
@@ -592,7 +643,8 @@ function EditCard({ card, onSave, onDelete }: { card: Any; onSave: (title: strin
 
 /* ---------------- time ---------------- */
 
-function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, invoices, files, client }: Any) {
+function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, invoices: allInvoices, files, client }: Any) {
+  const invoices = (allInvoices ?? []).filter((i: Any) => i.status !== "draft");
   const [viewInv, setViewInv] = useState<Any | null>(null);
   const isNat = viewer === "Natalie";
   const [note, setNote] = useState("");
@@ -848,7 +900,7 @@ const BILLER = {
   terms: "Payment due within 7 days of invoice date",
 };
 
-function InvoiceSheet({ inv, client }: Any) {
+export function InvoiceSheet({ inv, client }: Any) {
   if (!inv) return null;
   const items: LineItem[] = (inv.items ?? []) as LineItem[];
   const t = invoiceTotals(items, inv.tax_rate);
