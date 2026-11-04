@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, FileText, Play, Square, Upload, Send, MailCheck, Plus, Trash2, ArrowLeft, Printer, ClipboardList, Clock, CalendarDays } from "lucide-react";
+import { Check, FileText, Play, Square, Upload, Send, MailCheck, Plus, Trash2, ArrowLeft, Printer, ClipboardList, Clock, CalendarDays, Menu, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,6 +97,7 @@ function AdminPage() {
 
 function AdminShell({ act, data, onSignOut }: Any) {
   const [tab, setTab] = useState<"dashboard" | "board" | "time" | "finance" | "availability">("dashboard");
+  const [menuOpen, setMenuOpen] = useState(false);
   const entries: Any[] = data.time ?? [];
   const cards: Any[] = data.board ?? [];
   const running = entries.find((e: Any) => !e.ended_at);
@@ -154,7 +155,21 @@ function AdminShell({ act, data, onSignOut }: Any) {
               <button key={t.v} type="button" onClick={() => { setTab(t.v as Any); window.scrollTo({ top: 0, behavior: "smooth" }); }} className={`pm-tab ${t.v === tab ? "active" : ""}`}>{t.l}</button>
             ))}
           </div>
+          <button type="button" className="pm-burger" aria-label="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
+            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </nav>
+        <div className={`pm-menu ${menuOpen ? "open" : ""}`}>
+          {tabs.map((t) => (
+            <button key={t.v} type="button" className={t.v === tab ? "active" : ""} onClick={() => { setMenuOpen(false); setTab(t.v as Any); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+              {t.l}
+            </button>
+          ))}
+          <div className="pm-menu-foot">
+            <a href="/portal/SaraDawson">View Sara's portal</a>
+            <button type="button" onClick={onSignOut}>Sign out</button>
+          </div>
+        </div>
       </div>
       <main className="pm-main">
         <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
@@ -743,4 +758,23 @@ const ADMIN_STYLES = `
 .pm .pm-col:nth-child(2) .pm-chip { background: rgba(245,154,43,.18); color: #a35803; }
 .pm .pm-col:nth-child(3) .pm-chip { background: rgba(63,125,78,.14); color: #2c5e39; }
 .pm .pm-col .pm-task { box-shadow: 0 1px 2px rgba(13,28,52,.08); }
+.pm .pm-burger { display: none; }
+.pm .pm-menu { display: none; }
+.pm .pm-menu.open { display: block; position: absolute; top: calc(100% + .4rem); left: .5rem; right: .5rem; z-index: 50; background: rgba(13,28,52,.97); border: 1px solid rgba(255,255,255,.14); border-radius: 1.25rem; box-shadow: 0 18px 44px rgba(13,28,52,.35); overflow: hidden; }
+.pm .pm-menu button { display: block; width: 100%; text-align: left; padding: .9rem 1.2rem; color: rgba(255,255,255,.85); font-size: .95rem; font-weight: 500; border-bottom: 1px solid rgba(255,255,255,.08); background: none; }
+.pm .pm-menu button:last-of-type { border-bottom: none; }
+.pm .pm-menu button.active { color: #fff; background: rgba(255,255,255,.06); box-shadow: inset 3px 0 0 var(--pm-orange); }
+.pm .pm-menu-foot { display: flex; align-items: center; justify-content: space-between; padding: .7rem 1.2rem; border-top: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.04); }
+.pm .pm-menu-foot a, .pm .pm-menu-foot button { color: rgba(255,255,255,.75); font-size: .8rem; font-weight: 500; background: none; padding: .3rem 0; text-decoration: none; }
+@media (max-width: 640px) {
+  .pm .pm-taskactions button { width: 2.35rem !important; height: 2.35rem !important; font-size: .85rem; }
+  .pm .pm-taskactions button svg { width: 1.1rem; height: 1.1rem; }
+  .pm .pm-task { touch-action: pan-y; }
+  .pm .pm-tabs { display: none; }
+  .pm .pm-burger { display: inline-flex; align-items: center; justify-content: center; width: 2.55rem; height: 2.55rem; border-radius: 999px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); color: #fff; flex: none; cursor: pointer; }
+  .pm .pm-navbar { max-width: calc(100% - 1.5rem); justify-content: space-between; gap: .4rem; overflow: visible; }
+  .pm .pm-brand { padding: 0 .9rem; height: 2.55rem; }
+  .pm .pm-brand img { height: 1.15rem; max-width: 140px; }
+  .pm .pm-navwrap { padding-top: .7rem; }
+}
 `;

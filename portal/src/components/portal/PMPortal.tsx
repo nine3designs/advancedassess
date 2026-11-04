@@ -289,6 +289,9 @@ const PM_STYLES = `
   .pm .pm-main { padding-top: 1.1rem; }
   .pm .pm-card { border-radius: 1.3rem; }
   .pm .pm-tabs-sara { display: none; }
+  .pm .pm-taskactions button { width: 2.35rem !important; height: 2.35rem !important; font-size: .85rem; }
+  .pm .pm-taskactions button svg { width: 1.1rem; height: 1.1rem; }
+  .pm .pm-task { touch-action: pan-y; }
   .pm .pm-burger { display: inline-flex; align-items: center; justify-content: center; width: 2.55rem; height: 2.55rem; border-radius: 999px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); color: #fff; flex: none; }
   .pm .pm-navbar { max-width: calc(100% - 1.5rem); justify-content: space-between; gap: .4rem; }
   .pm .pm-brand { padding: 0 .9rem; height: 2.55rem; }
@@ -947,7 +950,7 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
                       <span className={`pm-chip flex-none bg-white ${c.status === "doing" ? "orange" : ""}`}>{c.created_by === "Natalie" ? "Nat" : c.created_by?.split(" ")[0] ?? "·"}</span>
                     </div>
                     {c.notes ? <p className="clamp2 mt-1.5 text-xs text-[#5e5e5e]">{c.notes}</p> : null}
-                    <div className="mt-3 flex items-center gap-1 border-t border-[#e6e8ea] pt-2.5">
+                    <div className="pm-taskactions mt-3 flex items-center gap-1 border-t border-[#e6e8ea] pt-2.5">
                       <IconBtn label="Move left" onClick={() => nudge(c, -1)} disabled={c.status === "todo"}><ArrowLeft className="h-3.5 w-3.5" /></IconBtn>
                       <IconBtn label="Move right" onClick={() => nudge(c, 1)} disabled={c.status === "done"}><ArrowRight className="h-3.5 w-3.5" /></IconBtn>
                       <IconBtn label="Edit task" onClick={() => setEditing(c)}><Pencil className="h-3.5 w-3.5" /></IconBtn>

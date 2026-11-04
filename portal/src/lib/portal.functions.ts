@@ -486,17 +486,29 @@ export const portalAction = createServerFn({ method: "POST" })
       const f = clean(a.from), t = clean(a.to);
       if (f.length < 5 || t.length < 5) throw new Error("Enter both postcodes.");
       const geo = async (pc: string) => {
-        const r = await fetch(`https://api.postcodes.io/postcodes/${pc}`).then((x: Any) => x.json());
-        const d = r?.result;
-        if (!d) throw new Error("bad postcode");
-        const g = Array.isArray(d) ? d[0] : d;
-        return { lat: Number(g.latitude), lng: Number(g.longitude), pc: String(g.postcode) };
+        const eps = [
+          `https://api.postcodes.io/postcodes/${pc}`,
+          `https://findthatpostcode.uk/postcodes/${pc}.json`,
+        ];
+        if (pc.length > 4) eps.push(`https://api.postcodes.io/outcodes/${pc.slice(0, -3)}`);
+        for (const ep of eps) {
+          try {
+            const r = await fetch(ep, { signal: AbortSignal.timeout(8000) }).then((x: Any) => x.json());
+            const raw = r?.result ?? r?.data;
+            if (!raw) continue;
+            const g = Array.isArray(raw) ? raw[0] : raw;
+            const a = (g?.attributes ?? g) ?? {};
+            const lat = Number(a.latitude), lng = Number(a.longitude);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng, pc: String(a.postcode ?? pc) };
+          } catch { continue; }
+        }
+        throw new Error("geo failed");
       };
       let A: Any, B: Any;
       try { A = await geo(f); B = await geo(t); } catch { throw new Error("One of those postcodes doesn't look right · check them and try again."); }
       let miles = 0;
       try {
-        const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${A.lng},${A.lat};${B.lng},${B.lat}?overview=false`).then((x: Any) => x.json());
+        const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${A.lng},${A.lat};${B.lng},${B.lat}?overview=false`, { signal: AbortSignal.timeout(8000) }).then((x: Any) => x.json());
         miles = Math.round(((r?.routes?.[0]?.distance ?? 0) / 1609.344) * 10) / 10;
       } catch { miles = 0; }
       if (!miles) {
