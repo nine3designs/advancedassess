@@ -268,9 +268,9 @@ function Ring({ frac, children }: { frac: number; children?: Any }) {
   );
 }
 
-function Tile({ icon, label, value, sub, tone }: { icon: Any; label: string; value: string; sub: string; tone?: "navy" }) {
+function Tile({ icon, label, value, sub, tone, onClick }: { icon: Any; label: string; value: string; sub: string; tone?: "navy"; onClick?: () => void }) {
   return (
-    <div className="pm-card p-4 md:p-5">
+    <div className={`pm-card p-4 md:p-5 ${onClick ? "cursor-pointer" : ""}`} onClick={onClick} role={onClick ? "button" : undefined}>
       <div className="flex items-center gap-3">
         <span className={`pm-tile-icon ${tone === "navy" ? "navy" : ""}`}>{icon}</span>
         <p className="text-sm font-medium text-[#1f2630]">{label}</p>
@@ -318,7 +318,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Tile icon={<ClipboardList className="h-5 w-5" />} tone="navy" label="Open tasks" value={String(stats.open)} sub="on the board" />
+        <Tile icon={<ClipboardList className="h-5 w-5" />} tone="navy" label="Open tasks" value={String(stats.open)} sub="on the board" onClick={() => go("board")} />
         <Tile icon={<Clock className="h-5 w-5" />} label="This week" value={fmtMins(stats.week)} sub="hours logged" />
         <Tile icon={<CalendarDays className="h-5 w-5" />} tone="navy" label="This month" value={fmtMins(stats.month)} sub="hours logged" />
         {isNat

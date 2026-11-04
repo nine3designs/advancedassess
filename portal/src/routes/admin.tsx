@@ -467,9 +467,9 @@ function InvoiceEditor({ inv, client, act, onDone }: Any) {
       <div className="no-print flex flex-wrap items-center justify-between gap-3">
         <button type="button" onClick={onDone} className="pm-linkbtn"><ArrowLeft className="mr-1 inline h-3.5 w-3.5" />Back to Finance</button>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" className="pm-btn bg-white!" onClick={() => window.print()}><Printer className="h-4 w-4" /> PDF</Button>
+          <Button type="button" variant="outline" className="pm-btn-light" onClick={() => window.print()}><Printer className="h-4 w-4" /> PDF</Button>
           {v.status === "draft" && (
-            <Button type="button" variant="outline" className="pm-btn bg-white!" onClick={async () => {
+            <Button type="button" variant="outline" className="pm-btn-light" onClick={async () => {
               if (!confirmDel) { setConfirmDel(true); setTimeout(() => setConfirmDel(false), 2800); return; }
               setBusy(true); const r = await act({ type: "invoiceDelete", id: v.id }, "Draft deleted · hours back in unbilled"); setBusy(false); if (r) onDone();
             }}>{confirmDel ? "Sure? Delete draft" : <><Trash2 className="h-4 w-4" /> Delete</>}</Button>
@@ -503,7 +503,7 @@ function InvoiceEditor({ inv, client, act, onDone }: Any) {
                 <button type="button" className="pm-iconbtn" title="Remove line" onClick={() => setV({ ...v, items: items.filter((_: Any, k: number) => k !== i) })}><Trash2 className="h-3.5 w-3.5" /></button>
               </div>
             ))}
-            <Button type="button" size="sm" variant="outline" className="pm-btn bg-white!" onClick={() => setV({ ...v, items: [...items, { description: "", quantity: 1, rate }] })}><Plus className="h-4 w-4" /> Add line</Button>
+            <Button type="button" size="sm" variant="outline" className="pm-btn-light" onClick={() => setV({ ...v, items: [...items, { description: "", quantity: 1, rate }] })}><Plus className="h-4 w-4" /> Add line</Button>
           </div>
           <div className="space-y-1.5"><Label>Notes / payment details</Label><Textarea value={v.notes ?? ""} onChange={(e) => setV({ ...v, notes: e.target.value })} className="min-h-20" /></div>
         </section>
@@ -720,4 +720,23 @@ const ADMIN_STYLES = `
 }
 .pm .timer-num { font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 @media (max-width: 640px) { .pm .pm-main { padding-top: 1.1rem; } .pm .pm-card { border-radius: 1.3rem; } }
+
+/* v3 polish: glass top bar · orange accents · bucket board · light buttons */
+.pm .pm-btn-light { background: #fff !important; color: var(--pm-ink) !important; border: 1px solid var(--pm-line) !important; border-radius: 999px !important; font-weight: 500 !important; font-size: .875rem !important; transition: background .15s ease, transform .15s ease, box-shadow .15s ease !important; }
+.pm .pm-btn-light:hover { border-color: var(--pm-navy) !important; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(13,28,52,.12); }
+.pm .pm-navwrap { background: transparent; }
+.pm .pm-navbar { background: rgba(13,28,52,.72); backdrop-filter: blur(14px) saturate(1.25); -webkit-backdrop-filter: blur(14px) saturate(1.25); border: 1px solid rgba(255,255,255,.14); box-shadow: 0 14px 36px rgba(13,28,52,.28); }
+.pm .pm-brand { background: #0d1c34; border: 1px solid rgba(255,255,255,.16); }
+.pm .pm-tab { color: rgba(255,255,255,.72); }
+.pm .pm-tab:hover { color: #fff; background: rgba(255,255,255,.10); }
+.pm .pm-tab.active { background: rgba(255,255,255,.06); color: #fff; box-shadow: inset 0 0 0 1.5px var(--pm-orange), 0 0 14px rgba(245,154,43,.25); }
+.pm .pm-dark h2 { color: var(--pm-orange); }
+.pm .pm-col { background: linear-gradient(180deg, #ffffff 0%, #f4f6f8 100%); border: 1px solid var(--pm-line); border-top-width: 4px; box-shadow: 0 2px 6px rgba(13,28,52,.05), 0 14px 30px rgba(13,28,52,.07); }
+.pm .pm-col:nth-child(1) { border-top-color: var(--pm-navy); }
+.pm .pm-col:nth-child(2) { border-top-color: var(--pm-orange); }
+.pm .pm-col:nth-child(3) { border-top-color: #3f7d4e; }
+.pm .pm-col:nth-child(1) .pm-chip { background: rgba(13,28,52,.10); color: var(--pm-navy); }
+.pm .pm-col:nth-child(2) .pm-chip { background: rgba(245,154,43,.18); color: #a35803; }
+.pm .pm-col:nth-child(3) .pm-chip { background: rgba(63,125,78,.14); color: #2c5e39; }
+.pm .pm-col .pm-task { box-shadow: 0 1px 2px rgba(13,28,52,.08); }
 `;
