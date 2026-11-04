@@ -522,6 +522,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
         {isNat ? boardCard : <MonthCalCard avail={avail} />}
         {recentCard}
         {activityCard}
+      </div>
       {!isNat && (
         <div className="pm-dark p-6">
           <div className="flex items-center justify-between">
