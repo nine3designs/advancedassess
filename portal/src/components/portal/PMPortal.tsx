@@ -362,6 +362,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
   const avail = (p.client?.portal_prefs?.availability ?? null) as Any;
   const myTasks: Any[] = (p.tasks ?? []).filter((t: Any) => t.status !== "done" && t.due_date).sort((a: Any, b: Any) => String(a.due_date).localeCompare(String(b.due_date))).slice(0, 6);
   const invLive: Any[] = (p.invoices ?? []).filter((i: Any) => i.status !== "draft");
+  const invNew: Any[] = invLive.filter((i: Any) => i.status === "sent");
 
   const boardCard = (
     <div className="pm-dark p-6">
@@ -431,7 +432,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
           : <Tile icon={<Check className="h-5 w-5" />} tone="navy" label="Completed" value={String(doneCount)} sub="tasks finished" onClick={() => go("board")} />}
         {isNat
           ? <Tile icon={<FileText className="h-5 w-5" />} label="Unbilled" value={money((unbilledMins / 60) * rate)} sub={`${fmtMins(unbilledMins)} · ${money(rate)}/hr`} />
-          : <Tile icon={<FileText className="h-5 w-5" />} label="Invoices received" value={String(invLive.length)} sub={invLive.length ? "invoices received" : "none yet"} />}
+          : <Tile icon={<FileText className="h-5 w-5" />} label="Invoices received" value={String(invNew.length)} sub={invNew.length ? "new invoices to view" : "none yet"} />}
       </div>
 
       <div className="flex flex-wrap items-start gap-x-8 gap-y-3 px-1">
@@ -713,6 +714,12 @@ export function MileageTab({ act, entries }: { act: Act; entries: Any[] }) {
   const [miles, setMiles] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const [mode, setMode] = useState<"manual" | "route">("manual");
+  const [fromPc, setFromPc] = useState("");
+  const [toPc, setToPc] = useState("");
+  const [calc, setCalc] = useState<Any | null>(null);
+  const [calcBusy, setCalcBusy] = useState(false);
+  const [roundTrip, setRoundTrip] = useState(false);
   const total = (name: string) => Math.round(list.filter((e) => e.driver === name).reduce((s, e) => s + Number(e.miles || 0), 0) * 10) / 10;
   const claim = (m: number) => Math.min(m, MILEAGE_CAP) * MILEAGE_RATE;
   const money = (n: number) => `£${n.toFixed(2)}`;
@@ -753,10 +760,12 @@ export function MileageTab({ act, entries }: { act: Act; entries: Any[] }) {
         <form className="mt-4 grid gap-3 sm:grid-cols-12" onSubmit={async (e) => {
           e.preventDefault();
           if (busy) return;
-          if (!miles || !(Number(miles) > 0)) { toast.error("How many miles was the journey?"); return; }
+          const useMiles = mode === "route" ? (calc ? (roundTrip ? Math.round(calc.miles * 2 * 10) / 10 : calc.miles) : 0) : Number(miles);
+          if (!useMiles || !(useMiles > 0)) { toast.error(mode === "route" ? "Work out the miles first." : "How many miles was the journey?"); return; }
           setBusy(true);
-          const r = await act({ type: "mileageAdd", driver, date, description: desc.trim(), miles: Number(miles) }, "Journey logged");
-          if (r) { setDesc(""); setMiles(""); }
+          const finalDesc = mode === "route" ? `${calc.from} to ${calc.to}${roundTrip ? " · return" : ""}${desc.trim() ? ` · ${desc.trim()}` : ""}` : desc.trim();
+          const r = await act({ type: "mileageAdd", driver, date, description: finalDesc, miles: useMiles }, "Journey logged");
+          if (r) { setDesc(""); setMiles(""); setCalc(null); setRoundTrip(false); }
           setBusy(false);
         }}>
           <div className="sm:col-span-3">
@@ -767,22 +776,65 @@ export function MileageTab({ act, entries }: { act: Act; entries: Any[] }) {
               ))}
             </div>
           </div>
+          <div className="sm:col-span-3">
+            <Label className="text-xs font-medium">Work out miles by</Label>
+            <div className="mt-1.5 grid grid-cols-2 gap-1.5 rounded-xl bg-[#eef0f2] p-1">
+              <button type="button" onClick={() => setMode("manual")} className={`h-9 rounded-lg text-sm font-semibold transition-colors ${mode === "manual" ? "bg-[var(--pm-navy)] text-white" : "text-[#5e5e5e] hover:text-[#1f2630]"}`}>Manual miles</button>
+              <button type="button" onClick={() => setMode("route")} className={`h-9 rounded-lg text-sm font-semibold transition-colors ${mode === "route" ? "bg-[var(--pm-navy)] text-white" : "text-[#5e5e5e] hover:text-[#1f2630]"}`}>Postcodes</button>
+            </div>
+          </div>
           <div className="sm:col-span-2">
             <Label className="text-xs font-medium">Date</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1.5 h-9 text-sm" />
           </div>
-          <div className="sm:col-span-2">
-            <Label className="text-xs font-medium">Miles</Label>
-            <Input type="number" min="0.1" step="0.1" placeholder="e.g. 42" value={miles} onChange={(e) => setMiles(e.target.value)} className="mt-1.5 h-9 text-sm" />
-          </div>
-          <div className="sm:col-span-4">
-            <Label className="text-xs font-medium">Journey</Label>
-            <Input placeholder="Where to and why" value={desc} onChange={(e) => setDesc(e.target.value)} className="mt-1.5 h-9 text-sm" />
-          </div>
-          <div className="flex items-end sm:col-span-1">
-            <Button type="submit" className="pm-btn-orange h-9 w-full px-3" disabled={busy}><Plus className="h-4 w-4" /></Button>
+          {mode === "manual" ? (
+            <>
+              <div className="sm:col-span-2">
+                <Label className="text-xs font-medium">Miles</Label>
+                <Input type="number" min="0.1" step="0.1" placeholder="e.g. 42" value={miles} onChange={(e) => setMiles(e.target.value)} className="mt-1.5 h-9 text-sm" />
+              </div>
+              <div className="sm:col-span-4">
+                <Label className="text-xs font-medium">Journey</Label>
+                <Input placeholder="Where to and why" value={desc} onChange={(e) => setDesc(e.target.value)} className="mt-1.5 h-9 text-sm" />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="sm:col-span-2">
+                <Label className="text-xs font-medium">From postcode</Label>
+                <Input placeholder="e.g. S64 8PP" value={fromPc} onChange={(e) => { setFromPc(e.target.value); setCalc(null); }} className="mt-1.5 h-9 text-sm uppercase" />
+              </div>
+              <div className="sm:col-span-2">
+                <Label className="text-xs font-medium">To postcode</Label>
+                <Input placeholder="e.g. DN1 1AA" value={toPc} onChange={(e) => { setToPc(e.target.value); setCalc(null); }} className="mt-1.5 h-9 text-sm uppercase" />
+              </div>
+              <div className="sm:col-span-4">
+                <Label className="text-xs font-medium">Note (optional)</Label>
+                <Input placeholder="What the trip was for" value={desc} onChange={(e) => setDesc(e.target.value)} className="mt-1.5 h-9 text-sm" />
+              </div>
+            </>
+          )}
+          <div className="flex items-end gap-2 sm:col-span-2">
+            {mode === "route" ? (
+              <Button type="button" className="pm-btn h-9 w-full px-3" disabled={calcBusy || busy} onClick={async () => {
+                if (calcBusy) return;
+                setCalcBusy(true);
+                try { const r = await act({ type: "mileageCalc", from: fromPc, to: toPc }, undefined); setCalc(r); } catch (err: Any) { toast.error(err?.message ?? "Couldn't work out that route."); }
+                setCalcBusy(false);
+              }}>{calcBusy ? "Working it out..." : calc ? "Recalculate" : "Work out miles"}</Button>
+            ) : null}
+            <Button type="submit" className="pm-btn-orange h-9 flex-1 px-3" disabled={busy}>{busy ? "Saving..." : "Log journey"}</Button>
           </div>
         </form>
+        {mode === "route" ? (
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+            <label className="flex cursor-pointer items-center gap-2 text-[#5e5e5e]">
+              <input type="checkbox" checked={roundTrip} onChange={(e) => setRoundTrip(e.target.checked)} className="h-4 w-4 accent-[var(--pm-orange)]" />
+              There and back (double it)
+            </label>
+            {calc ? <span className="rounded-full bg-[rgba(245,154,43,.14)] px-3 py-1 font-semibold text-[#a35803]">{calc.miles} miles · {calc.from} to {calc.to}</span> : <span className="text-[#9aa0a6]">Road distance worked out automatically · UK postcodes only</span>}
+          </div>
+        ) : null}
       </div>
 
       {list.length === 0 ? (

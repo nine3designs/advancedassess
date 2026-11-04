@@ -110,6 +110,7 @@ type Action =
   | { type: "noteDelete"; id: string }
   | { type: "mileageAdd"; driver: string; date: string; description: string; miles: number }
   | { type: "mileageDelete"; id: string }
+  | { type: "mileageCalc"; from: string; to: string }
   | { type: "timeStart"; note?: string; cardId?: string }
   | { type: "timeStop"; id: string }
   | { type: "timeAdd"; date: string; minutes: number; note?: string; cardId?: string; actor?: string }
@@ -479,6 +480,32 @@ export const portalAction = createServerFn({ method: "POST" })
       const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, mileage: list } }).eq("id", cid);
       if (error) throw new Error("Could not delete that entry · please try again.");
       return { ok: true };
+    }
+    if (a.type === "mileageCalc") {
+      const clean = (s: string) => String(s ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+      const f = clean(a.from), t = clean(a.to);
+      if (f.length < 5 || t.length < 5) throw new Error("Enter both postcodes.");
+      const geo = async (pc: string) => {
+        const r = await fetch(`https://api.postcodes.io/postcodes/${pc}`).then((x: Any) => x.json());
+        const d = r?.result;
+        if (!d) throw new Error("bad postcode");
+        const g = Array.isArray(d) ? d[0] : d;
+        return { lat: Number(g.latitude), lng: Number(g.longitude), pc: String(g.postcode) };
+      };
+      let A: Any, B: Any;
+      try { A = await geo(f); B = await geo(t); } catch { throw new Error("One of those postcodes doesn't look right · check them and try again."); }
+      let miles = 0;
+      try {
+        const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${A.lng},${A.lat};${B.lng},${B.lat}?overview=false`).then((x: Any) => x.json());
+        miles = Math.round(((r?.routes?.[0]?.distance ?? 0) / 1609.344) * 10) / 10;
+      } catch { miles = 0; }
+      if (!miles) {
+        const R = 3958.7613;
+        const dLat = (B.lat - A.lat) * Math.PI / 180, dLng = (B.lng - A.lng) * Math.PI / 180;
+        const h = Math.sin(dLat / 2) ** 2 + Math.cos(A.lat * Math.PI / 180) * Math.cos(B.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+        miles = Math.round(2 * R * Math.asin(Math.sqrt(h)) * 1.25 * 10) / 10;
+      }
+      return { ok: true, miles, from: A.pc, to: B.pc };
     }
     throw new Error("Unknown action");
   });
