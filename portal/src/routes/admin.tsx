@@ -722,6 +722,10 @@ const ADMIN_STYLES = `
 @media (max-width: 640px) { .pm .pm-main { padding-top: 1.1rem; } .pm .pm-card { border-radius: 1.3rem; } }
 
 /* v3 polish: glass top bar · orange accents · bucket board · light buttons */
+.pm .pm-navbar { max-width: 62rem; gap: .5rem; padding: .35rem; }
+.pm .pm-brand { padding: 0 1.15rem; }
+.pm .pm-tabs { gap: .2rem; }
+.pm .pm-tab { padding: .62rem 1.2rem; }
 .pm .pm-btn-light { background: #fff !important; color: var(--pm-ink) !important; border: 1px solid var(--pm-line) !important; border-radius: 999px !important; font-weight: 500 !important; font-size: .875rem !important; transition: background .15s ease, transform .15s ease, box-shadow .15s ease !important; }
 .pm .pm-btn-light:hover { border-color: var(--pm-navy) !important; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(13,28,52,.12); }
 .pm .pm-navwrap { background: transparent; }
