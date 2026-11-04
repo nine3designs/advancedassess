@@ -39,6 +39,11 @@ function AuthPage() {
       const isRecoveryHash = hashParams.get("type") === "recovery" && !!hashParams.get("access_token");
       const code = params.get("code");
       if (isRecoveryHash) {
+        const access_token = hashParams.get("access_token") ?? "";
+        const refresh_token = hashParams.get("refresh_token") ?? "";
+        try {
+          if (access_token && refresh_token) await supabase.auth.setSession({ access_token, refresh_token });
+        } catch { /* noop */ }
         history.replaceState(null, "", window.location.pathname);
         setRecovery(true);
         return;
