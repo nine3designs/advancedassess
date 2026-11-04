@@ -376,7 +376,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
           </div>
         </div>
         ) : (
-        <div className="pm-card p-6 lg:col-span-2">
+        <div className="pm-card self-start p-6 lg:col-span-2">
           <div>
             <h2 className="text-lg font-semibold">Quick actions</h2>
             <p className="mt-1 text-xs text-[#5e5e5e]">Jump straight to what you need</p>
