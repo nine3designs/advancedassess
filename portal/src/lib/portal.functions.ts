@@ -41,7 +41,7 @@ export const getPortal = createServerFn({ method: "POST" })
       admin.from("onboarding_items").select("*").eq("client_id", cid).order("position"),
       admin.from("projects").select("id, name, description, status, due_date, milestones(id, title, due_date, done, position)").eq("client_id", cid).order("created_at", { ascending: false }),
       admin.from("deliverables").select("*").eq("client_id", cid).order("created_at", { ascending: false }),
-      admin.from("invoices").select("id, number, issue_date, due_date, status, items, tax_rate, paid_at").eq("client_id", cid).neq("status", "draft").order("issue_date", { ascending: false }),
+      admin.from("invoices").select("id, number, issue_date, due_date, status, items, tax_rate, notes, paid_at").eq("client_id", cid).order("issue_date", { ascending: false }),
       admin.from("proposals").select("id, kind, title, body, items, status, accepted_name, accepted_at, created_at").eq("client_id", cid).neq("status", "draft").order("created_at", { ascending: false }),
       admin.from("sports_fixtures").select("*").eq("client_id", cid).order("match_date"),
       admin.from("tasks").select("id, title, notes, status, priority, due_date").eq("client_id", cid).order("created_at"),
@@ -381,7 +381,38 @@ export const portalAction = createServerFn({ method: "POST" })
       if (error || !inv) throw new Error("Could not create the invoice · please try again.");
       await admin.from("time_entries").update({ billed: true, invoice_id: (inv as Any).id }).eq("client_id", cid).eq("billed", false);
       await admin.from("activity_log").insert({ client_id: cid, actor: "Natalie", message: `created invoice ${number} (${fmtMins(Math.round(totalHours * 60))})` });
-      return { ok: true, number };
+      return { ok: true, number, id: (inv as Any).id };
+    }
+    if (a.type === "invoiceUpdate") {
+      const items = Array.isArray(a.items) ? a.items.slice(0, 60).map((it: Any) => ({ description: String(it.description ?? "").slice(0, 300), quantity: Number(it.quantity) || 0, rate: Number(it.rate) || 0 })) : [];
+      const patch: Any = { items, tax_rate: Number(a.tax_rate) || 0, notes: String(a.notes ?? "").slice(0, 2000) || null };
+      if (a.number) patch.number = String(a.number).slice(0, 40);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(a.issue_date ?? ""))) patch.issue_date = a.issue_date;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(a.due_date ?? ""))) patch.due_date = a.due_date;
+      if (a.status === "draft" || a.status === "sent" || a.status === "paid") patch.status = a.status;
+      if (a.status === "paid") patch.paid_at = new Date().toISOString().slice(0, 10);
+      const { error } = await admin.from("invoices").update(patch).eq("id", a.id).eq("client_id", cid);
+      if (error) throw new Error("Could not save the invoice · please try again.");
+      return { ok: true };
+    }
+    if (a.type === "invoiceSend") {
+      const { data: inv } = await admin.from("invoices").select("id, number, status").eq("id", a.id).eq("client_id", cid).maybeSingle();
+      if (!inv) throw new Error("Invoice not found.");
+      if ((inv as Any).status !== "draft") throw new Error("Only drafts can be sent.");
+      const { error } = await admin.from("invoices").update({ status: "sent" }).eq("id", a.id).eq("client_id", cid);
+      if (error) throw new Error("Could not send the invoice.");
+      await admin.from("activity_log").insert({ client_id: cid, actor: "Natalie", message: `sent invoice ${(inv as Any).number} to Sara` });
+      return { ok: true, number: (inv as Any).number };
+    }
+    if (a.type === "invoiceDelete") {
+      const { data: inv } = await admin.from("invoices").select("id, number, status").eq("id", a.id).eq("client_id", cid).maybeSingle();
+      if (!inv) throw new Error("Invoice not found.");
+      if ((inv as Any).status !== "draft") throw new Error("Only drafts can be deleted.");
+      await admin.from("time_entries").update({ billed: false, invoice_id: null }).eq("invoice_id", a.id);
+      const { error } = await admin.from("invoices").delete().eq("id", a.id).eq("client_id", cid);
+      if (error) throw new Error("Could not delete the draft.");
+      await admin.from("activity_log").insert({ client_id: cid, actor: "Natalie", message: `deleted draft invoice ${(inv as Any).number} · hours back in unbilled` });
+      return { ok: true };
     }
     if (a.type === "uploadInvoice") {
       if (!String(a.dataUri ?? "").startsWith("data:application/pdf")) throw new Error("Please upload a PDF file.");
