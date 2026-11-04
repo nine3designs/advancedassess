@@ -97,7 +97,7 @@ function AuthPage() {
     <div className="grid min-h-screen md:grid-cols-2">
       <div className="relative hidden flex-col justify-between overflow-hidden bg-primary-deep p-12 md:flex">
         <span aria-hidden="true" className="pointer-events-none absolute select-none text-[#f59a2b]" style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: "34rem", lineHeight: 1, opacity: 0.07, right: "-3rem", bottom: "-6rem" }}>&amp;</span>
-        <Wordmark variant="stack" />
+        <div className="self-center"><Wordmark variant="stack" /></div>
         <p className="text-3xl font-semibold uppercase tracking-wide text-[#f59a2b]">Client portal</p>
       </div>
       <div className="flex items-center justify-center p-8">
