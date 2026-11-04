@@ -726,6 +726,51 @@ export function MileageTab({ act, entries }: { act: Act; entries: Any[] }) {
   const total = (name: string) => Math.round(list.filter((e) => e.driver === name).reduce((s, e) => s + Number(e.miles || 0), 0) * 10) / 10;
   const claim = (m: number) => Math.min(m, MILEAGE_CAP) * MILEAGE_RATE;
   const money = (n: number) => `£${n.toFixed(2)}`;
+  const calcRoute = async () => {
+    if (calcBusy) return;
+    const clean = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const f = clean(fromPc), t = clean(toPc);
+    if (f.length < 5 || t.length < 5) { toast.error("Enter both postcodes."); return; }
+    setCalcBusy(true);
+    try {
+      const geo = async (pc: string) => {
+        const eps: string[] = [`https://api.postcodes.io/postcodes/${pc}`, `https://findthatpostcode.uk/postcodes/${pc}.json`];
+        if (pc.length > 4) eps.push(`https://api.postcodes.io/outcodes/${pc.slice(0, -3)}`);
+        for (const ep of eps) {
+          try {
+            const r = await fetch(ep).then((x: Any) => x.json());
+            const raw = r?.result ?? r?.data;
+            if (!raw) continue;
+            const g = Array.isArray(raw) ? raw[0] : raw;
+            const a2 = (g?.attributes ?? g) ?? {};
+            const lat = Number(a2.latitude), lng = Number(a2.longitude);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+              const apiPc = String(a2.postcode ?? "").trim();
+              return { lat, lng, pc: apiPc || (pc.length > 4 ? pc.slice(0, -3) + " " + pc.slice(-3) : pc) };
+            }
+          } catch { continue; }
+        }
+        throw new Error("geo");
+      };
+      let A: Any, B: Any;
+      try { A = await geo(f); B = await geo(t); } catch { toast.error("One of those postcodes doesn't look right · check them and try again."); return; }
+      let mi = 0;
+      for (const rp of ["https://router.project-osrm.org", "https://routing.openstreetmap.de/routed-car"]) {
+        try {
+          const r = await fetch(`${rp}/route/v1/driving/${A.lng},${A.lat};${B.lng},${B.lat}?overview=false`).then((x: Any) => x.json());
+          const d = r?.routes?.[0]?.distance;
+          if (d > 0) { mi = Math.round((d / 1609.344) * 10) / 10; break; }
+        } catch { continue; }
+      }
+      if (!mi) {
+        const R = 3958.7613;
+        const dLat = (B.lat - A.lat) * Math.PI / 180, dLng = (B.lng - A.lng) * Math.PI / 180;
+        const h = Math.sin(dLat / 2) ** 2 + Math.cos(A.lat * Math.PI / 180) * Math.cos(B.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+        mi = Math.round(2 * R * Math.asin(Math.sqrt(h)) * 1.25 * 10) / 10;
+      }
+      setCalc({ miles: mi, from: A.pc, to: B.pc });
+    } finally { setCalcBusy(false); }
+  };
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -819,12 +864,7 @@ export function MileageTab({ act, entries }: { act: Act; entries: Any[] }) {
           )}
           <div className="flex items-end gap-2 sm:col-span-2">
             {mode === "route" ? (
-              <Button type="button" className="pm-btn h-9 w-full px-3" disabled={calcBusy || busy} onClick={async () => {
-                if (calcBusy) return;
-                setCalcBusy(true);
-                try { const r = await act({ type: "mileageCalc", from: fromPc, to: toPc }, undefined); setCalc(r); } catch (err: Any) { toast.error(err?.message ?? "Couldn't work out that route."); }
-                setCalcBusy(false);
-              }}>{calcBusy ? "Working it out..." : calc ? "Recalculate" : "Work out miles"}</Button>
+              <Button type="button" className="pm-btn h-9 w-full px-3" disabled={calcBusy || busy} onClick={calcRoute}>{calcBusy ? "Working it out..." : calc ? "Recalculate" : "Work out miles"}</Button>
             ) : null}
             <Button type="submit" className="pm-btn-orange h-9 flex-1 px-3" disabled={busy}>{busy ? "Saving..." : "Log journey"}</Button>
           </div>
