@@ -510,7 +510,7 @@ export function Board({ p, viewer, act, go }: { p: Any; viewer: string; act: Act
     const i = order.indexOf(card.status);
     const next = order[Math.min(order.length - 1, Math.max(0, i + dir))];
     if (!next || next === card.status) return;
-    await act({ type: "cardEdit", id: card.id, status: next }, `Moved to ${COLUMNS.find((c) => c.key === next)?.label}`);
+    await act({ type: "cardEdit", id: card.id, status: next, actor: viewer }, `Moved to ${COLUMNS.find((c) => c.key === next)?.label}`);
   }
 
   return (
@@ -543,7 +543,7 @@ export function Board({ p, viewer, act, go }: { p: Any; viewer: string; act: Act
               </div>
 
               {composer === col.key && <AddComposer col={col.key} onCancel={() => setComposer(null)} onSubmit={async (title, notes) => {
-                const r = await act({ type: "cardAdd", title, notes, status: col.key }, "Task added");
+                const r = await act({ type: "cardAdd", title, notes, status: col.key, actor: viewer }, "Task added");
                 if (r) setComposer(null);
               }} />}
 
@@ -559,7 +559,7 @@ export function Board({ p, viewer, act, go }: { p: Any; viewer: string; act: Act
                     className={`pm-task cursor-grab p-3.5 active:cursor-grabbing ${dragId === c.id ? "opacity-50" : ""}`}>
                     <div className="flex items-start justify-between gap-2">
                       <p className={`text-sm font-medium leading-snug ${c.status === "done" ? "text-[#5e5e5e] line-through" : ""}`}>{c.title}</p>
-                      <span className={`pm-chip flex-none bg-white ${c.status === "doing" ? "orange" : ""}`}>{c.created_by?.split(" ")[0] ?? "·"}</span>
+                      <span className={`pm-chip flex-none bg-white ${c.status === "doing" ? "orange" : ""}`}>{c.created_by === "Natalie" ? "Nat" : c.created_by?.split(" ")[0] ?? "·"}</span>
                     </div>
                     {c.notes ? <p className="clamp2 mt-1.5 text-xs text-[#5e5e5e]">{c.notes}</p> : null}
                     <div className="mt-3 flex items-center gap-1 border-t border-[#e6e8ea] pt-2.5">
@@ -568,7 +568,7 @@ export function Board({ p, viewer, act, go }: { p: Any; viewer: string; act: Act
                       <IconBtn label="Edit task" onClick={() => setEditing(c)}><Pencil className="h-3.5 w-3.5" /></IconBtn>
                       <span className="ml-auto text-[10px] text-[#9aa0a6]">{c.updated_at ? relDay(c.updated_at) : ""}</span>
                       <IconBtn label="Delete task" danger={confirmDel === c.id} onClick={() => {
-                        if (confirmDel === c.id) { act({ type: "cardDelete", id: c.id }, "Task removed"); setConfirmDel(null); }
+                        if (confirmDel === c.id) { act({ type: "cardDelete", id: c.id, actor: viewer }, "Task removed"); setConfirmDel(null); }
                         else { setConfirmDel(c.id); setTimeout(() => setConfirmDel((k) => (k === c.id ? null : k)), 2600); }
                       }}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
                     </div>
@@ -584,10 +584,10 @@ export function Board({ p, viewer, act, go }: { p: Any; viewer: string; act: Act
         <DialogContent className="max-w-md">
           {editing && (
             <EditCard card={editing} onSave={async (title, notes) => {
-              const r = await act({ type: "cardEdit", id: editing.id, title, notes }, "Task updated");
+              const r = await act({ type: "cardEdit", id: editing.id, title, notes, actor: viewer }, "Task updated");
               if (r) setEditing(null);
             }} onDelete={async () => {
-              const r = await act({ type: "cardDelete", id: editing.id }, "Task removed");
+              const r = await act({ type: "cardDelete", id: editing.id, actor: viewer }, "Task removed");
               if (r) setEditing(null);
             }} />
           )}
