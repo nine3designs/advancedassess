@@ -499,7 +499,10 @@ export const portalAction = createServerFn({ method: "POST" })
             const g = Array.isArray(raw) ? raw[0] : raw;
             const a = (g?.attributes ?? g) ?? {};
             const lat = Number(a.latitude), lng = Number(a.longitude);
-            if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng, pc: String(a.postcode ?? pc) };
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          const shown = String(a.postcode ?? "").replace(/\s/g, "") || pc;
+          return { lat, lng, pc: shown.length > 4 ? shown.slice(0, -3) + " " + shown.slice(-3) : shown };
+        }
           } catch { continue; }
         }
         throw new Error("geo failed");
@@ -507,10 +510,13 @@ export const portalAction = createServerFn({ method: "POST" })
       let A: Any, B: Any;
       try { A = await geo(f); B = await geo(t); } catch { throw new Error("One of those postcodes doesn't look right · check them and try again."); }
       let miles = 0;
-      try {
-        const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${A.lng},${A.lat};${B.lng},${B.lat}?overview=false`, { signal: AbortSignal.timeout(8000) }).then((x: Any) => x.json());
-        miles = Math.round(((r?.routes?.[0]?.distance ?? 0) / 1609.344) * 10) / 10;
-      } catch { miles = 0; }
+      for (const rp of ["https://router.project-osrm.org", "https://routing.openstreetmap.de/routed-car"]) {
+        try {
+          const r = await fetch(`${rp}/route/v1/driving/${A.lng},${A.lat};${B.lng},${B.lat}?overview=false`, { signal: AbortSignal.timeout(8000) }).then((x: Any) => x.json());
+          const d = r?.routes?.[0]?.distance;
+          if (d > 0) { miles = Math.round((d / 1609.344) * 10) / 10; break; }
+        } catch { continue; }
+      }
       if (!miles) {
         const R = 3958.7613;
         const dLat = (B.lat - A.lat) * Math.PI / 180, dLng = (B.lng - A.lng) * Math.PI / 180;
