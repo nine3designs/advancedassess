@@ -10,10 +10,10 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Admin sign in" },
-      { name: "description", content: "Admin sign in." },
-      { property: "og:title", content: "Admin sign in" },
-      { property: "og:description", content: "Admin sign in." },
+      { title: "Admin SIGN IN" },
+      { name: "description", content: "Admin SIGN IN." },
+      { property: "og:title", content: "Admin SIGN IN" },
+      { property: "og:description", content: "Admin SIGN IN." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -85,12 +85,13 @@ function AuthPage() {
     }
   }
 
-  const title = recovery ? "Choose a new password" : mode === "in" ? "Admin sign in" : mode === "up" ? "Create admin account" : "Reset your password";
+  const title = recovery ? "Choose a new password" : mode === "in" ? "Admin SIGN IN" : mode === "up" ? "Create admin account" : "Reset your password";
 
   return (
     <div className="grid min-h-screen md:grid-cols-2">
-      <div className="hidden flex-col justify-between bg-primary-deep p-12 md:flex">
-        <img src="/branding/sara-logo.png" alt="Advanced Assessment & Solutions" className="h-8 w-auto max-w-[280px] self-start md:h-10" />
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-primary-deep p-12 md:flex">
+        <span aria-hidden="true" className="pointer-events-none absolute select-none font-serif text-[#f59a2b]" style={{ fontSize: "34rem", lineHeight: 1, opacity: 0.07, right: "-3rem", bottom: "-6rem" }}>&amp;</span>
+        <img src="/branding/sara-logo.png" alt="Advanced Assessment & Solutions" className="h-14 w-auto max-w-[420px] self-start md:h-16" />
         <p className="text-3xl font-semibold uppercase tracking-wide text-[#f59a2b]">Client portal</p>
       </div>
       <div className="flex items-center justify-center p-8">
