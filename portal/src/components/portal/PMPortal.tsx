@@ -179,7 +179,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
           <Dashboard p={p} stats={stats} weeks={weeks} maxWeek={maxWeek} rate={rate} unbilledMins={unbilledMins} running={running} viewer={viewer} go={setTab} act={act} />
         )}
         {tab === "board" && <Board p={p} viewer={viewer} act={act} go={setTab} />}
-        {tab === "time" && <TimeTab entries={entries} running={running} unbilledMins={unbilledMins} rate={rate} viewer={viewer} act={act} cards={cards} invoices={p.invoices} files={p.files ?? []} client={p.client} />}
+        {tab === "time" && <TimeTab entries={entries} running={running} unbilledMins={unbilledMins} rate={rate} viewer={viewer} act={act} cards={cards} invoices={p.invoices} files={p.deliverables ?? []} client={p.client} />}
       </main>
 
       <footer className="pm-foot">Advanced Assessment &amp; Solutions · Client portal</footer>
