@@ -592,7 +592,7 @@ function EditCard({ card, onSave, onDelete }: { card: Any; onSave: (title: strin
 
 /* ---------------- time ---------------- */
 
-function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, invoices, files }: Any) {
+function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, invoices, files, client }: Any) {
   const [viewInv, setViewInv] = useState<Any | null>(null);
   const isNat = viewer === "Natalie";
   const [note, setNote] = useState("");
