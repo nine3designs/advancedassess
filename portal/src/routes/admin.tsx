@@ -22,7 +22,7 @@ import { fmtMinsLabel, londonDayKey } from "@/lib/admin-utils";
 type Any = any;
 
 export const Route = createFileRoute("/admin")({
-  head: () => ({ meta: [{ title: "Natalie's workspace · Advanced Assessment & Solutions" }] }),
+  head: () => ({ meta: [{ title: "HQ Projects Portal · Advanced Assessment & Solutions" }] }),
   component: AdminPage,
 });
 
@@ -159,8 +159,8 @@ function AdminShell({ act, data, onSignOut }: Any) {
       <main className="pm-main">
         <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-[1.65rem] font-semibold tracking-tight md:text-4xl">Natalie's workspace</h1>
-            <p className="mt-1 text-sm text-[#5e5e5e]">Sara Dawson · Graphics &amp; admin support · £17.00 per hour</p>
+            <h1 className="text-[1.65rem] font-semibold tracking-tight md:text-4xl">HQ Projects Portal</h1>
+            <p className="mt-1 text-sm text-[#5e5e5e]">Hi, Natalie</p>
           </div>
           <div className="flex items-center gap-2">
             <a href="/portal/SaraDawson" className="pm-linkbtn">View Sara's portal</a>
@@ -173,7 +173,7 @@ function AdminShell({ act, data, onSignOut }: Any) {
         {tab === "finance" && <Finance act={act} invoices={invoices} entries={doneEntries} unbilledMins={unbilledMins} rate={rate} client={data.client} />}
         {tab === "availability" && <Availability act={act} />}
       </main>
-      <footer className="pm-foot">Advanced Assessment &amp; Solutions · Natalie's workspace</footer>
+      <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Projects Portal - Crafted by Nine3 Designs</footer>
     </div>
   );
 }

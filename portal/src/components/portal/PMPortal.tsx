@@ -171,8 +171,8 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
 
       <main className="pm-main">
         <header className="mb-6">
-          <h1 className="text-[1.65rem] font-semibold tracking-tight md:text-4xl">Welcome, {welcome}</h1>
-          <p className="mt-1 text-sm text-[#5e5e5e]">Graphics &amp; admin support · {money(rate)} per hour</p>
+          <h1 className="text-[1.65rem] font-semibold tracking-tight md:text-4xl">{viewer === "Natalie" ? "HQ Projects Portal" : "HQ Workspace"}</h1>
+          <p className="mt-1 text-sm text-[#5e5e5e]">{viewer === "Natalie" ? "Hi, Natalie" : `Hi ${welcome}`}</p>
         </header>
 
         {tab === "dashboard" && (
@@ -182,7 +182,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
         {tab === "time" && <TimeTab entries={entries} running={running} unbilledMins={unbilledMins} rate={rate} viewer={viewer} act={act} cards={cards} invoices={p.invoices} files={p.deliverables ?? []} client={p.client} />}
       </main>
 
-      <footer className="pm-foot">Advanced Assessment &amp; Solutions · Client portal</footer>
+      <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Portal - Crafted by Nine3 Designs</footer>
     </div>
   );
 }
