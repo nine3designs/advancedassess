@@ -111,7 +111,9 @@ type Action =
   | { type: "timeAdd"; date: string; minutes: number; note?: string; cardId?: string; actor?: string }
   | { type: "timeUpdate"; id: string; minutes: number; note?: string }
   | { type: "timeDelete"; id: string }
-  | { type: "timeInvoice" };
+  | { type: "timeInvoice" }
+  | { type: "uploadInvoice"; fileName: string; title?: string; dataUri: string }
+  | { type: "availabilitySave"; week: string; days: { day: string; available: boolean; note?: string }[]; notes?: string };
 
 export const portalAction = createServerFn({ method: "POST" })
   .inputValidator((d: Access & { action: Action }) => d)
@@ -380,6 +382,29 @@ export const portalAction = createServerFn({ method: "POST" })
       await admin.from("time_entries").update({ billed: true, invoice_id: (inv as Any).id }).eq("client_id", cid).eq("billed", false);
       await admin.from("activity_log").insert({ client_id: cid, actor: "Natalie", message: `created invoice ${number} (${fmtMins(Math.round(totalHours * 60))})` });
       return { ok: true, number };
+    }
+    if (a.type === "uploadInvoice") {
+      if (!String(a.dataUri ?? "").startsWith("data:application/pdf")) throw new Error("Please upload a PDF file.");
+      if (String(a.dataUri).length > 6_500_000) throw new Error("That PDF is too large · please keep it under about 4 MB.");
+      const title = String(a.title || a.fileName || "Invoice").slice(0, 200);
+      const { error } = await admin.from("deliverables").insert({ client_id: cid, kind: "invoice", title, file_path: a.dataUri, file_name: String(a.fileName || "invoice.pdf").slice(0, 200), status: "shared", uploaded_by: "Natalie", week_of: now().slice(0, 10) });
+      if (error) throw new Error("Could not save the invoice · please try again.");
+      await admin.from("activity_log").insert({ client_id: cid, actor: "Natalie", message: `shared invoice: ${title.slice(0, 80)}` });
+      return { ok: true };
+    }
+    if (a.type === "availabilitySave") {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(a.week))) throw new Error("Pick a week first.");
+      const prefs = ((client as Any).portal_prefs ?? {}) as Any;
+      prefs.availability = {
+        week_start: a.week,
+        days: Array.isArray(a.days) ? a.days.slice(0, 7) : [],
+        notes: String(a.notes ?? "").slice(0, 1000),
+        submitted_at: now(),
+      };
+      const { error } = await admin.from("clients").update({ portal_prefs: prefs }).eq("id", cid);
+      if (error) throw new Error("Could not save availability · please try again.");
+      await admin.from("activity_log").insert({ client_id: cid, actor: "Natalie", message: `shared availability for w/c ${a.week}` });
+      return { ok: true };
     }
     throw new Error("Unknown action");
   });

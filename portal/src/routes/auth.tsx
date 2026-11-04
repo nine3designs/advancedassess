@@ -64,7 +64,7 @@ function AuthPage() {
       setBusy(false);
       if (error) { toast.error(error.message); return; }
       toast.success("Password updated · you're signed in.");
-      navigate({ to: "/portal/SaraDawson" });
+      navigate({ to: "/admin" });
     } else if (mode === "reset") {
       const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/auth" });
       setBusy(false);
@@ -75,7 +75,7 @@ function AuthPage() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       setBusy(false);
       if (error) { toast.error(error.message); return; }
-      navigate({ to: "/portal/SaraDawson" });
+      navigate({ to: "/admin" });
     } else {
       const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + "/auth" } });
       setBusy(false);

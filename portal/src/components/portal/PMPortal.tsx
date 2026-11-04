@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Check, ClipboardList, Clock, FileText, Pencil, Play, Plus, Square, Trash2 } from "lucide-react";
+import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Check, ClipboardList, Clock, FileText, Pencil, Play, Plus, Square, Trash2, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -179,7 +179,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
           <Dashboard p={p} stats={stats} weeks={weeks} maxWeek={maxWeek} rate={rate} unbilledMins={unbilledMins} running={running} viewer={viewer} go={setTab} act={act} />
         )}
         {tab === "board" && <Board p={p} viewer={viewer} act={act} go={setTab} />}
-        {tab === "time" && <TimeTab entries={entries} running={running} unbilledMins={unbilledMins} rate={rate} viewer={viewer} act={act} cards={cards} invoices={p.invoices} />}
+        {tab === "time" && <TimeTab entries={entries} running={running} unbilledMins={unbilledMins} rate={rate} viewer={viewer} act={act} cards={cards} invoices={p.invoices} files={p.files ?? []} client={p.client} />}
       </main>
 
       <footer className="pm-foot">Advanced Assessment &amp; Solutions · Client portal</footer>
@@ -197,23 +197,34 @@ const PM_STYLES = `
 .pm .pm-navbar { display: flex; align-items: center; gap: .4rem; background: #fff; border-radius: 999px; padding: .3rem; max-width: 42rem; margin: 0 auto; box-shadow: 0 12px 32px rgba(13,28,52,.10), 0 1px 2px rgba(13,28,52,.05); overflow-x: auto; scrollbar-width: none; }
 .pm .pm-navbar::-webkit-scrollbar { display: none; }
 .pm .pm-brand { flex: none; display: inline-flex; align-items: center; background: var(--pm-navy); border-radius: 999px; height: 2.55rem; padding: 0 1rem; }
-.pm .pm-brand img { height: .8rem; width: auto; max-width: 120px; }
+.pm .pm-brand img { height: 1.05rem; width: auto; max-width: 170px; }
 .pm .pm-brand-fallback { color: #fff; font-size: .8rem; font-weight: 600; letter-spacing: .08em; }
 .pm .pm-tabs { display: flex; gap: .1rem; min-width: max-content; }
 .pm .pm-tab { border-radius: 999px; padding: .6rem 1.05rem; font-size: .875rem; font-weight: 500; color: var(--pm-muted); white-space: nowrap; transition: color .15s ease, background .15s ease; }
-.pm .pm-tab:hover { color: var(--pm-ink); }
+.pm .pm-tab:hover { color: var(--pm-ink); background: var(--pm-soft2); }
 .pm .pm-tab.active { background: var(--pm-navy); color: #fff; }
 .pm .pm-main { max-width: 64rem; margin: 0 auto; padding: 1.5rem 1rem 0; }
 .pm .pm-foot { max-width: 64rem; margin: 0 auto; padding: 2.2rem 1rem 2rem; text-align: center; font-size: .72rem; color: #9aa1a9; }
-.pm .pm-card { background: #fff; border-radius: 1.5rem; box-shadow: 0 1px 2px rgba(13,28,52,.04), 0 12px 32px rgba(13,28,52,.06); }
+.pm .pm-card { background: #fff; border-radius: 1.5rem; box-shadow: 0 1px 2px rgba(13,28,52,.04), 0 12px 32px rgba(13,28,52,.06); transition: transform .18s ease, box-shadow .18s ease; }
+.pm .pm-card:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(13,28,52,.05), 0 18px 44px rgba(13,28,52,.10); }
 .pm .pm-dark { background: var(--pm-navy); border-radius: 1.5rem; color: #fff; box-shadow: 0 16px 40px rgba(13,28,52,.28); }
 .pm .pm-dark h2, .pm .pm-dark h3 { color: #fff; }
 .pm .pm-tile-icon { width: 2.6rem; height: 2.6rem; display: flex; align-items: center; justify-content: center; border-radius: 1rem; background: rgba(245,154,43,.14); color: var(--pm-orange-deep); flex: none; }
 .pm .pm-tile-icon.navy { background: rgba(13,28,52,.06); color: var(--pm-navy); }
-.pm .pm-btn { background: var(--pm-navy) !important; color: #fff !important; border-radius: 999px !important; font-weight: 500 !important; font-size: .875rem !important; }
-.pm .pm-btn:hover { background: var(--pm-navy2) !important; }
-.pm .pm-btn-orange { background: var(--pm-orange) !important; color: #3d2400 !important; border-radius: 999px !important; font-weight: 500 !important; font-size: .875rem !important; }
-.pm .pm-btn-orange:hover { background: var(--pm-orange-deep) !important; color: #fff !important; }
+.pm .pm-btn { background: var(--pm-navy) !important; color: #fff !important; border-radius: 999px !important; font-weight: 500 !important; font-size: .875rem !important; transition: background .15s ease, transform .15s ease, box-shadow .15s ease !important; }
+.pm .pm-btn:hover { background: var(--pm-navy2) !important; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(13,28,52,.25); }
+.pm .pm-btn-orange { background: var(--pm-orange) !important; color: #3d2400 !important; border-radius: 999px !important; font-weight: 500 !important; font-size: .875rem !important; transition: background .15s ease, transform .15s ease, box-shadow .15s ease !important; }
+.pm .pm-btn-orange:hover { background: var(--pm-orange-deep) !important; color: #fff !important; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(217,116,6,.30); }
+.pm .pm-filebtn { display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; border: 1px solid var(--pm-line); background: #fff; color: var(--pm-ink); font-size: .74rem; font-weight: 600; padding: .35rem .85rem; transition: border-color .15s ease, box-shadow .15s ease, color .15s ease; cursor: pointer; }
+.pm .pm-filebtn:hover { border-color: var(--pm-orange); color: var(--pm-orange-deep); box-shadow: 0 4px 14px rgba(217,116,6,.16); }
+.pm .pm-trow { transition: background .15s ease; }
+.pm .pm-trow:hover { background: #f6f8fa; }
+@media print {
+  body * { visibility: hidden !important; }
+  .pm-inv-sheet, .pm-inv-sheet * { visibility: visible !important; }
+  .pm-inv-sheet { position: absolute !important; left: 0; top: 0; width: 100%; box-shadow: none !important; }
+  .no-print { display: none !important; }
+}
 .pm .pm-chip { display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; background: var(--pm-soft2); color: var(--pm-ink); font-size: .72rem; font-weight: 600; padding: .22rem .65rem; white-space: nowrap; }
 .pm .pm-chip.orange { background: rgba(245,154,43,.16); color: #a35803; }
 .pm .pm-chip.navy { background: var(--pm-navy); color: #fff; }
@@ -230,8 +241,10 @@ const PM_STYLES = `
 .pm .clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .pm .pm-col { background: #fff; border-radius: 1.5rem; padding: 1rem; min-height: 140px; box-shadow: 0 1px 2px rgba(13,28,52,.04), 0 12px 32px rgba(13,28,52,.06); }
 .pm .pm-col.drop { outline: 2px dashed var(--pm-orange); outline-offset: 3px; }
-.pm .pm-task { background: var(--pm-soft); border-radius: 1.1rem; }
-.pm .pm-row { background: var(--pm-soft); border-radius: 1.1rem; }
+.pm .pm-task { background: var(--pm-soft); border-radius: 1.1rem; transition: background .15s ease, box-shadow .15s ease; }
+.pm .pm-task:hover { background: #e6e9ee; box-shadow: 0 4px 14px rgba(13,28,52,.08); }
+.pm .pm-row { background: var(--pm-soft); border-radius: 1.1rem; transition: background .15s ease; }
+.pm .pm-row:hover { background: #e6e9ee; }
 @media (max-width: 640px) {
   .pm .pm-main { padding-top: 1.1rem; }
   .pm .pm-card { border-radius: 1.3rem; }
@@ -579,7 +592,8 @@ function EditCard({ card, onSave, onDelete }: { card: Any; onSave: (title: strin
 
 /* ---------------- time ---------------- */
 
-function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, invoices }: Any) {
+function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, invoices, files }: Any) {
+  const [viewInv, setViewInv] = useState<Any | null>(null);
   const isNat = viewer === "Natalie";
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -691,7 +705,7 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
         {invoices.length === 0 ? <p className="mt-3 text-sm text-[#5e5e5e]">Invoices raised for this work will appear here.</p> : (
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase tracking-wider text-[#5e5e5e]"><tr><th className="pb-2">Invoice</th><th className="pb-2">Issued</th><th className="pb-2">Due</th><th className="pb-2">Status</th><th className="pb-2 text-right">Total</th></tr></thead>
+              <thead className="text-left text-xs uppercase tracking-wider text-[#5e5e5e]"><tr><th className="pb-2">Invoice</th><th className="pb-2">Issued</th><th className="pb-2">Due</th><th className="pb-2">Status</th><th className="pb-2 text-right">Total</th><th className="pb-2 text-right">PDF</th></tr></thead>
               <tbody>
                 {invoices.map((i: Any) => (
                   <tr key={i.id} className="border-t border-[#f0f1f3]">
@@ -700,6 +714,7 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
                     <td className="py-2.5 text-[#5e5e5e]">{fmtDate(i.due_date)}</td>
                     <td className="py-2.5"><StatusBadge status={effectiveStatus(i)} /></td>
                     <td className="py-2.5 text-right">{money(invoiceTotals(i.items as LineItem[], i.tax_rate).total)}</td>
+                    <td className="py-2.5 text-right"><button type="button" className="pm-filebtn navy" onClick={() => setViewInv(i)}>View</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -707,6 +722,39 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
           </div>
         )}
       </div>
+
+      {files.filter((f: Any) => f.kind === "invoice").length > 0 && (
+        <div className="pm-card p-5">
+          <h2 className="text-lg font-semibold">Invoices &amp; documents from Natalie</h2>
+          <p className="mt-1 text-xs text-[#5e5e5e]">Open to view in your browser · or download the PDF.</p>
+          <ul className="mt-3 space-y-2">
+            {files.filter((f: Any) => f.kind === "invoice").map((f: Any) => (
+              <li key={f.id} className="pm-row flex flex-wrap items-center gap-3 px-3 py-2.5">
+                <FileText className="h-4 w-4 flex-none text-[#d97406]" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{f.title || f.file_name}</p>
+                  <p className="text-xs text-[#5e5e5e]">Shared {fmtDate(f.created_at)} · by Natalie</p>
+                </div>
+                <a href={f.file_path} target="_blank" rel="noreferrer" className="pm-filebtn navy" style={{ textDecoration: "none" }}>View</a>
+                <a href={f.file_path} download={f.file_name || "invoice.pdf"} className="pm-filebtn" style={{ textDecoration: "none" }}>Download</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <Dialog open={!!viewInv} onOpenChange={(o: boolean) => { if (!o) setViewInv(null); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Invoice {viewInv?.number}</DialogTitle></DialogHeader>
+          <div className="mt-3 max-h-[65vh] overflow-y-auto">
+            <InvoiceSheet inv={viewInv} client={client} />
+          </div>
+          <div className="no-print mt-4 flex justify-end gap-2">
+            <Button type="button" variant="outline" className="pm-btn" onClick={() => setViewInv(null)}>Close</Button>
+            <Button type="button" className="pm-btn-orange" onClick={() => window.print()}><Printer className="h-4 w-4" /> Print / save PDF</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -789,5 +837,84 @@ function ManualLog({ act, cards, todayKey }: Any) {
         <Button type="submit" className="pm-btn-orange h-9" disabled={busy}>Add entry</Button>
       </div>
     </form>
+  );
+}
+
+const BILLER = {
+  name: "Nine3 Designs",
+  contact: "natalie@nine3designs.co.uk",
+  sort: "04-03-33",
+  account: "40426946",
+  terms: "Payment due within 7 days of invoice date",
+};
+
+function InvoiceSheet({ inv, client }: Any) {
+  if (!inv) return null;
+  const items: LineItem[] = (inv.items ?? []) as LineItem[];
+  const t = invoiceTotals(items, inv.tax_rate);
+  const accName = client?.company || client?.name || "Advanced Assessment & Solutions";
+  const email = client?.email || "";
+  return (
+    <div className="pm-inv-sheet rounded-xl bg-white p-6 text-sm md:p-8">
+      <div className="-mx-6 -mt-6 mb-6 flex items-center justify-between rounded-t-xl px-6 py-5 md:-mx-8 md:-mt-8 md:px-8" style={{ background: "#0d1c34", color: "#fff" }}>
+        <div>
+          <p className="text-lg font-semibold tracking-tight">{BILLER.name}</p>
+          <p className="text-xs text-white/70">{BILLER.contact}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xl font-bold tracking-[0.18em]">INVOICE</p>
+          <p className="text-xs text-white/80">{inv.number}</p>
+        </div>
+      </div>
+      <div className="mb-5 grid gap-4 sm:grid-cols-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#5e5e5e]">Billed to</p>
+          <p className="mt-1 font-medium">{accName}</p>
+          {client?.name && client?.company ? <p className="text-xs text-[#5e5e5e]">{client.name}</p> : null}
+          {email ? <p className="text-xs text-[#5e5e5e]">{email}</p> : null}
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#5e5e5e]">Issued</p>
+          <p className="mt-1">{fmtDate(inv.issue_date)}</p>
+          <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-[#5e5e5e]">Due</p>
+          <p className="mt-1">{fmtDate(inv.due_date)}</p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#5e5e5e]">Status</p>
+          <p className="mt-1"><StatusBadge status={effectiveStatus(inv)} /></p>
+        </div>
+      </div>
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-[#e6e8ea] text-left text-xs uppercase tracking-wider text-[#5e5e5e]">
+            <th className="pb-2">Description</th>
+            <th className="pb-2 text-right">Qty</th>
+            <th className="pb-2 text-right">Rate</th>
+            <th className="pb-2 text-right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((it, idx) => (
+            <tr key={idx} className="border-b border-[#f0f1f3]">
+              <td className="py-2.5 pr-3">{it.description}</td>
+              <td className="py-2.5 text-right text-[#5e5e5e]">{it.quantity}</td>
+              <td className="py-2.5 text-right text-[#5e5e5e]">{money(it.rate)}</td>
+              <td className="py-2.5 text-right font-medium">{money(Number(it.quantity) * Number(it.rate))}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="mt-4 ml-auto max-w-56 space-y-1.5 text-sm">
+        <div className="flex justify-between"><span className="text-[#5e5e5e]">Subtotal</span><span>{money(t.subtotal)}</span></div>
+        {Number(inv.tax_rate) > 0 && <div className="flex justify-between"><span className="text-[#5e5e5e]">VAT ({inv.tax_rate}%)</span><span>{money(t.tax)}</span></div>}
+        <div className="flex justify-between border-t border-[#1f2630] pt-1.5 text-base font-semibold"><span>Total</span><span>{money(t.total)}</span></div>
+      </div>
+      <div className="mt-6 rounded-xl bg-[#f6f8fa] p-4 text-xs leading-relaxed text-[#5e5e5e]">
+        <p className="mb-1 font-semibold text-[#1f2630]">Payment details</p>
+        <p>Bank transfer · Sort code {BILLER.sort} · Account {BILLER.account} · {BILLER.name}</p>
+        <p>{BILLER.terms}. Questions? Email {BILLER.contact}.</p>
+        {inv.notes ? <p className="mt-2">{inv.notes}</p> : null}
+      </div>
+    </div>
   );
 }
