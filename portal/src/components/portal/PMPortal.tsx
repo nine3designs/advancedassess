@@ -203,7 +203,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
         {tab === "notes" && viewer !== "Natalie" && <NotesTab act={act} notes={((p.client?.portal_prefs?.sara_notes ?? []) as Any[])} />}
       </main>
 
-      <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Portal - Crafted by Nine3 Designs</footer>
+      <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Portal - Crafted by <a href="https://nine3designs.co.uk" target="_blank" rel="noreferrer">Nine3 Designs</a></footer>
     </div>
   );
 }

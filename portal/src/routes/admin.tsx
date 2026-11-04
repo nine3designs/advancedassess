@@ -137,7 +137,7 @@ function AdminShell({ act, data, onSignOut }: Any) {
   const tabs = [
     { v: "dashboard", l: "Dashboard" },
     { v: "board", l: "To-Do Board" },
-    { v: "time", l: "Time tracking" },
+    { v: "time", l: "Time Tracking" },
     { v: "finance", l: "Finance" },
     { v: "availability", l: "Availability" },
   ];
@@ -173,7 +173,7 @@ function AdminShell({ act, data, onSignOut }: Any) {
         {tab === "finance" && <Finance act={act} invoices={invoices} entries={doneEntries} unbilledMins={unbilledMins} rate={rate} client={data.client} />}
         {tab === "availability" && <Availability act={act} />}
       </main>
-      <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Projects Portal - Crafted by Nine3 Designs</footer>
+      <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Projects Portal - Crafted by <a href="https://nine3designs.co.uk" target="_blank" rel="noreferrer">Nine3 Designs</a></footer>
     </div>
   );
 }
