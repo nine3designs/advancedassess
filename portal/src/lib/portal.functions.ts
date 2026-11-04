@@ -500,8 +500,9 @@ export const portalAction = createServerFn({ method: "POST" })
             const a = (g?.attributes ?? g) ?? {};
             const lat = Number(a.latitude), lng = Number(a.longitude);
         if (Number.isFinite(lat) && Number.isFinite(lng)) {
-          const shown = String(a.postcode ?? "").replace(/\s/g, "") || pc;
-          return { lat, lng, pc: shown.length > 4 ? shown.slice(0, -3) + " " + shown.slice(-3) : shown };
+          const apiPc = String(a.postcode ?? "").trim();
+          const shown = apiPc || (pc.length > 4 ? pc.slice(0, -3) + " " + pc.slice(-3) : pc);
+          return { lat, lng, pc: shown };
         }
           } catch { continue; }
         }
