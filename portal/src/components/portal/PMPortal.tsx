@@ -91,7 +91,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
 
   const [tab, setTab] = useState<"dashboard" | "board" | "time" | "cal">(() => {
     const t = new URLSearchParams(window.location.search).get("tab");
-    return t === "board" || t === "time" ? t : "dashboard";
+    return t === "board" || t === "time" || t === "cal" ? t : "dashboard";
   });
   const [boardAdd, setBoardAdd] = useState(false);
 
