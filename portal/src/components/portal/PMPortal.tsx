@@ -89,9 +89,9 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     })();
   }, []);
 
-  const [tab, setTab] = useState<"dashboard" | "board" | "time" | "cal">(() => {
+  const [tab, setTab] = useState<"dashboard" | "board" | "time" | "cal" | "notes">(() => {
     const t = new URLSearchParams(window.location.search).get("tab");
-    return t === "board" || t === "time" || t === "cal" ? t : "dashboard";
+    return t === "board" || t === "time" || t === "cal" || t === "notes" ? t : "dashboard";
   });
   const [boardAdd, setBoardAdd] = useState(false);
 
@@ -150,6 +150,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     { v: "dashboard", l: "Dashboard" },
     { v: "board", l: "To-Do Board" },
     { v: "cal", l: "Calendar" },
+    { v: "notes", l: "Notes" },
   ];
 
   const first = (p.client.name ?? "").split(" ")[0] || "there";
@@ -188,6 +189,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
         {tab === "board" && <Board p={p} viewer={viewer} act={act} go={setTab} autoAdd={boardAdd} onAutoAddDone={() => setBoardAdd(false)} />}
         {tab === "time" && viewer === "Natalie" && <TimeTab entries={entries} running={running} unbilledMins={unbilledMins} rate={rate} viewer={viewer} act={act} cards={cards} invoices={p.invoices} files={p.deliverables ?? []} client={p.client} />}
         {tab === "cal" && viewer !== "Natalie" && <CalendarTab avail={(p.client?.portal_prefs?.availability ?? null) as Any} />}
+        {tab === "notes" && viewer !== "Natalie" && <NotesTab act={act} notes={((p.client?.portal_prefs?.sara_notes ?? []) as Any[])} />}
       </main>
 
       <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Portal - Crafted by Nine3 Designs</footer>
@@ -202,13 +204,13 @@ const PM_STYLES = `
 .pm { color: var(--pm-ink); font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif; }
 .pm h1, .pm h2, .pm h3 { font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif; color: var(--pm-ink); font-weight: 600; }
 .pm .pm-navwrap { position: sticky; top: 0; z-index: 40; padding: .9rem 0 .4rem; background: transparent; }
-.pm .pm-navbar { display: flex; align-items: center; gap: .5rem; background: rgba(13,28,52,.72); backdrop-filter: blur(14px) saturate(1.25); -webkit-backdrop-filter: blur(14px) saturate(1.25); border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: .35rem; max-width: 62rem; margin: 0 auto; box-shadow: 0 14px 36px rgba(13,28,52,.28); overflow-x: auto; scrollbar-width: none; }
+.pm .pm-navbar { display: flex; align-items: center; justify-content: center; gap: .5rem; background: rgba(13,28,52,.72); backdrop-filter: blur(14px) saturate(1.25); -webkit-backdrop-filter: blur(14px) saturate(1.25); border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: .35rem; max-width: 62rem; margin: 0 auto; box-shadow: 0 14px 36px rgba(13,28,52,.28); overflow-x: auto; scrollbar-width: none; }
 .pm .pm-navbar::-webkit-scrollbar { display: none; }
 .pm .pm-brand { flex: none; display: inline-flex; align-items: center; background: #0d1c34; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; height: 2.55rem; padding: 0 1.15rem; }
 .pm .pm-brand img { height: 1.05rem; width: auto; max-width: 170px; }
 .pm .pm-brand-fallback { color: #fff; font-size: .8rem; font-weight: 600; letter-spacing: .08em; }
 .pm .pm-tabs { display: flex; gap: .2rem; min-width: max-content; }
-.pm .pm-tab { border-radius: 999px; padding: .62rem 1.2rem; font-size: .875rem; font-weight: 500; color: rgba(255,255,255,.72); white-space: nowrap; transition: color .15s ease, background .15s ease; }
+.pm .pm-tab { border-radius: 999px; padding: .68rem 1.35rem; font-size: .95rem; font-weight: 500; color: rgba(255,255,255,.72); white-space: nowrap; transition: color .15s ease, background .15s ease; }
 .pm .pm-tab:hover { color: #fff; background: rgba(255,255,255,.10); }
 .pm .pm-tab.active { background: rgba(255,255,255,.06); color: #fff; box-shadow: inset 0 0 0 1.5px var(--pm-orange), 0 0 14px rgba(245,154,43,.25); }
 .pm .pm-dark h2 { color: var(--pm-orange); }
@@ -328,7 +330,6 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
   const avail = (p.client?.portal_prefs?.availability ?? null) as Any;
   const myTasks: Any[] = (p.tasks ?? []).filter((t: Any) => t.status !== "done" && t.due_date).sort((a: Any, b: Any) => String(a.due_date).localeCompare(String(b.due_date))).slice(0, 6);
   const invLive: Any[] = (p.invoices ?? []).filter((i: Any) => i.status !== "draft");
-  const invTotal = invLive.reduce((s: number, i: Any) => s + Number(invoiceTotals(i.items as LineItem[], i.tax_rate).total || 0), 0);
 
   return (
     <div className="space-y-5">
@@ -340,7 +341,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
           : <Tile icon={<Check className="h-5 w-5" />} tone="navy" label="Completed" value={String(doneCount)} sub="tasks finished" onClick={() => go("board")} />}
         {isNat
           ? <Tile icon={<FileText className="h-5 w-5" />} label="Unbilled" value={money((unbilledMins / 60) * rate)} sub={`${fmtMins(unbilledMins)} · ${money(rate)}/hr`} />
-          : <Tile icon={<FileText className="h-5 w-5" />} label="Invoices received" value={String(invLive.length)} sub={invLive.length ? `${money(invTotal)} billed` : "none yet"} />}
+          : <Tile icon={<FileText className="h-5 w-5" />} label="Invoices received" value={String(invLive.length)} sub={invLive.length ? "invoices received" : "none yet"} />}
       </div>
 
       <div className="flex flex-wrap items-start gap-x-8 gap-y-3 px-1">
@@ -375,12 +376,12 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
           </div>
         </div>
         ) : (
-        <div className="pm-card flex flex-col p-6 lg:col-span-2">
+        <div className="pm-card p-6 lg:col-span-2">
           <div>
             <h2 className="text-lg font-semibold">Quick actions</h2>
             <p className="mt-1 text-xs text-[#5e5e5e]">Jump straight to what you need</p>
           </div>
-          <div className="mt-5 grid flex-1 content-start gap-3 sm:grid-cols-3">
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <button type="button" onClick={onQuickAdd} className="flex flex-col items-start gap-2 rounded-2xl bg-[var(--pm-navy)] px-4 py-5 text-left text-white transition-transform hover:-translate-y-0.5">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10"><Plus className="h-4 w-4" /></span>
               <span className="text-sm font-semibold">Add new task</span>
@@ -514,6 +515,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
 /* ---------------- monthly calendar ---------------- */
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const BOOK_CALL_URL = "https://calendar.google.com/calendar/u/0/r/eventedit?vcon=meet&dates=20261012T170000&hl=en&add=natalie@nine3designs.co.uk&text=Free%20discovery%20call%20with%20Nine3%20Designs&details=Free%2015-minute%20video%20call%20to%20discuss%20your%20project.%20Booked%20via%20nine3designs.co.uk";
 
 function MonthCal({ avail, large }: { avail: Any; large?: boolean }) {
   const [off, setOff] = useState(0);
@@ -549,7 +551,10 @@ function MonthCal({ avail, large }: { avail: Any; large?: boolean }) {
           const today = d === now.getDate() && m === now.getMonth() && y === now.getFullYear();
           const isAvail = availSet.has(`${y}-${m}-${d}`);
           return (
-            <span key={d} className={`mx-auto flex items-center justify-center rounded-full ${large ? "h-9 w-9 text-sm" : "h-7 w-7 text-xs"} ${today ? "bg-[var(--pm-orange)] font-semibold text-[#3d2400]" : isAvail ? "bg-[rgba(245,154,43,.16)] font-semibold text-[#a35803]" : "text-[#5e5e5e]"}`}>{d}</span>
+            <span key={d} className="flex flex-col items-center">
+              <span className={`flex items-center justify-center rounded-full ${large ? "h-9 w-9 text-sm" : "h-7 w-7 text-xs"} ${today ? "bg-[var(--pm-orange)] font-semibold text-[#3d2400]" : isAvail ? "bg-[rgba(245,154,43,.14)] font-semibold text-[#a35803]" : "text-[#5e5e5e]"}`}>{d}</span>
+              <span className="pm-dot mt-0.5" style={{ width: ".4rem", height: ".4rem", background: isAvail ? "#f59a2b" : "transparent" }} />
+            </span>
           );
         })())}
       </div>
@@ -570,6 +575,9 @@ function MonthCalCard({ avail }: { avail: Any }) {
       <div className="mt-3 flex-1">
         <MonthCal avail={avail} />
       </div>
+      <a href={BOOK_CALL_URL} target="_blank" rel="noreferrer" className="pm-btn-orange mt-4 inline-flex h-10 items-center justify-center gap-2 px-5 text-sm no-underline">
+        <CalendarDays className="h-4 w-4" /> Book a call with Natalie
+      </a>
     </div>
   );
 }
@@ -588,7 +596,57 @@ function CalendarTab({ avail }: { avail: Any }) {
         <div className="mx-auto mt-6 max-w-xl">
           <MonthCal avail={avail} large />
         </div>
+        <div className="mt-6 text-center">
+          <a href={BOOK_CALL_URL} target="_blank" rel="noreferrer" className="pm-btn-orange inline-flex h-11 items-center justify-center gap-2 px-6 text-sm no-underline">
+            <CalendarDays className="h-4 w-4" /> Book a free discovery call with Natalie
+          </a>
+        </div>
       </div>
+    </div>
+  );
+}
+
+/* ---------------- notes (Sara's brain dump) ---------------- */
+
+function NotesTab({ act, notes }: { act: Act; notes: Any[] }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  return (
+    <div className="space-y-4">
+      <div className="pm-card p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Notes</h2>
+            <p className="mt-1 text-xs text-[#5e5e5e]">Your brain dump · ideas, reminders, anything</p>
+          </div>
+          <span className="pm-circle orange"><Pencil className="h-4 w-4" /></span>
+        </div>
+        <form className="mt-4" onSubmit={async (e) => { e.preventDefault(); if (!text.trim() || busy) return; setBusy(true); const r = await act({ type: "noteAdd", text: text.trim() }, "Note saved"); if (r) setText(""); setBusy(false); }}>
+          <Textarea autoFocus placeholder="Dump a thought..." value={text} onChange={(e) => setText(e.target.value)} rows={3} className="text-sm" />
+          <div className="mt-2.5 flex justify-end">
+            <Button type="submit" className="pm-btn-orange h-9 px-5" disabled={busy}>Save note</Button>
+          </div>
+        </form>
+      </div>
+      {notes.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-[#d5dade] px-4 py-10 text-center text-sm text-[#5e5e5e]">Nothing jotted yet · your notes will collect here.</div>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {notes.map((n: Any) => (
+            <div key={n.id} className="pm-card p-4">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">{n.text}</p>
+              <div className="mt-3 flex items-center justify-between border-t border-[#e6e8ea] pt-2.5">
+                <span className="text-[11px] text-[#9aa0a6]">{fmtDate(n.at)}</span>
+                <IconBtn label="Delete note" danger={confirmDel === n.id} onClick={() => {
+                  if (confirmDel === n.id) { act({ type: "noteDelete", id: n.id }, "Note deleted"); setConfirmDel(null); }
+                  else { setConfirmDel(n.id); setTimeout(() => setConfirmDel((k) => (k === n.id ? null : k)), 2600); }
+                }}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

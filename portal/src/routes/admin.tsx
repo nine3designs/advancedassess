@@ -725,7 +725,7 @@ const ADMIN_STYLES = `
 .pm .pm-navbar { max-width: 62rem; gap: .5rem; padding: .35rem; }
 .pm .pm-brand { padding: 0 1.15rem; }
 .pm .pm-tabs { gap: .2rem; }
-.pm .pm-tab { padding: .62rem 1.2rem; }
+.pm .pm-tab { padding: .68rem 1.35rem; font-size: .95rem; }
 .pm .pm-btn-light { background: #fff !important; color: var(--pm-ink) !important; border: 1px solid var(--pm-line) !important; border-radius: 999px !important; font-weight: 500 !important; font-size: .875rem !important; transition: background .15s ease, transform .15s ease, box-shadow .15s ease !important; }
 .pm .pm-btn-light:hover { border-color: var(--pm-navy) !important; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(13,28,52,.12); }
 .pm .pm-navwrap { background: transparent; }

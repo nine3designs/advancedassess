@@ -106,6 +106,8 @@ type Action =
   | { type: "cardEdit"; id: string; title?: string; notes?: string; status?: string; actor?: string }
   | { type: "cardOrder"; status: string; ids: string[] }
   | { type: "cardDelete"; id: string }
+  | { type: "noteAdd"; text: string }
+  | { type: "noteDelete"; id: string }
   | { type: "timeStart"; note?: string; cardId?: string }
   | { type: "timeStop"; id: string }
   | { type: "timeAdd"; date: string; minutes: number; note?: string; cardId?: string; actor?: string }
@@ -435,6 +437,25 @@ export const portalAction = createServerFn({ method: "POST" })
       const { error } = await admin.from("clients").update({ portal_prefs: prefs }).eq("id", cid);
       if (error) throw new Error("Could not save availability · please try again.");
       await admin.from("activity_log").insert({ client_id: cid, actor: "Natalie", message: `shared availability for w/c ${a.week}` });
+      return { ok: true };
+    }
+    if (a.type === "noteAdd") {
+      const text = String(a.text ?? "").trim();
+      if (!text) throw new Error("Write something first.");
+      const { data: cur } = await admin.from("clients").select("portal_prefs").eq("id", cid).maybeSingle();
+      const prefs = (cur?.portal_prefs ?? {}) as Any;
+      const list = Array.isArray(prefs.sara_notes) ? prefs.sara_notes : [];
+      const item = { id: crypto.randomUUID(), text: text.slice(0, 2000), at: now() };
+      const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, sara_notes: [item, ...list].slice(0, 200) } }).eq("id", cid);
+      if (error) throw new Error("Notes aren't ready yet · please check back soon.");
+      return { ok: true };
+    }
+    if (a.type === "noteDelete") {
+      const { data: cur } = await admin.from("clients").select("portal_prefs").eq("id", cid).maybeSingle();
+      const prefs = (cur?.portal_prefs ?? {}) as Any;
+      const list = (Array.isArray(prefs.sara_notes) ? prefs.sara_notes : []).filter((n: Any) => n?.id !== a.id);
+      const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, sara_notes: list } }).eq("id", cid);
+      if (error) throw new Error("Could not delete that note · please try again.");
       return { ok: true };
     }
     throw new Error("Unknown action");
