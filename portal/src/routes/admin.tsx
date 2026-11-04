@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { StatusBadge } from "@/components/common";
 import { supabase } from "@/integrations/supabase/client";
 import { portalAction, getPortal } from "@/lib/portal.functions";
-import { Dashboard, Board, InvoiceSheet } from "@/components/portal/PMPortal";
+import { Dashboard, Board, InvoiceSheet, MileageTab } from "@/components/portal/PMPortal";
 import { InvoiceDocument } from "@/components/portal/InvoiceDocument";
 import { effectiveStatus, fmtDate, invoiceTotals, money, type LineItem } from "@/lib/format";
 import { fmtMinsLabel, londonDayKey } from "@/lib/admin-utils";
@@ -96,7 +96,7 @@ function AdminPage() {
 }
 
 function AdminShell({ act, data, onSignOut }: Any) {
-  const [tab, setTab] = useState<"dashboard" | "board" | "time" | "finance" | "availability">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "board" | "time" | "finance" | "mileage" | "availability">("dashboard");
   const entries: Any[] = data.time ?? [];
   const cards: Any[] = data.board ?? [];
   const running = entries.find((e: Any) => !e.ended_at);
@@ -139,6 +139,7 @@ function AdminShell({ act, data, onSignOut }: Any) {
     { v: "board", l: "To-Do Board" },
     { v: "time", l: "Time Tracking" },
     { v: "finance", l: "Finance" },
+    { v: "mileage", l: "Mileage" },
     { v: "availability", l: "Availability" },
   ];
   return (
@@ -167,10 +168,11 @@ function AdminShell({ act, data, onSignOut }: Any) {
             <button type="button" onClick={onSignOut} className="pm-linkbtn">Sign out</button>
           </div>
         </header>
-        {tab === "dashboard" && <Dashboard p={data} stats={stats} weeks={weeks} maxWeek={maxWeek} rate={rate} unbilledMins={unbilledMins} running={running} viewer="Natalie" go={(t: string) => setTab((t === "board" ? "board" : "time") as Any)} act={act} />}
+        {tab === "dashboard" && <Dashboard p={data} stats={stats} weeks={weeks} maxWeek={maxWeek} rate={rate} unbilledMins={unbilledMins} running={running} viewer="Natalie" go={setTab as Any} act={act} />}
         {tab === "board" && <Board p={data} viewer="Natalie" act={act} go={(t: string) => setTab((t === "board" ? "board" : "time") as Any)} />}
         {tab === "time" && <AdminTime act={act} entries={entries} running={running} cards={cards} unbilledMins={unbilledMins} rate={rate} />}
         {tab === "finance" && <Finance act={act} invoices={invoices} entries={doneEntries} unbilledMins={unbilledMins} rate={rate} client={data.client} />}
+        {tab === "mileage" && <MileageTab act={act} entries={((data.client?.portal_prefs?.mileage ?? []) as Any[])} />}
         {tab === "availability" && <Availability act={act} />}
       </main>
       <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Projects Portal - Crafted by <a href="https://nine3designs.co.uk" target="_blank" rel="noreferrer">Nine3 Designs</a></footer>

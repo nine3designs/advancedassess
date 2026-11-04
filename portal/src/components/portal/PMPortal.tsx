@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileText, Menu, Pencil, Play, Plus, Square, Trash2, Printer, X } from "lucide-react";
+import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Car, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileText, Menu, Pencil, Play, Plus, Square, Trash2, Printer, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -151,6 +151,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     { v: "dashboard", l: "Dashboard" },
     { v: "board", l: "To-Do Board" },
     { v: "cal", l: "Calendar" },
+    { v: "mileage", l: "Mileage" },
     { v: "notes", l: "Notes" },
   ];
 
@@ -200,6 +201,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
         {tab === "board" && <Board p={p} viewer={viewer} act={act} go={setTab} autoAdd={boardAdd} onAutoAddDone={() => setBoardAdd(false)} />}
         {tab === "time" && viewer === "Natalie" && <TimeTab entries={entries} running={running} unbilledMins={unbilledMins} rate={rate} viewer={viewer} act={act} cards={cards} invoices={p.invoices} files={p.deliverables ?? []} client={p.client} />}
         {tab === "cal" && viewer !== "Natalie" && <CalendarTab avail={(p.client?.portal_prefs?.availability ?? null) as Any} />}
+        {tab === "mileage" && <MileageTab act={act} entries={((p.client?.portal_prefs?.mileage ?? []) as Any[])} />}
         {tab === "notes" && viewer !== "Natalie" && <NotesTab act={act} notes={((p.client?.portal_prefs?.sara_notes ?? []) as Any[])} />}
       </main>
 
@@ -441,7 +443,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
 
       <div className="grid gap-5 lg:grid-cols-3">
         {isNat ? (
-        <div className="pm-card p-6 lg:col-span-2">
+        <div className="pm-card p-6">
           <div className="flex items-start justify-between">
             <div>
               <h2 className="text-lg font-semibold">Progress</h2>
@@ -516,6 +518,8 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
         ) : (
         boardCard
         )}
+
+        {isNat ? <MonthCalCard avail={(p.client?.portal_prefs?.availability ?? null) as Any} booked={((p.client?.portal_prefs?.booked ?? []) as Any[])} cta={false} onCircle={() => go("availability")} /> : null}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -554,7 +558,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const BOOK_CALL_URL = "https://calendar.google.com/calendar/u/0/r/eventedit?vcon=meet&dates=20261012T170000&hl=en&add=natalie@nine3designs.co.uk&text=Free%20discovery%20call%20with%20Nine3%20Designs&details=Free%2015-minute%20video%20call%20to%20discuss%20your%20project.%20Booked%20via%20nine3designs.co.uk";
 
-function MonthCal({ avail, large }: { avail: Any; large?: boolean }) {
+function MonthCal({ avail, large, booked }: { avail: Any; large?: boolean; booked?: Any[] }) {
   const [off, setOff] = useState(0);
   const base = new Date();
   base.setDate(1);
@@ -572,6 +576,8 @@ function MonthCal({ avail, large }: { avail: Any; large?: boolean }) {
       if (idx >= 0) { const dt = new Date(ws); dt.setDate(ws.getDate() + idx); availSet.add(`${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`); }
     }
   }
+  const bookedSet = new Set<string>();
+  for (const b of booked ?? []) if (b?.date) bookedSet.add(String(b.date).slice(0, 10));
   const cells: (number | null)[] = [...Array(firstDow).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
   return (
     <div>
@@ -587,34 +593,40 @@ function MonthCal({ avail, large }: { avail: Any; large?: boolean }) {
         {cells.map((d, i) => d === null ? <span key={`b${i}`} /> : (() => {
           const today = d === now.getDate() && m === now.getMonth() && y === now.getFullYear();
           const isAvail = availSet.has(`${y}-${m}-${d}`);
+          const isBooked = bookedSet.has(`${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
           return (
             <span key={d} className="flex flex-col items-center">
-              <span className={`flex items-center justify-center rounded-full ${large ? "h-9 w-9 text-sm" : "h-7 w-7 text-xs"} ${today ? "bg-[var(--pm-orange)] font-semibold text-[#3d2400]" : isAvail ? "bg-[rgba(245,154,43,.14)] font-semibold text-[#a35803]" : "text-[#5e5e5e]"}`}>{d}</span>
-              <span className="pm-dot mt-0.5" style={{ width: ".4rem", height: ".4rem", background: isAvail ? "#f59a2b" : "transparent" }} />
+              <span title={isBooked ? "Booked call" : undefined} className={`flex items-center justify-center rounded-full ${large ? "h-9 w-9 text-sm" : "h-7 w-7 text-xs"} ${today ? "bg-[var(--pm-orange)] font-semibold text-[#3d2400]" : isAvail || isBooked ? "bg-[rgba(245,154,43,.14)] font-semibold text-[#a35803]" : "text-[#5e5e5e]"}`}>{d}</span>
+              <span className="pm-dot mt-0.5" style={{ width: ".4rem", height: ".4rem", background: isAvail || isBooked ? "#f59a2b" : "transparent" }} />
             </span>
           );
         })())}
       </div>
-      {availSet.size > 0 ? (
-        <p className="mt-3 flex items-center gap-1.5 text-[11px] text-[#5e5e5e]"><span className="pm-dot" style={{ background: "#f59a2b" }} /> Days Natalie is available</p>
+      {(availSet.size > 0 || bookedSet.size > 0) ? (
+        <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#5e5e5e]">
+          {availSet.size > 0 ? <span className="flex items-center gap-1.5"><span className="pm-dot" style={{ background: "#f59a2b" }} /> Days Natalie is available</span> : null}
+          {bookedSet.size > 0 ? <span className="flex items-center gap-1.5"><span className="pm-dot" style={{ background: "#f59a2b" }} /> Booked calls</span> : null}
+        </p>
       ) : null}
     </div>
   );
 }
 
-function MonthCalCard({ avail }: { avail: Any }) {
+function MonthCalCard({ avail, booked, cta = true, onCircle }: { avail: Any; booked?: Any[]; cta?: boolean; onCircle?: () => void }) {
   return (
     <div className="pm-card flex flex-col p-6">
       <div className="flex w-full items-center justify-between">
         <h2 className="text-lg font-semibold">This month</h2>
-        <span className="pm-circle"><CalendarDays className="h-4 w-4" /></span>
+        <button type="button" aria-label="Availability settings" onClick={onCircle} style={onCircle ? { cursor: "pointer" } : undefined}><span className="pm-circle"><CalendarDays className="h-4 w-4" /></span></button>
       </div>
       <div className="mt-3 flex-1">
         <MonthCal avail={avail} />
       </div>
-      <a href={BOOK_CALL_URL} target="_blank" rel="noreferrer" className="pm-btn-orange mt-4 inline-flex h-10 items-center justify-center gap-2 px-5 text-sm no-underline">
-        <CalendarDays className="h-4 w-4" /> Book a call with Natalie
-      </a>
+      {cta ? (
+        <a href={BOOK_CALL_URL} target="_blank" rel="noreferrer" className="pm-btn-orange mt-4 inline-flex h-10 items-center justify-center gap-2 px-5 text-sm no-underline">
+          <CalendarDays className="h-4 w-4" /> Book a call with Natalie
+        </a>
+      ) : null}
     </div>
   );
 }
@@ -689,6 +701,119 @@ function NotesTab({ act, notes }: { act: Act; notes: Any[] }) {
 }
 
 /* ---------------- board ---------------- */
+
+const MILEAGE_CAP = 10000;
+const MILEAGE_RATE = 0.55;
+
+export function MileageTab({ act, entries }: { act: Act; entries: Any[] }) {
+  const list = (entries ?? []) as Any[];
+  const [driver, setDriver] = useState("Sara");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [desc, setDesc] = useState("");
+  const [miles, setMiles] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const total = (name: string) => Math.round(list.filter((e) => e.driver === name).reduce((s, e) => s + Number(e.miles || 0), 0) * 10) / 10;
+  const claim = (m: number) => Math.min(m, MILEAGE_CAP) * MILEAGE_RATE;
+  const money = (n: number) => `£${n.toFixed(2)}`;
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        {["Sara", "Kieron"].map((name) => {
+          const t = total(name);
+          const left = Math.max(0, MILEAGE_CAP - t);
+          const over = Math.max(0, t - MILEAGE_CAP);
+          return (
+            <div key={name} className="pm-card p-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">{name}</h2>
+                <span className="pm-circle orange"><Car className="h-4 w-4" /></span>
+              </div>
+              <p className="mt-3 text-3xl font-semibold tracking-tight">{money(claim(t))} <span className="text-lg font-medium text-[#5e5e5e]">claimed</span></p>
+              <p className="mt-1 text-xs text-[#5e5e5e]">{t.toLocaleString()} of {MILEAGE_CAP.toLocaleString()} miles at 55p</p>
+              <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-[#e7eaee]">
+                <div className="h-full rounded-full" style={{ width: `${Math.min(100, (t / MILEAGE_CAP) * 100)}%`, background: "var(--pm-orange)" }} />
+              </div>
+              {over > 0
+                ? <p className="mt-2 text-xs font-medium text-[var(--pm-orange-deep)]">{over.toLocaleString()} miles over allowance · rate to confirm with Natalie</p>
+                : <p className="mt-2 text-xs text-[#5e5e5e]">{left.toLocaleString()} miles left at 55p</p>}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="pm-card p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Log a journey</h2>
+            <p className="mt-1 text-xs text-[#5e5e5e]">Add it once · totals update for both of you</p>
+          </div>
+          <span className="pm-circle orange"><Car className="h-4 w-4" /></span>
+        </div>
+        <form className="mt-4 grid gap-3 sm:grid-cols-12" onSubmit={async (e) => {
+          e.preventDefault();
+          if (busy) return;
+          if (!miles || !(Number(miles) > 0)) { toast.error("How many miles was the journey?"); return; }
+          setBusy(true);
+          const r = await act({ type: "mileageAdd", driver, date, description: desc.trim(), miles: Number(miles) }, "Journey logged");
+          if (r) { setDesc(""); setMiles(""); }
+          setBusy(false);
+        }}>
+          <div className="sm:col-span-3">
+            <Label className="text-xs font-medium">Who drove</Label>
+            <div className="mt-1.5 grid grid-cols-2 gap-1.5 rounded-xl bg-[#eef0f2] p-1">
+              {["Sara", "Kieron"].map((n) => (
+                <button key={n} type="button" onClick={() => setDriver(n)} className={`h-9 rounded-lg text-sm font-semibold transition-colors ${driver === n ? "bg-[var(--pm-navy)] text-white" : "text-[#5e5e5e] hover:text-[#1f2630]"}`}>{n}</button>
+              ))}
+            </div>
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="text-xs font-medium">Date</Label>
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1.5 h-9 text-sm" />
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="text-xs font-medium">Miles</Label>
+            <Input type="number" min="0.1" step="0.1" placeholder="e.g. 42" value={miles} onChange={(e) => setMiles(e.target.value)} className="mt-1.5 h-9 text-sm" />
+          </div>
+          <div className="sm:col-span-4">
+            <Label className="text-xs font-medium">Journey</Label>
+            <Input placeholder="Where to and why" value={desc} onChange={(e) => setDesc(e.target.value)} className="mt-1.5 h-9 text-sm" />
+          </div>
+          <div className="flex items-end sm:col-span-1">
+            <Button type="submit" className="pm-btn-orange h-9 w-full px-3" disabled={busy}><Plus className="h-4 w-4" /></Button>
+          </div>
+        </form>
+      </div>
+
+      {list.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-[#d5dade] px-4 py-10 text-center text-sm text-[#5e5e5e]">No journeys logged yet · they'll collect here.</div>
+      ) : (
+        <div className="pm-card overflow-hidden">
+          <div className="flex items-center justify-between px-6 pb-1 pt-5">
+            <h2 className="text-lg font-semibold">Journeys</h2>
+            <p className="text-xs text-[#5e5e5e]">{list.length} {list.length === 1 ? "entry" : "entries"}</p>
+          </div>
+          <ul className="divide-y divide-[#e6e8ea] px-3 pb-3">
+            {list.map((e) => (
+              <li key={e.id} className="flex items-center gap-3 px-3 py-2.5">
+                <span className={`flex-none rounded-full px-2.5 py-1 text-[11px] font-semibold ${e.driver === "Kieron" ? "bg-[#e7eaee] text-[#1f2630]" : "bg-[rgba(245,154,43,.14)] text-[#a35803]"}`}>{e.driver}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{e.description || "Journey"}</p>
+                  <p className="text-[11px] text-[#9aa0a6]">{fmtDate(e.date || e.at)}</p>
+                </div>
+                <span className="flex-none text-sm font-semibold">{e.miles} <span className="text-[11px] font-medium text-[#5e5e5e]">mi</span></span>
+                <IconBtn label="Delete entry" danger={confirmDel === e.id} onClick={() => {
+                  if (confirmDel === e.id) { act({ type: "mileageDelete", id: e.id }, "Entry deleted"); setConfirmDel(null); }
+                  else { setConfirmDel(e.id); setTimeout(() => setConfirmDel((k) => (k === e.id ? null : k)), 2600); }
+                }}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; viewer: string; act: Act; go: Any; autoAdd?: boolean; onAutoAddDone?: () => void }) {
   const cards: Any[] = p.board ?? [];

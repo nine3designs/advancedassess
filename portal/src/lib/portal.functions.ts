@@ -108,6 +108,8 @@ type Action =
   | { type: "cardDelete"; id: string }
   | { type: "noteAdd"; text: string }
   | { type: "noteDelete"; id: string }
+  | { type: "mileageAdd"; driver: string; date: string; description: string; miles: number }
+  | { type: "mileageDelete"; id: string }
   | { type: "timeStart"; note?: string; cardId?: string }
   | { type: "timeStop"; id: string }
   | { type: "timeAdd"; date: string; minutes: number; note?: string; cardId?: string; actor?: string }
@@ -456,6 +458,26 @@ export const portalAction = createServerFn({ method: "POST" })
       const list = (Array.isArray(prefs.sara_notes) ? prefs.sara_notes : []).filter((n: Any) => n?.id !== a.id);
       const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, sara_notes: list } }).eq("id", cid);
       if (error) throw new Error("Could not delete that note · please try again.");
+      return { ok: true };
+    }
+    if (a.type === "mileageAdd") {
+      const miles = Math.round(Number(a.miles) * 10) / 10;
+      if (!miles || miles <= 0) throw new Error("Enter the miles for that journey.");
+      const { data: cur } = await admin.from("clients").select("portal_prefs").eq("id", cid).maybeSingle();
+      const prefs = (cur?.portal_prefs ?? {}) as Any;
+      const list = Array.isArray(prefs.mileage) ? prefs.mileage : [];
+      const item = { id: crypto.randomUUID(), driver: a.driver === "Kieron" ? "Kieron" : "Sara", date: String(a.date ?? "").slice(0, 10), description: String(a.description ?? "").slice(0, 300), miles, at: now() };
+      const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, mileage: [item, ...list].slice(0, 500) } }).eq("id", cid);
+      if (error) throw new Error("Mileage isn't ready yet · please check back soon.");
+      log(`logged mileage · ${item.miles} miles (${item.driver})`);
+      return { ok: true };
+    }
+    if (a.type === "mileageDelete") {
+      const { data: cur } = await admin.from("clients").select("portal_prefs").eq("id", cid).maybeSingle();
+      const prefs = (cur?.portal_prefs ?? {}) as Any;
+      const list = (Array.isArray(prefs.mileage) ? prefs.mileage : []).filter((n: Any) => n?.id !== a.id);
+      const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, mileage: list } }).eq("id", cid);
+      if (error) throw new Error("Could not delete that entry · please try again.");
       return { ok: true };
     }
     throw new Error("Unknown action");
