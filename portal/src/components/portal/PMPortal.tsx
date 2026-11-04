@@ -620,7 +620,7 @@ function MonthCalCard({ avail, booked, cta = true, onCircle }: { avail: Any; boo
         <button type="button" aria-label="Availability settings" onClick={onCircle} style={onCircle ? { cursor: "pointer" } : undefined}><span className="pm-circle"><CalendarDays className="h-4 w-4" /></span></button>
       </div>
       <div className="mt-3 flex-1">
-        <MonthCal avail={avail} />
+        <MonthCal avail={avail} booked={booked} />
       </div>
       {cta ? (
         <a href={BOOK_CALL_URL} target="_blank" rel="noreferrer" className="pm-btn-orange mt-4 inline-flex h-10 items-center justify-center gap-2 px-5 text-sm no-underline">
