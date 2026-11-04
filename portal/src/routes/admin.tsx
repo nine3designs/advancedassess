@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Wordmark } from "@/components/portal/Wordmark";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/common";
@@ -105,7 +106,7 @@ function AdminShell({ act, entries, running, cards, invoices, onSignOut }: Any) 
       <div className="pm-navwrap">
         <nav className="pm-navbar" aria-label="Workspace sections">
           <span className="pm-brand">
-            <img src="/branding/sara-logo.png" alt="Advanced Assessment & Solutions" />
+            <Wordmark variant="inline" />
           </span>
           <div className="pm-tabs">
             {tabs.map((t) => (

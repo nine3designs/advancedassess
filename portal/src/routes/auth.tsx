@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Wordmark } from "@/components/portal/Wordmark";
 import { supabase } from "@/integrations/supabase/client";
 
 
@@ -90,8 +91,8 @@ function AuthPage() {
   return (
     <div className="grid min-h-screen md:grid-cols-2">
       <div className="relative hidden flex-col justify-between overflow-hidden bg-primary-deep p-12 md:flex">
-        <span aria-hidden="true" className="pointer-events-none absolute select-none font-serif text-[#f59a2b]" style={{ fontSize: "34rem", lineHeight: 1, opacity: 0.07, right: "-3rem", bottom: "-6rem" }}>&amp;</span>
-        <img src="/branding/sara-logo.png" alt="Advanced Assessment & Solutions" className="h-14 w-auto max-w-[420px] self-start md:h-16" />
+        <span aria-hidden="true" className="pointer-events-none absolute select-none text-[#f59a2b]" style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: "34rem", lineHeight: 1, opacity: 0.07, right: "-3rem", bottom: "-6rem" }}>&amp;</span>
+        <Wordmark variant="stack" />
         <p className="text-3xl font-semibold uppercase tracking-wide text-[#f59a2b]">Client portal</p>
       </div>
       <div className="flex items-center justify-center p-8">
