@@ -160,7 +160,7 @@ function AdminShell({ act, data, onSignOut }: Any) {
         <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-[1.65rem] font-semibold tracking-tight md:text-4xl">HQ Projects Portal</h1>
-            <p className="mt-1 text-sm text-[#5e5e5e]">Hi, Natalie</p>
+            <p className="mt-1 text-[1.65rem] font-semibold tracking-tight text-[var(--pm-orange)] md:text-4xl">Welcome back, Natalie</p>
           </div>
           <div className="flex items-center gap-2">
             <a href="/portal/SaraDawson" className="pm-linkbtn">View Sara's portal</a>
