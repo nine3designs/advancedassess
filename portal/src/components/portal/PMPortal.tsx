@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileText, Pencil, Play, Plus, Square, Trash2, Printer } from "lucide-react";
+import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileText, Menu, Pencil, Play, Plus, Square, Trash2, Printer, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,6 +94,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     return t === "board" || t === "time" || t === "cal" || t === "notes" ? t : "dashboard";
   });
   const [boardAdd, setBoardAdd] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const entries: Any[] = p.time ?? [];
   const cards: Any[] = p.board ?? [];
@@ -165,14 +166,24 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
           <span className="pm-brand">
             {badge ? <img src={badge} alt="Advanced Assessment & Solutions" /> : <span className="pm-brand-fallback">AAS</span>}
           </span>
-          <div className="pm-tabs">
+          <div className="pm-tabs pm-tabs-sara">
             {tabs.map((t) => (
               <button key={t.v} type="button" onClick={() => { setTab(t.v as Any); window.scrollTo({ top: 0, behavior: "smooth" }); }} className={`pm-tab ${t.v === tab ? "active" : ""}`}>
                 {t.l}
               </button>
             ))}
           </div>
+          <button type="button" className="pm-burger" aria-label="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
+            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </nav>
+        <div className={`pm-menu ${menuOpen ? "open" : ""}`}>
+          {tabs.map((t) => (
+            <button key={t.v} type="button" className={t.v === tab ? "active" : ""} onClick={() => { setMenuOpen(false); setTab(t.v as Any); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+              {t.l}
+            </button>
+          ))}
+        </div>
       </div>
 
       <main className="pm-main">
@@ -207,7 +218,7 @@ const PM_STYLES = `
 .pm .pm-navbar { display: flex; align-items: center; justify-content: center; gap: .5rem; background: rgba(13,28,52,.72); backdrop-filter: blur(14px) saturate(1.25); -webkit-backdrop-filter: blur(14px) saturate(1.25); border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: .35rem; max-width: 62rem; margin: 0 auto; box-shadow: 0 14px 36px rgba(13,28,52,.28); overflow-x: auto; scrollbar-width: none; }
 .pm .pm-navbar::-webkit-scrollbar { display: none; }
 .pm .pm-brand { flex: none; display: inline-flex; align-items: center; background: #0d1c34; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; height: 2.55rem; padding: 0 1.15rem; }
-.pm .pm-brand img { height: 1.05rem; width: auto; max-width: 170px; }
+.pm .pm-brand img { height: 1.35rem; width: auto; max-width: 200px; }
 .pm .pm-brand-fallback { color: #fff; font-size: .8rem; font-weight: 600; letter-spacing: .08em; }
 .pm .pm-tabs { display: flex; gap: .2rem; min-width: max-content; }
 .pm .pm-tab { border-radius: 999px; padding: .68rem 1.35rem; font-size: .95rem; font-weight: 500; color: rgba(255,255,255,.72); white-space: nowrap; transition: color .15s ease, background .15s ease; }
@@ -264,9 +275,23 @@ const PM_STYLES = `
 .pm .pm-task:hover { background: #e6e9ee; box-shadow: 0 4px 14px rgba(13,28,52,.08); }
 .pm .pm-row { background: var(--pm-soft); border-radius: 1.1rem; transition: background .15s ease; }
 .pm .pm-row:hover { background: #e6e9ee; }
+.pm .pm-tile-dark { background: var(--pm-navy) !important; box-shadow: 0 16px 40px rgba(13,28,52,.28); }
+.pm .pm-tile-icon.ondark { background: rgba(245,154,43,.22); color: var(--pm-orange); }
+.pm .pm-burger { display: none; }
+.pm .pm-menu { display: none; }
+.pm .pm-menu.open { display: block; position: absolute; top: calc(100% + .4rem); left: .5rem; right: .5rem; z-index: 50; background: rgba(13,28,52,.97); border: 1px solid rgba(255,255,255,.14); border-radius: 1.25rem; box-shadow: 0 18px 44px rgba(13,28,52,.35); overflow: hidden; }
+.pm .pm-menu button { display: block; width: 100%; text-align: left; padding: .9rem 1.2rem; color: rgba(255,255,255,.85); font-size: .95rem; font-weight: 500; border-bottom: 1px solid rgba(255,255,255,.08); }
+.pm .pm-menu button:last-child { border-bottom: none; }
+.pm .pm-menu button.active { color: #fff; background: rgba(255,255,255,.06); box-shadow: inset 3px 0 0 var(--pm-orange); }
 @media (max-width: 640px) {
   .pm .pm-main { padding-top: 1.1rem; }
   .pm .pm-card { border-radius: 1.3rem; }
+  .pm .pm-tabs-sara { display: none; }
+  .pm .pm-burger { display: inline-flex; align-items: center; justify-content: center; width: 2.55rem; height: 2.55rem; border-radius: 999px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); color: #fff; flex: none; }
+  .pm .pm-navbar { max-width: calc(100% - 1.5rem); justify-content: space-between; gap: .4rem; }
+  .pm .pm-brand { padding: 0 .9rem; height: 2.55rem; }
+  .pm .pm-brand img { height: 1.15rem; max-width: 140px; }
+  .pm .pm-navwrap { padding-top: .7rem; }
 }
 `;
 
@@ -287,15 +312,16 @@ function Ring({ frac, children }: { frac: number; children?: Any }) {
   );
 }
 
-function Tile({ icon, label, value, sub, tone, onClick }: { icon: Any; label: string; value: string; sub: string; tone?: "navy"; onClick?: () => void }) {
+function Tile({ icon, label, value, sub, tone, onClick }: { icon: Any; label: string; value: string; sub: string; tone?: "navy" | "dark"; onClick?: () => void }) {
+  const dark = tone === "dark";
   return (
-    <div className={`pm-card p-4 md:p-5 ${onClick ? "cursor-pointer" : ""}`} onClick={onClick} role={onClick ? "button" : undefined}>
+    <div className={`pm-card p-4 md:p-5 ${dark ? "pm-tile-dark" : ""} ${onClick ? "cursor-pointer" : ""}`} onClick={onClick} role={onClick ? "button" : undefined}>
       <div className="flex items-center gap-3">
-        <span className={`pm-tile-icon ${tone === "navy" ? "navy" : ""}`}>{icon}</span>
-        <p className="text-sm font-medium text-[#1f2630]">{label}</p>
+        <span className={`pm-tile-icon ${dark ? "ondark" : tone === "navy" ? "navy" : ""}`}>{icon}</span>
+        <p className={`text-sm font-medium ${dark ? "text-white" : "text-[#1f2630]"}`}>{label}</p>
       </div>
-      <p className="mt-2.5 text-[1.6rem] font-semibold tracking-tight md:text-3xl">{value}</p>
-      <p className="mt-0.5 text-[11px] text-[#5e5e5e]">{sub}</p>
+      <p className={`mt-2.5 text-[1.6rem] font-semibold tracking-tight md:text-3xl ${dark ? "text-[var(--pm-orange)]" : ""}`}>{value}</p>
+      <p className={`mt-0.5 text-[11px] ${dark ? "text-white/60" : "text-[#5e5e5e]"}`}>{sub}</p>
     </div>
   );
 }
@@ -319,7 +345,11 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
   const open_ = cards.filter((c: Any) => c.status !== "done");
   const upNext = open_.sort((a: Any, b: Any) => a.position - b.position).slice(0, 4);
   const doneList = cards.filter((c: Any) => c.status === "done").sort((a: Any, b: Any) => String(b.updated_at).localeCompare(String(a.updated_at))).slice(0, 5);
-  const activity: Any[] = (p.activity ?? []).slice(0, 6);
+  const activity: Any[] = (p.activity ?? []).filter((a: Any) => {
+    if (viewer === "Natalie") return true;
+    const msg = String(a.message ?? "").toLowerCase();
+    return msg.includes("task") || msg.startsWith("moved");
+  }).slice(0, 6);
   const [busy, setBusy] = useState(false);
   const todoCount = cards.filter((c: Any) => c.status === "todo").length;
   const doingCount = cards.filter((c: Any) => c.status === "doing").length;
@@ -331,12 +361,70 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
   const myTasks: Any[] = (p.tasks ?? []).filter((t: Any) => t.status !== "done" && t.due_date).sort((a: Any, b: Any) => String(a.due_date).localeCompare(String(b.due_date))).slice(0, 6);
   const invLive: Any[] = (p.invoices ?? []).filter((i: Any) => i.status !== "draft");
 
+  const boardCard = (
+    <div className="pm-dark p-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">On the board</h2>
+        <span className="text-sm font-medium text-white/70">{stats.open} open</span>
+      </div>
+      {upNext.length === 0 ? <p className="mt-4 text-sm text-white/60">Nothing queued · add tasks on the board.</p> : (
+        <ul className="mt-4 space-y-3.5">
+          {upNext.map((c: Any, i: number) => {
+            const Ico = BOARD_ICONS[i % BOARD_ICONS.length];
+            return (
+              <li key={c.id} className="flex items-center gap-3">
+                <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-white/10"><Ico className="h-4 w-4 text-white" /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-white">{c.title}</p>
+                  <p className="text-[11px] text-white/50">{c.status === "doing" ? "In progress" : "To do"}</p>
+                </div>
+                <span className="pm-dot" style={{ background: c.status === "doing" ? "#f59a2b" : "rgba(255,255,255,.25)" }} />
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <button type="button" onClick={() => go("board")} className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-[#f59a2b] hover:underline">Open the board <ArrowUpRight className="h-3.5 w-3.5" /></button>
+    </div>
+  );
+  const recentCard = (
+    <div className="pm-card p-6">
+      <h2 className="text-lg font-semibold">Recently completed</h2>
+      {doneList.length === 0 ? <p className="mt-3 text-sm text-[#5e5e5e]">Finished tasks will collect here.</p> : (
+        <ul className="mt-4 space-y-3">
+          {doneList.map((c: Any) => (
+            <li key={c.id} className="flex items-center gap-2.5">
+              <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-[#f59a2b]"><Check className="h-3.5 w-3.5 text-[#3d2400]" /></span>
+              <p className="min-w-0 flex-1 truncate text-sm text-[#5e5e5e] line-through">{c.title}</p>
+              <span className="flex-none text-xs text-[#5e5e5e]">{fmtDate(c.updated_at)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+  const activityCard = (
+    <div className={`p-6 ${isNat ? "pm-card" : "pm-dark"}`}>
+      <h2 className="text-lg font-semibold">Latest activity</h2>
+      {activity.length === 0 ? <p className={`mt-3 text-sm ${isNat ? "text-[#5e5e5e]" : "text-white/60"}`}>Activity will show here as you work together.</p> : (
+        <ul className="mt-4 space-y-3">
+          {activity.map((a: Any) => (
+            <li key={a.id} className="flex items-baseline justify-between gap-3">
+              <p className="min-w-0 text-sm"><span className="font-medium">{a.actor === "client" ? "Sara" : a.actor}</span> <span className={isNat ? "text-[#5e5e5e]" : "text-white/60"}>{a.message}</span></p>
+              <span className={`flex-none text-xs ${isNat ? "text-[#5e5e5e]" : "text-white/50"}`}>{fmtDate(a.created_at)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Tile icon={<ClipboardList className="h-5 w-5" />} tone="navy" label="Open tasks" value={String(stats.open)} sub="on the board" onClick={() => go("board")} />
         {isNat ? <Tile icon={<Clock className="h-5 w-5" />} label="This week" value={fmtMins(stats.week)} sub="hours logged" />
-          : <Tile icon={<Play className="h-5 w-5" />} label="In progress" value={String(doingCount)} sub="tasks on the go" onClick={() => go("board")} />}
+          : <Tile icon={<Play className="h-5 w-5" />} tone="dark" label="In progress" value={String(doingCount)} sub="tasks on the go" onClick={() => go("board")} />}
         {isNat ? <Tile icon={<CalendarDays className="h-5 w-5" />} tone="navy" label="This month" value={fmtMins(stats.month)} sub="hours logged" />
           : <Tile icon={<Check className="h-5 w-5" />} tone="navy" label="Completed" value={String(doneCount)} sub="tasks finished" onClick={() => go("board")} />}
         {isNat
@@ -426,80 +514,28 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
           )}
         </div>
         ) : (
-        <MonthCalCard avail={avail} />
+        boardCard
         )}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
-        <div className="pm-dark p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">On the board</h2>
-            <span className="text-sm font-medium text-white/70">{stats.open} open</span>
-          </div>
-          {upNext.length === 0 ? <p className="mt-4 text-sm text-white/60">Nothing queued · add tasks on the board.</p> : (
-            <ul className="mt-4 space-y-3.5">
-              {upNext.map((c: Any, i: number) => {
-                const Ico = BOARD_ICONS[i % BOARD_ICONS.length];
-                return (
-                  <li key={c.id} className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-white/10"><Ico className="h-4 w-4 text-white" /></span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-white">{c.title}</p>
-                      <p className="text-[11px] text-white/50">{c.status === "doing" ? "In progress" : "To do"}</p>
-                    </div>
-                    <span className="pm-dot" style={{ background: c.status === "doing" ? "#f59a2b" : "rgba(255,255,255,.25)" }} />
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <button type="button" onClick={() => go("board")} className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-[#f59a2b] hover:underline">Open the board <ArrowUpRight className="h-3.5 w-3.5" /></button>
-        </div>
-
-        <div className="pm-card p-6">
-          <h2 className="text-lg font-semibold">Recently completed</h2>
-          {doneList.length === 0 ? <p className="mt-3 text-sm text-[#5e5e5e]">Finished tasks will collect here.</p> : (
-            <ul className="mt-4 space-y-3">
-              {doneList.map((c: Any) => (
-                <li key={c.id} className="flex items-center gap-2.5">
-                  <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-[#f59a2b]"><Check className="h-3.5 w-3.5 text-[#3d2400]" /></span>
-                  <p className="min-w-0 flex-1 truncate text-sm text-[#5e5e5e] line-through">{c.title}</p>
-                  <span className="flex-none text-xs text-[#5e5e5e]">{fmtDate(c.updated_at)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="pm-card p-6">
-          <h2 className="text-lg font-semibold">Latest activity</h2>
-          {activity.length === 0 ? <p className="mt-3 text-sm text-[#5e5e5e]">Activity will show here as you work together.</p> : (
-            <ul className="mt-4 space-y-3">
-              {activity.map((a: Any) => (
-                <li key={a.id} className="flex items-baseline justify-between gap-3">
-                  <p className="min-w-0 text-sm"><span className="font-medium">{a.actor === "client" ? "Sara" : a.actor}</span> <span className="text-[#5e5e5e]">{a.message}</span></p>
-                  <span className="flex-none text-xs text-[#5e5e5e]">{fmtDate(a.created_at)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-
+        {isNat ? boardCard : <MonthCalCard avail={avail} />}
+        {recentCard}
+        {activityCard}
       {!isNat && (
-        <div className="pm-card p-6">
+        <div className="pm-dark p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Tasks due</h2>
             <button type="button" aria-label="Open the board" onClick={() => go("board")} className="pm-circle"><ClipboardList className="h-4 w-4" /></button>
           </div>
-          {myTasks.length === 0 ? <p className="mt-3 text-sm text-[#5e5e5e]">No dated tasks right now.</p> : (
+          {myTasks.length === 0 ? <p className="mt-3 text-sm text-white/60">No dated tasks right now.</p> : (
             <ul className="mt-4 grid gap-2.5 md:grid-cols-2">
               {myTasks.map((t: Any) => (
                 <li key={t.id} className="pm-row flex items-center gap-3 px-3 py-2.5">
                   <span className="pm-dot" style={{ background: "#f59a2b" }} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{t.title}</p>
-                    {t.notes ? <p className="truncate text-xs text-[#5e5e5e]">{t.notes}</p> : null}
+                    {t.notes ? <p className="truncate text-xs text-white/60">{t.notes}</p> : null}
                   </div>
                   <span className="pm-chip line">Due {fmtDate(t.due_date)}</span>
                 </li>
@@ -598,7 +634,7 @@ function CalendarTab({ avail }: { avail: Any }) {
         </div>
         <div className="mt-6 text-center">
           <a href={BOOK_CALL_URL} target="_blank" rel="noreferrer" className="pm-btn-orange inline-flex h-11 items-center justify-center gap-2 px-6 text-sm no-underline">
-            <CalendarDays className="h-4 w-4" /> Book a free discovery call with Natalie
+            <CalendarDays className="h-4 w-4" /> Book call with Natalie
           </a>
         </div>
       </div>
