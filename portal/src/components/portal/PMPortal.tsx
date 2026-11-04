@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Check, ClipboardList, Clock, FileText, Pencil, Play, Plus, Square, Trash2, Printer } from "lucide-react";
+import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileText, Pencil, Play, Plus, Square, Trash2, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,10 +89,11 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     })();
   }, []);
 
-  const [tab, setTab] = useState<"dashboard" | "board" | "time">(() => {
+  const [tab, setTab] = useState<"dashboard" | "board" | "time" | "cal">(() => {
     const t = new URLSearchParams(window.location.search).get("tab");
     return t === "board" || t === "time" ? t : "dashboard";
   });
+  const [boardAdd, setBoardAdd] = useState(false);
 
   const entries: Any[] = p.time ?? [];
   const cards: Any[] = p.board ?? [];
@@ -141,10 +142,14 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
 
   const maxWeek = Math.max(60, ...weeks.map((w) => w.mins));
 
-  const tabs = [
+  const tabs = viewer === "Natalie" ? [
     { v: "dashboard", l: "Dashboard" },
     { v: "board", l: "To-Do Board" },
     { v: "time", l: "Time & Invoices" },
+  ] : [
+    { v: "dashboard", l: "Dashboard" },
+    { v: "board", l: "To-Do Board" },
+    { v: "cal", l: "Calendar" },
   ];
 
   const first = (p.client.name ?? "").split(" ")[0] || "there";
@@ -172,14 +177,17 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
       <main className="pm-main">
         <header className="mb-6">
           <h1 className="text-[1.65rem] font-semibold tracking-tight md:text-4xl">{viewer === "Natalie" ? "HQ Projects Portal" : "HQ Workspace"}</h1>
-          <p className="mt-1 text-sm text-[#5e5e5e]">{viewer === "Natalie" ? "Hi, Natalie" : `Hi ${welcome}`}</p>
+          {viewer === "Natalie"
+            ? <p className="mt-1 text-[1.65rem] font-semibold tracking-tight text-[var(--pm-orange)] md:text-4xl">Hi, Natalie</p>
+            : <p className="mt-1 text-[1.65rem] font-semibold tracking-tight text-[var(--pm-orange)] md:text-4xl">Welcome back, {welcome}</p>}
         </header>
 
         {tab === "dashboard" && (
-          <Dashboard p={p} stats={stats} weeks={weeks} maxWeek={maxWeek} rate={rate} unbilledMins={unbilledMins} running={running} viewer={viewer} go={setTab} act={act} />
+          <Dashboard p={p} stats={stats} weeks={weeks} maxWeek={maxWeek} rate={rate} unbilledMins={unbilledMins} running={running} viewer={viewer} go={setTab} act={act} onQuickAdd={() => { setBoardAdd(true); setTab("board"); }} />
         )}
-        {tab === "board" && <Board p={p} viewer={viewer} act={act} go={setTab} />}
-        {tab === "time" && <TimeTab entries={entries} running={running} unbilledMins={unbilledMins} rate={rate} viewer={viewer} act={act} cards={cards} invoices={p.invoices} files={p.deliverables ?? []} client={p.client} />}
+        {tab === "board" && <Board p={p} viewer={viewer} act={act} go={setTab} autoAdd={boardAdd} onAutoAddDone={() => setBoardAdd(false)} />}
+        {tab === "time" && viewer === "Natalie" && <TimeTab entries={entries} running={running} unbilledMins={unbilledMins} rate={rate} viewer={viewer} act={act} cards={cards} invoices={p.invoices} files={p.deliverables ?? []} client={p.client} />}
+        {tab === "cal" && viewer !== "Natalie" && <CalendarTab avail={(p.client?.portal_prefs?.availability ?? null) as Any} />}
       </main>
 
       <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Portal - Crafted by Nine3 Designs</footer>
@@ -193,16 +201,25 @@ const PM_STYLES = `
 .pm { --pm-navy:#0d1c34; --pm-navy2:#16294a; --pm-orange:#f59a2b; --pm-orange-deep:#d97406; --pm-soft:#eef0f2; --pm-soft2:#e7eaee; --pm-ink:#1f2630; --pm-muted:#5e5e5e; --pm-line:#e6e8ea; }
 .pm { color: var(--pm-ink); font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif; }
 .pm h1, .pm h2, .pm h3 { font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif; color: var(--pm-ink); font-weight: 600; }
-.pm .pm-navwrap { position: sticky; top: 0; z-index: 40; padding: .9rem 0 .4rem; background: linear-gradient(to bottom, var(--pm-soft) 78%, transparent); }
-.pm .pm-navbar { display: flex; align-items: center; gap: .4rem; background: #fff; border-radius: 999px; padding: .3rem; max-width: 42rem; margin: 0 auto; box-shadow: 0 12px 32px rgba(13,28,52,.10), 0 1px 2px rgba(13,28,52,.05); overflow-x: auto; scrollbar-width: none; }
+.pm .pm-navwrap { position: sticky; top: 0; z-index: 40; padding: .9rem 0 .4rem; background: transparent; }
+.pm .pm-navbar { display: flex; align-items: center; gap: .5rem; background: rgba(13,28,52,.72); backdrop-filter: blur(14px) saturate(1.25); -webkit-backdrop-filter: blur(14px) saturate(1.25); border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: .35rem; max-width: 62rem; margin: 0 auto; box-shadow: 0 14px 36px rgba(13,28,52,.28); overflow-x: auto; scrollbar-width: none; }
 .pm .pm-navbar::-webkit-scrollbar { display: none; }
-.pm .pm-brand { flex: none; display: inline-flex; align-items: center; background: var(--pm-navy); border-radius: 999px; height: 2.55rem; padding: 0 1rem; }
+.pm .pm-brand { flex: none; display: inline-flex; align-items: center; background: #0d1c34; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; height: 2.55rem; padding: 0 1.15rem; }
 .pm .pm-brand img { height: 1.05rem; width: auto; max-width: 170px; }
 .pm .pm-brand-fallback { color: #fff; font-size: .8rem; font-weight: 600; letter-spacing: .08em; }
-.pm .pm-tabs { display: flex; gap: .1rem; min-width: max-content; }
-.pm .pm-tab { border-radius: 999px; padding: .6rem 1.05rem; font-size: .875rem; font-weight: 500; color: var(--pm-muted); white-space: nowrap; transition: color .15s ease, background .15s ease; }
-.pm .pm-tab:hover { color: var(--pm-ink); background: var(--pm-soft2); }
-.pm .pm-tab.active { background: var(--pm-navy); color: #fff; }
+.pm .pm-tabs { display: flex; gap: .2rem; min-width: max-content; }
+.pm .pm-tab { border-radius: 999px; padding: .62rem 1.2rem; font-size: .875rem; font-weight: 500; color: rgba(255,255,255,.72); white-space: nowrap; transition: color .15s ease, background .15s ease; }
+.pm .pm-tab:hover { color: #fff; background: rgba(255,255,255,.10); }
+.pm .pm-tab.active { background: rgba(255,255,255,.06); color: #fff; box-shadow: inset 0 0 0 1.5px var(--pm-orange), 0 0 14px rgba(245,154,43,.25); }
+.pm .pm-dark h2 { color: var(--pm-orange); }
+.pm .pm-col { background: linear-gradient(180deg, #ffffff 0%, #f4f6f8 100%); border: 1px solid var(--pm-line); border-top-width: 4px; box-shadow: 0 2px 6px rgba(13,28,52,.05), 0 14px 30px rgba(13,28,52,.07); }
+.pm .pm-col:nth-child(1) { border-top-color: var(--pm-navy); }
+.pm .pm-col:nth-child(2) { border-top-color: var(--pm-orange); }
+.pm .pm-col:nth-child(3) { border-top-color: #3f7d4e; }
+.pm .pm-col:nth-child(1) .pm-chip { background: rgba(13,28,52,.10); color: var(--pm-navy); }
+.pm .pm-col:nth-child(2) .pm-chip { background: rgba(245,154,43,.18); color: #a35803; }
+.pm .pm-col:nth-child(3) .pm-chip { background: rgba(63,125,78,.14); color: #2c5e39; }
+.pm .pm-col .pm-task { box-shadow: 0 1px 2px rgba(13,28,52,.08); }
 .pm .pm-main { max-width: 64rem; margin: 0 auto; padding: 1.5rem 1rem 0; }
 .pm .pm-foot { max-width: 64rem; margin: 0 auto; padding: 2.2rem 1rem 2rem; text-align: center; font-size: .72rem; color: #9aa1a9; }
 .pm .pm-card { background: #fff; border-radius: 1.5rem; box-shadow: 0 1px 2px rgba(13,28,52,.04), 0 12px 32px rgba(13,28,52,.06); transition: transform .18s ease, box-shadow .18s ease; }
@@ -295,7 +312,7 @@ function ChipStat({ label, value, tone }: { label: string; value: string; tone: 
 
 const BOARD_ICONS = [ClipboardList, CalendarDays, Clock];
 
-export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, running, viewer, go, act }: Any) {
+export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, running, viewer, go, act, onQuickAdd }: Any) {
   const cards: Any[] = p.board ?? [];
   const open_ = cards.filter((c: Any) => c.status !== "done");
   const upNext = open_.sort((a: Any, b: Any) => a.position - b.position).slice(0, 4);
@@ -309,8 +326,6 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
   const frac = running ? (Date.now() - Date.parse(running.started_at)) / (8 * 3600000) : todayMins / 480;
   const isNat = viewer === "Natalie";
   const avail = (p.client?.portal_prefs?.availability ?? null) as Any;
-  const dayList = Array.isArray(avail?.days) ? (avail.days as Any[]).filter((d) => d?.available).map((d) => d.day) : [];
-  const availWeek = avail ? new Date(avail.week_start + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" }) : "";
   const myTasks: Any[] = (p.tasks ?? []).filter((t: Any) => t.status !== "done" && t.due_date).sort((a: Any, b: Any) => String(a.due_date).localeCompare(String(b.due_date))).slice(0, 6);
   const invLive: Any[] = (p.invoices ?? []).filter((i: Any) => i.status !== "draft");
   const invTotal = invLive.reduce((s: number, i: Any) => s + Number(invoiceTotals(i.items as LineItem[], i.tax_rate).total || 0), 0);
@@ -319,8 +334,10 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Tile icon={<ClipboardList className="h-5 w-5" />} tone="navy" label="Open tasks" value={String(stats.open)} sub="on the board" onClick={() => go("board")} />
-        <Tile icon={<Clock className="h-5 w-5" />} label="This week" value={fmtMins(stats.week)} sub="hours logged" />
-        <Tile icon={<CalendarDays className="h-5 w-5" />} tone="navy" label="This month" value={fmtMins(stats.month)} sub="hours logged" />
+        {isNat ? <Tile icon={<Clock className="h-5 w-5" />} label="This week" value={fmtMins(stats.week)} sub="hours logged" />
+          : <Tile icon={<Play className="h-5 w-5" />} label="In progress" value={String(doingCount)} sub="tasks on the go" onClick={() => go("board")} />}
+        {isNat ? <Tile icon={<CalendarDays className="h-5 w-5" />} tone="navy" label="This month" value={fmtMins(stats.month)} sub="hours logged" />
+          : <Tile icon={<Check className="h-5 w-5" />} tone="navy" label="Completed" value={String(doneCount)} sub="tasks finished" onClick={() => go("board")} />}
         {isNat
           ? <Tile icon={<FileText className="h-5 w-5" />} label="Unbilled" value={money((unbilledMins / 60) * rate)} sub={`${fmtMins(unbilledMins)} · ${money(rate)}/hr`} />
           : <Tile icon={<FileText className="h-5 w-5" />} label="Invoices received" value={String(invLive.length)} sub={invLive.length ? `${money(invTotal)} billed` : "none yet"} />}
@@ -334,6 +351,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
+        {isNat ? (
         <div className="pm-card p-6 lg:col-span-2">
           <div className="flex items-start justify-between">
             <div>
@@ -356,6 +374,31 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
             ))}
           </div>
         </div>
+        ) : (
+        <div className="pm-card flex flex-col p-6 lg:col-span-2">
+          <div>
+            <h2 className="text-lg font-semibold">Quick actions</h2>
+            <p className="mt-1 text-xs text-[#5e5e5e]">Jump straight to what you need</p>
+          </div>
+          <div className="mt-5 grid flex-1 content-start gap-3 sm:grid-cols-3">
+            <button type="button" onClick={onQuickAdd} className="flex flex-col items-start gap-2 rounded-2xl bg-[var(--pm-navy)] px-4 py-5 text-left text-white transition-transform hover:-translate-y-0.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10"><Plus className="h-4 w-4" /></span>
+              <span className="text-sm font-semibold">Add new task</span>
+              <span className="text-[11px] text-white/60">Put something on the board</span>
+            </button>
+            <button type="button" onClick={() => go("board")} className="flex flex-col items-start gap-2 rounded-2xl bg-[var(--pm-soft)] px-4 py-5 text-left transition-transform hover:-translate-y-0.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[var(--pm-navy)] shadow-sm"><ClipboardList className="h-4 w-4" /></span>
+              <span className="text-sm font-semibold">To-Do Board</span>
+              <span className="text-[11px] text-[#5e5e5e]">See everything on the go</span>
+            </button>
+            <button type="button" onClick={() => go("cal")} className="flex flex-col items-start gap-2 rounded-2xl bg-[var(--pm-soft)] px-4 py-5 text-left transition-transform hover:-translate-y-0.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[var(--pm-navy)] shadow-sm"><CalendarDays className="h-4 w-4" /></span>
+              <span className="text-sm font-semibold">Calendar</span>
+              <span className="text-[11px] text-[#5e5e5e]">Dates &amp; availability</span>
+            </button>
+          </div>
+        </div>
+        )}
 
         {isNat ? (
         <div className="pm-card flex flex-col items-center p-6">
@@ -382,23 +425,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
           )}
         </div>
         ) : (
-        <div className="pm-card flex flex-col p-6">
-          <div className="flex w-full items-center justify-between">
-            <h2 className="text-lg font-semibold">Natalie's availability</h2>
-            <span className="pm-circle"><CalendarDays className="h-4 w-4" /></span>
-          </div>
-          {avail ? (
-            <>
-              <p className="mt-2 text-sm font-medium">Week commencing {availWeek}</p>
-              {dayList.length ? (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {dayList.map((d: string) => <span key={d} className="pm-chip orange">{d.slice(0, 3)}</span>)}
-                </div>
-              ) : <p className="mt-2 text-xs text-[#5e5e5e]">No days ticked yet.</p>}
-              {avail.notes ? <p className="mt-3 text-xs leading-relaxed text-[#5e5e5e]">{avail.notes}</p> : null}
-            </>
-          ) : <p className="mt-3 text-sm text-[#5e5e5e]">Natalie hasn't shared her availability yet · it will appear here as soon as she does.</p>}
-        </div>
+        <MonthCalCard avail={avail} />
         )}
       </div>
 
@@ -484,15 +511,101 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
   );
 }
 
+/* ---------------- monthly calendar ---------------- */
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function MonthCal({ avail, large }: { avail: Any; large?: boolean }) {
+  const [off, setOff] = useState(0);
+  const base = new Date();
+  base.setDate(1);
+  base.setMonth(base.getMonth() + off);
+  const y = base.getFullYear(), m = base.getMonth();
+  const label = base.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  const firstDow = (new Date(y, m, 1).getDay() + 6) % 7;
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const now = new Date();
+  const availSet = new Set<string>();
+  if (avail?.week_start && Array.isArray(avail.days)) {
+    const ws = new Date(avail.week_start + "T12:00:00Z");
+    for (const d of avail.days as Any[]) if (d?.available) {
+      const idx = DAY_NAMES.indexOf(String(d.day));
+      if (idx >= 0) { const dt = new Date(ws); dt.setDate(ws.getDate() + idx); availSet.add(`${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`); }
+    }
+  }
+  const cells: (number | null)[] = [...Array(firstDow).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold">{label}</p>
+        <div className="flex items-center gap-1.5">
+          <button type="button" aria-label="Previous month" onClick={() => setOff((o) => o - 1)} className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--pm-soft2)] text-[#1f2630] transition-colors hover:bg-[var(--pm-navy)] hover:text-white"><ChevronLeft className="h-3.5 w-3.5" /></button>
+          <button type="button" aria-label="Next month" onClick={() => setOff((o) => o + 1)} className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--pm-soft2)] text-[#1f2630] transition-colors hover:bg-[var(--pm-navy)] hover:text-white"><ChevronRight className="h-3.5 w-3.5" /></button>
+        </div>
+      </div>
+      <div className={`mt-3 grid grid-cols-7 ${large ? "gap-1.5" : "gap-1"} text-center`}>
+        {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((d) => <span key={d} className="text-[10px] font-semibold uppercase tracking-wide text-[#9aa0a6]">{d}</span>)}
+        {cells.map((d, i) => d === null ? <span key={`b${i}`} /> : (() => {
+          const today = d === now.getDate() && m === now.getMonth() && y === now.getFullYear();
+          const isAvail = availSet.has(`${y}-${m}-${d}`);
+          return (
+            <span key={d} className={`mx-auto flex items-center justify-center rounded-full ${large ? "h-9 w-9 text-sm" : "h-7 w-7 text-xs"} ${today ? "bg-[var(--pm-orange)] font-semibold text-[#3d2400]" : isAvail ? "bg-[rgba(245,154,43,.16)] font-semibold text-[#a35803]" : "text-[#5e5e5e]"}`}>{d}</span>
+          );
+        })())}
+      </div>
+      {availSet.size > 0 ? (
+        <p className="mt-3 flex items-center gap-1.5 text-[11px] text-[#5e5e5e]"><span className="pm-dot" style={{ background: "#f59a2b" }} /> Days Natalie is available</p>
+      ) : null}
+    </div>
+  );
+}
+
+function MonthCalCard({ avail }: { avail: Any }) {
+  return (
+    <div className="pm-card flex flex-col p-6">
+      <div className="flex w-full items-center justify-between">
+        <h2 className="text-lg font-semibold">This month</h2>
+        <span className="pm-circle"><CalendarDays className="h-4 w-4" /></span>
+      </div>
+      <div className="mt-3 flex-1">
+        <MonthCal avail={avail} />
+      </div>
+    </div>
+  );
+}
+
+function CalendarTab({ avail }: { avail: Any }) {
+  return (
+    <div className="space-y-4">
+      <div className="pm-card p-6 md:p-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Calendar</h2>
+            <p className="mt-1 text-xs text-[#5e5e5e]">Your month at a glance</p>
+          </div>
+          <span className="pm-circle orange"><CalendarDays className="h-4 w-4" /></span>
+        </div>
+        <div className="mx-auto mt-6 max-w-xl">
+          <MonthCal avail={avail} large />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------------- board ---------------- */
 
-export function Board({ p, viewer, act, go }: { p: Any; viewer: string; act: Act; go: Any }) {
+export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; viewer: string; act: Act; go: Any; autoAdd?: boolean; onAutoAddDone?: () => void }) {
   const cards: Any[] = p.board ?? [];
   const [dragId, setDragId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);
   const [composer, setComposer] = useState<ColKey | null>(null);
   const [editing, setEditing] = useState<Any | null>(null);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (autoAdd) { setComposer("todo"); if (onAutoAddDone) onAutoAddDone(); }
+  }, [autoAdd]);
 
   const colCards = (key: string) => cards.filter((c: Any) => c.status === key).sort((a: Any, b: Any) => a.position - b.position || String(a.created_at).localeCompare(String(b.created_at)));
 
