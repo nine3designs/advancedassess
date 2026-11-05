@@ -43,10 +43,9 @@ export function InvoiceDocument({ inv }: { inv: Any }) {
 
       {/* cream card with angled top-right cut */}
       <div className="relative z-10 mx-10 mt-12 rounded-[28px]" style={{ background: PORCELAIN }}>
-        <div
-          className="absolute right-0 top-0"
-          style={{ width: "38%", height: 118, background: PETROL, clipPath: "polygon(0 0, 100% 0, 100% 100%)" }}
-        />
+        <svg className="absolute right-0 top-0" style={{ width: "38%", height: 118, display: "block" }} viewBox="0 0 100 118" preserveAspectRatio="none" aria-hidden="true">
+          <polygon points="0,0 100,0 100,118" fill={PETROL} />
+        </svg>
         <div className="relative px-10 pb-8 pt-9">
           <h1 className="text-[56px] font-bold leading-none tracking-tight" style={{ color: PETROL, fontFamily: "'Montserrat', sans-serif", fontWeight: 800 }}>
             INVOICE
