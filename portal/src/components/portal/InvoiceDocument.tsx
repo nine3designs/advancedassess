@@ -16,6 +16,10 @@ function dmy(d?: string | null) {
   return `${p(x.getDate())}/${p(x.getMonth() + 1)}/${String(x.getFullYear()).slice(2)}`;
 }
 
+function lineDesc(s?: string | null) {
+  return (s || "·").replace(/^Design & admin support\s*·\s*/i, "");
+}
+
 export function InvoiceDocument({ inv }: { inv: Any }) {
   const t = invoiceTotals((inv.items ?? []) as LineItem[], inv.tax_rate);
   return (
@@ -66,14 +70,14 @@ export function InvoiceDocument({ inv }: { inv: Any }) {
           {/* items table */}
           <div className="mt-7">
             <div className="grid grid-cols-[1fr_90px_110px] items-center text-[13px] font-bold tracking-[0.15em] text-white" style={{ background: INK, minHeight: 46 }}>
-              <span className="pl-6">ITEM DESCRIPTION</span>
-              <span className="text-center">QTY</span>
-              <span className="pr-6 text-right">PRICE</span>
+              <span className="pl-6">DESCRIPTION</span>
+              <span className="text-center">TIME (HRS)</span>
+              <span className="pr-6 text-right">AMOUNT</span>
             </div>
             <div style={{ background: PAPER, minHeight: 330 }}>
               {((inv.items ?? []) as LineItem[]).map((i, k) => (
                 <div key={k} className="grid grid-cols-[1fr_90px_110px] items-start px-6 py-3 text-[14px]">
-                  <span className="whitespace-pre-wrap pr-4">{i.description || "·"}</span>
+                  <span className="whitespace-pre-wrap pr-4">{lineDesc(i.description)}</span>
                   <span className="text-center">{i.quantity}</span>
                   <span className="text-right font-semibold">{money(Number(i.quantity) * Number(i.rate))}</span>
                 </div>
@@ -92,10 +96,6 @@ export function InvoiceDocument({ inv }: { inv: Any }) {
             <div className="flex items-end justify-end gap-3">
               <span className="font-bold tracking-wide">GRAND TOTAL:</span>
               <span className="inline-block w-44 border-b-2 text-right font-bold" style={{ borderColor: PETROL }}>{money(t.total)}</span>
-            </div>
-            <div className="flex items-end justify-end gap-3">
-              <span className="font-bold tracking-wide">DEPOSIT AMOUNT (50%):</span>
-              <span className="inline-block w-40 border-b-2 text-right font-bold" style={{ borderColor: PETROL }}>{money(t.total / 2)}</span>
             </div>
           </div>
 

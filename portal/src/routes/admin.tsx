@@ -727,11 +727,13 @@ const ADMIN_STYLES = `
   .pm-doczoom { zoom: .45; width: 222%; max-width: none; }
 }
 @media print {
+  @page { size: A4; margin: 10mm; }
   body * { visibility: hidden !important; }
   .no-print, .no-print * { display: none !important; }
   .pm-doczoom, .pm-doczoom * { visibility: visible !important; }
   .pm-doczoom { position: absolute !important; left: 0; top: 0; width: 100%; zoom: 1 !important; }
-  .pm-doczoom .invoice-doc { box-shadow: none !important; border-radius: 0 !important; }
+  .pm-doczoom .invoice-doc { box-shadow: none !important; border-radius: 0 !important; zoom: .8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .pm-doczoom .invoice-doc * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }
 .pm .timer-num { font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 @media (max-width: 640px) { .pm .pm-main { padding-top: 1.1rem; } .pm .pm-card { border-radius: 1.3rem; } }
