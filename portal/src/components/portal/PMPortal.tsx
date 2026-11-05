@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Car, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileText, Menu, Pencil, Play, Plus, Square, Trash2, Printer, X } from "lucide-react";
+import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Car, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileDown, FileText, Menu, Pencil, Play, Plus, Square, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { downloadInvoicePdf } from "@/lib/invoice-pdf";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1231,7 +1232,10 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
           </div>
           <div className="no-print mt-4 flex justify-end gap-2">
             <Button type="button" variant="outline" className="pm-btn" onClick={() => setViewInv(null)}>Close</Button>
-            <Button type="button" className="pm-btn-orange" onClick={() => window.print()}><Printer className="h-4 w-4" /> Print / save PDF</Button>
+            <Button type="button" className="pm-btn-orange" onClick={async () => {
+              try { await downloadInvoicePdf(document.querySelector(".pm-inv-sheet") as HTMLElement, `Invoice ${viewInv?.number || ""}.pdf`); toast.success("PDF downloaded"); }
+              catch (err: Any) { toast.error(err?.message ?? "Couldn't build the PDF · try again."); }
+            }}><FileDown className="h-4 w-4" /> Download PDF</Button>
           </div>
         </DialogContent>
       </Dialog>

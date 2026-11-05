@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, FileText, Play, Square, Upload, Send, MailCheck, Plus, Trash2, ArrowLeft, Printer, ClipboardList, Clock, CalendarDays, Menu, X } from "lucide-react";
+import { Check, FileDown, FileText, Play, Square, Upload, Send, MailCheck, Plus, Trash2, ArrowLeft, ClipboardList, Clock, CalendarDays, Menu, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { StatusBadge } from "@/components/common";
 import { supabase } from "@/integrations/supabase/client";
 import { portalAction, getPortal } from "@/lib/portal.functions";
+import { downloadInvoicePdf } from "@/lib/invoice-pdf";
 import { Dashboard, Board, InvoiceSheet } from "@/components/portal/PMPortal";
 import { InvoiceDocument } from "@/components/portal/InvoiceDocument";
 import { effectiveStatus, fmtDate, invoiceTotals, money, type LineItem } from "@/lib/format";
@@ -445,6 +446,8 @@ function InvoiceEditor({ inv, client, act, onDone }: Any) {
   const [busy, setBusy] = useState(false);
   const [confirmSend, setConfirmSend] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+  const docRef = useRef<HTMLDivElement>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
   useEffect(() => { setV({ ...inv }); }, [inv?.id]);
   const items: LineItem[] = Array.isArray(v.items) ? v.items : [];
   const total = invoiceTotals(items, v.tax_rate).total;
@@ -482,7 +485,12 @@ function InvoiceEditor({ inv, client, act, onDone }: Any) {
       <div className="no-print flex flex-wrap items-center justify-between gap-3">
         <button type="button" onClick={onDone} className="pm-linkbtn"><ArrowLeft className="mr-1 inline h-3.5 w-3.5" />Back to Finance</button>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" className="pm-btn-light" onClick={() => window.print()}><Printer className="h-4 w-4" /> PDF</Button>
+          <Button type="button" variant="outline" className="pm-btn-light" disabled={pdfBusy} onClick={async () => {
+            setPdfBusy(true);
+            try { await downloadInvoicePdf(docRef.current?.querySelector(".invoice-doc") as HTMLElement, `${v.number || "invoice"}.pdf`); toast.success("PDF downloaded"); }
+            catch (err: Any) { toast.error(err?.message ?? "Couldn't build the PDF · try again."); }
+            setPdfBusy(false);
+          }}><FileDown className="h-4 w-4" /> {pdfBusy ? "Building PDF..." : "Download PDF"}</Button>
           {v.status === "draft" && (
             <Button type="button" variant="outline" className="pm-btn-light" onClick={async () => {
               if (!confirmDel) { setConfirmDel(true); setTimeout(() => setConfirmDel(false), 2800); return; }
@@ -522,7 +530,7 @@ function InvoiceEditor({ inv, client, act, onDone }: Any) {
           </div>
           <div className="space-y-1.5"><Label>Notes / payment details</Label><Textarea value={v.notes ?? ""} onChange={(e) => setV({ ...v, notes: e.target.value })} className="min-h-20" /></div>
         </section>
-        <div className="pm-doczoom">
+        <div className="pm-doczoom" ref={docRef}>
           <InvoiceDocument inv={{ ...v, items, clientName: client?.name ?? "Sara Dawson", clientCompany: client?.company ?? "Advanced Assessment & Solutions", clientEmail: SARA_EMAIL }} />
         </div>
       </div>
