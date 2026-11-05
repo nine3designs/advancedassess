@@ -734,6 +734,7 @@ const ADMIN_STYLES = `
   .pm-doczoom { position: absolute !important; left: 0; top: 0; width: 100%; zoom: 1 !important; }
   .pm-doczoom .invoice-doc { box-shadow: none !important; border-radius: 0 !important; zoom: .8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   .pm-doczoom .invoice-doc * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .pm-doczoom .invoice-doc .avoid-break { break-inside: avoid; }
 }
 .pm .timer-num { font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 @media (max-width: 640px) { .pm .pm-main { padding-top: 1.1rem; } .pm .pm-card { border-radius: 1.3rem; } }

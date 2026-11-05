@@ -86,7 +86,7 @@ export function InvoiceDocument({ inv }: { inv: Any }) {
           </div>
 
           {/* totals */}
-          <div className="mt-7 ml-auto w-[62%] space-y-3 text-[15px]">
+          <div className="avoid-break mt-7 ml-auto w-[62%] space-y-3 text-[15px]">
             {Number(inv.tax_rate) > 0 && (
               <div className="flex items-end justify-end gap-3">
                 <span className="font-bold tracking-wide">VAT ({inv.tax_rate}%):</span>
@@ -100,13 +100,13 @@ export function InvoiceDocument({ inv }: { inv: Any }) {
           </div>
 
           {/* notes */}
-          <div className="mt-10">
+          <div className="avoid-break mt-10">
             <p className="text-[15px] font-bold tracking-wide">NOTES:</p>
             {inv.notes && <p className="mt-2 whitespace-pre-wrap text-[14px] leading-relaxed">{inv.notes}</p>}
           </div>
 
           {/* terms + signature */}
-          <div className="mt-10 flex items-end justify-between gap-6">
+          <div className="avoid-break mt-10 flex items-end justify-between gap-6">
             <div className="max-w-[62%]">
               <p className="text-[15px] font-bold">Terms and Conditions:</p>
               <p className="mt-1 text-[14px] italic leading-relaxed">
