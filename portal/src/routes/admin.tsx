@@ -788,4 +788,20 @@ const ADMIN_STYLES = `
   .pm .pm-brand img { height: 1.15rem; max-width: 140px; }
   .pm .pm-navwrap { padding-top: .7rem; }
 }
+/* board: rounded glass columns · tick-to-complete · task file chips */
+.pm .pm-boardwrap { background: linear-gradient(135deg, #dce4ec 0%, #edf0f3 52%, #e9e2d6 100%); border-radius: 1.6rem; padding: 1rem; }
+@media (min-width: 768px) { .pm .pm-boardwrap { padding: 1.25rem; } }
+.pm .pm-col { background: rgba(255,255,255,.55) !important; backdrop-filter: blur(14px) saturate(1.15); -webkit-backdrop-filter: blur(14px) saturate(1.15); border: 1px solid rgba(255,255,255,.78) !important; border-top-width: 4px !important; box-shadow: 0 10px 34px rgba(13,28,52,.10), inset 0 1px 0 rgba(255,255,255,.65) !important; }
+.pm .pm-col:nth-child(1) { border-top-color: var(--pm-navy) !important; }
+.pm .pm-col:nth-child(2) { border-top-color: var(--pm-orange) !important; }
+.pm .pm-col:nth-child(3) { border-top-color: #3f7d4e !important; }
+.pm .pm-tickbtn { display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; border-radius: .55rem; border: 1.5px solid #cfd5db; background: #fff; color: #9aa0a6; transition: all .15s ease; }
+.pm .pm-tickbtn:hover { background: #3f7d4e; border-color: #3f7d4e; color: #fff; box-shadow: 0 3px 10px rgba(63,125,78,.3); }
+.pm .pm-filechip { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; border: 1px solid var(--pm-line); background: #fff; color: var(--pm-ink); font-size: .7rem; font-weight: 500; padding: .25rem .6rem; text-decoration: none; transition: border-color .15s ease, box-shadow .15s ease; }
+.pm .pm-filechip:hover { border-color: var(--pm-navy); box-shadow: 0 3px 10px rgba(13,28,52,.10); }
+@media (max-width: 640px) {
+  .pm .pm-boardwrap { padding: .8rem; }
+  .pm .pm-tickbtn { width: 2.35rem; height: 2.35rem; }
+  .pm .pm-tickbtn svg { width: 1.1rem; height: 1.1rem; }
+}
 `;

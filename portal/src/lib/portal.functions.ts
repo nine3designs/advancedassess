@@ -103,6 +103,7 @@ type Action =
   | { type: "clientNote"; text: string }
   | { type: "deleteFile"; id: string }
   | { type: "cardAdd"; title: string; notes?: string; status?: string; actor?: string }
+  | { type: "cardFiles"; id: string; files: { name: string; dataUri: string }[]; actor?: string }
   | { type: "cardEdit"; id: string; title?: string; notes?: string; status?: string; actor?: string }
   | { type: "cardOrder"; status: string; ids: string[] }
   | { type: "cardDelete"; id: string }
@@ -276,10 +277,10 @@ export const portalAction = createServerFn({ method: "POST" })
       const status = CARD_STATUSES.includes(String(a.status)) ? String(a.status) : "todo";
       const { data: last } = await admin.from("board_cards").select("position").eq("client_id", cid).eq("status", status).order("position", { ascending: false }).limit(1);
       const by = a.actor === "Natalie" ? "Natalie" : "Sara";
-      const { error } = await admin.from("board_cards").insert({ client_id: cid, title: title.slice(0, 200), notes: a.notes ? String(a.notes).slice(0, 2000) : null, status, position: (Number((last as Any)?.[0]?.position) || 0) + 10, created_by: by });
-      if (error) throw new Error("The task board isn't ready yet · please check back soon.");
+      const { data: card, error } = await admin.from("board_cards").insert({ client_id: cid, title: title.slice(0, 200), notes: a.notes ? String(a.notes).slice(0, 2000) : null, status, position: (Number((last as Any)?.[0]?.position) || 0) + 10, created_by: by }).select("id").single();
+      if (error || !card) throw new Error("The task board isn't ready yet · please check back soon.");
       await admin.from("activity_log").insert({ client_id: cid, actor: by === "Natalie" ? "Natalie" : "client", message: `added a task: ${title.slice(0, 90)}` });
-      return { ok: true };
+      return { ok: true, id: card.id };
     }
     if (a.type === "cardEdit") {
       const patch: Any = { updated_at: now() };
@@ -294,6 +295,19 @@ export const portalAction = createServerFn({ method: "POST" })
       const { data: row } = await admin.from("board_cards").update(patch).eq("id", a.id).eq("client_id", cid).select("title,status").maybeSingle();
       if (!row) throw new Error("Task not found.");
       if (a.status) await admin.from("activity_log").insert({ client_id: cid, actor: a.actor === "Natalie" ? "Natalie" : "client", message: `moved "${String(row.title).slice(0, 60)}" to ${row.status === "todo" ? "To Do" : row.status === "doing" ? "In Progress" : "Done"}` });
+      return { ok: true };
+    }
+    if (a.type === "cardFiles") {
+      const files = Array.isArray(a.files) ? a.files.slice(0, 3) : [];
+      const clean = files.map((f: Any) => ({ name: String(f?.name ?? "file").slice(0, 200), dataUri: String(f?.dataUri ?? "") })).filter((f: Any) => f.dataUri.startsWith("data:"));
+      if (!clean.length) return { ok: true };
+      if (clean.some((f: Any) => f.dataUri.length > 6_200_000)) throw new Error("A file is too large · keep attachments under about 4 MB.");
+      const { data: row } = await admin.from("board_cards").select("title,files").eq("id", a.id).eq("client_id", cid).maybeSingle();
+      if (!row) throw new Error("Task not found.");
+      const merged = [...(Array.isArray((row as Any).files) ? (row as Any).files : []), ...clean].slice(0, 3);
+      const { error } = await admin.from("board_cards").update({ files: merged }).eq("id", a.id).eq("client_id", cid);
+      if (error) throw new Error("Couldn't attach the file(s) · check the file sizes and try again.");
+      await admin.from("activity_log").insert({ client_id: cid, actor: a.actor === "Natalie" ? "Natalie" : "client", message: `attached a file to task: ${String((row as Any).title ?? "").slice(0, 80)}` });
       return { ok: true };
     }
     if (a.type === "cardOrder") {

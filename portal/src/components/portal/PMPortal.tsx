@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Car, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileDown, FileText, Menu, Pencil, Play, Plus, Square, Trash2, X } from "lucide-react";
+import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Car, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileDown, FileText, Menu, Paperclip, Pencil, Play, Plus, Square, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { downloadInvoicePdf } from "@/lib/invoice-pdf";
 import { Button } from "@/components/ui/button";
@@ -298,6 +298,22 @@ const PM_STYLES = `
   .pm .pm-brand { padding: 0 .9rem; height: 2.55rem; }
   .pm .pm-brand img { height: 1.15rem; max-width: 140px; }
   .pm .pm-navwrap { padding-top: .7rem; }
+}
+/* board: rounded glass columns · tick-to-complete · task file chips */
+.pm .pm-boardwrap { background: linear-gradient(135deg, #dce4ec 0%, #edf0f3 52%, #e9e2d6 100%); border-radius: 1.6rem; padding: 1rem; }
+@media (min-width: 768px) { .pm .pm-boardwrap { padding: 1.25rem; } }
+.pm .pm-col { background: rgba(255,255,255,.55) !important; backdrop-filter: blur(14px) saturate(1.15); -webkit-backdrop-filter: blur(14px) saturate(1.15); border: 1px solid rgba(255,255,255,.78) !important; border-top-width: 4px !important; box-shadow: 0 10px 34px rgba(13,28,52,.10), inset 0 1px 0 rgba(255,255,255,.65) !important; }
+.pm .pm-col:nth-child(1) { border-top-color: var(--pm-navy) !important; }
+.pm .pm-col:nth-child(2) { border-top-color: var(--pm-orange) !important; }
+.pm .pm-col:nth-child(3) { border-top-color: #3f7d4e !important; }
+.pm .pm-tickbtn { display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; border-radius: .55rem; border: 1.5px solid #cfd5db; background: #fff; color: #9aa0a6; transition: all .15s ease; }
+.pm .pm-tickbtn:hover { background: #3f7d4e; border-color: #3f7d4e; color: #fff; box-shadow: 0 3px 10px rgba(63,125,78,.3); }
+.pm .pm-filechip { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; border: 1px solid var(--pm-line); background: #fff; color: var(--pm-ink); font-size: .7rem; font-weight: 500; padding: .25rem .6rem; text-decoration: none; transition: border-color .15s ease, box-shadow .15s ease; }
+.pm .pm-filechip:hover { border-color: var(--pm-navy); box-shadow: 0 3px 10px rgba(13,28,52,.10); }
+@media (max-width: 640px) {
+  .pm .pm-boardwrap { padding: .8rem; }
+  .pm .pm-tickbtn { width: 2.35rem; height: 2.35rem; }
+  .pm .pm-tickbtn svg { width: 1.1rem; height: 1.1rem; }
 }
 `;
 
@@ -953,7 +969,7 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
         <Button className="pm-btn" onClick={() => setComposer("todo")}><Plus className="h-4 w-4" /> Add task</Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="pm-boardwrap grid gap-4 md:grid-cols-3">
         {COLUMNS.map((col) => {
           const list = colCards(col.key);
           const isOver = overCol === col.key;
@@ -971,9 +987,11 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
                 <button type="button" onClick={() => setComposer(col.key)} aria-label={`Add to ${col.label}`} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#eef0f2] text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]"><Plus className="h-4 w-4" /></button>
               </div>
 
-              {composer === col.key && <AddComposer col={col.key} onCancel={() => setComposer(null)} onSubmit={async (title, notes) => {
+              {composer === col.key && <AddComposer col={col.key} onCancel={() => setComposer(null)} onSubmit={async (title, notes, files) => {
                 const r = await act({ type: "cardAdd", title, notes, status: col.key, actor: viewer }, "Task added");
+                if (r?.id && files.length) await act({ type: "cardFiles", id: r.id, files, actor: viewer }, "File attached to task");
                 if (r) setComposer(null);
+                return r;
               }} />}
 
               <div className="space-y-2.5">
@@ -992,6 +1010,9 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
                     </div>
                     {c.notes ? <p className="clamp2 mt-1.5 text-xs text-[#5e5e5e]">{c.notes}</p> : null}
                     <div className="pm-taskactions mt-3 flex items-center gap-1 border-t border-[#e6e8ea] pt-2.5">
+                      {c.status === "doing" && (
+                        <button type="button" aria-label="Tick off · mark completed" title="Tick off · mark completed" className="pm-tickbtn" onClick={() => act({ type: "cardEdit", id: c.id, status: "done", actor: viewer }, "Ticked off · moved to Completed")}><Check className="h-3.5 w-3.5" /></button>
+                      )}
                       <IconBtn label="Move left" onClick={() => nudge(c, -1)} disabled={c.status === "todo"}><ArrowLeft className="h-3.5 w-3.5" /></IconBtn>
                       <IconBtn label="Move right" onClick={() => nudge(c, 1)} disabled={c.status === "done"}><ArrowRight className="h-3.5 w-3.5" /></IconBtn>
                       <IconBtn label="Edit task" onClick={() => setEditing(c)}><Pencil className="h-3.5 w-3.5" /></IconBtn>
@@ -1001,6 +1022,13 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
                         else { setConfirmDel(c.id); setTimeout(() => setConfirmDel((k) => (k === c.id ? null : k)), 2600); }
                       }}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
                     </div>
+                    {Array.isArray(c.files) && c.files.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {(c.files as Any[]).map((f: Any, k: number) => (
+                          <a key={k} href={f.dataUri} download={f.name} className="pm-filechip" title={`Download ${f.name}`}><Paperclip className="h-3 w-3 flex-none" /><span className="max-w-36 truncate">{f.name}</span></a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1035,14 +1063,37 @@ function IconBtn({ children, label, onClick, disabled, danger }: { children: Any
   );
 }
 
-function AddComposer({ col, onSubmit, onCancel }: { col: string; onSubmit: (title: string, notes: string) => Promise<Any | null>; onCancel: () => void }) {
+function AddComposer({ col, onSubmit, onCancel }: { col: string; onSubmit: (title: string, notes: string, files: Any[]) => Promise<Any | null>; onCancel: () => void }) {
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
+  const [files, setFiles] = useState<Any[]>([]);
   const [busy, setBusy] = useState(false);
+  const readFile = (f: File) => new Promise<Any>((res) => { const r = new FileReader(); r.onload = () => res({ name: f.name, dataUri: String(r.result) }); r.onerror = () => res(null); r.readAsDataURL(f); });
   return (
-    <form className="mb-2.5 rounded-xl border border-[#e6e8ea] bg-white p-3 shadow-sm" onSubmit={async (e) => { e.preventDefault(); if (!title.trim() || busy) return; setBusy(true); await onSubmit(title.trim(), notes.trim()); setBusy(false); setTitle(""); setNotes(""); }}>
+    <form className="mb-2.5 rounded-xl border border-[#e6e8ea] bg-white p-3 shadow-sm" onSubmit={async (e) => {
+      e.preventDefault(); if (!title.trim() || busy) return;
+      const total = files.reduce((s, f) => s + (f?.dataUri?.length ?? 0), 0);
+      if (total > 6_200_000) { toast.error("Those files are too large altogether · keep attachments under about 4 MB."); return; }
+      setBusy(true);
+      const read = await Promise.all(files.map(readFile));
+      const clean = read.filter(Boolean);
+      const r = await onSubmit(title.trim(), notes.trim(), clean);
+      setBusy(false); if (!r) return;
+      setTitle(""); setNotes(""); setFiles([]);
+    }}>
       <Input autoFocus placeholder="Task title" value={title} onChange={(e) => setTitle(e.target.value)} className="h-9" />
       <Textarea placeholder="Details (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="mt-2 text-sm" />
+      <div className="mt-2">
+        <input type="file" multiple className="hidden" id={`taskfile-${col}`} onChange={(e) => { setFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])].slice(0, 3)); if (e.target) e.target.value = ""; }} />
+        <label htmlFor={`taskfile-${col}`} className="pm-filebtn cursor-pointer"><Paperclip className="h-3.5 w-3.5" /> Attach file{files.length ? ` (${files.length}/3)` : " (optional)"}</label>
+        {files.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {files.map((f: Any, k: number) => (
+              <span key={k} className="pm-filechip"><span className="max-w-36 truncate">{f.name}</span><button type="button" aria-label="Remove file" onClick={() => setFiles((prev) => prev.filter((_: Any, j: number) => j !== k))}><X className="h-3 w-3" /></button></span>
+            ))}
+          </div>
+        )}
+      </div>
       <div className="mt-2.5 flex gap-2">
         <Button type="submit" className="pm-btn-orange h-8 flex-1" disabled={busy}>Add task</Button>
         <Button type="button" variant="ghost" className="h-8 flex-1" onClick={onCancel}>Cancel</Button>
