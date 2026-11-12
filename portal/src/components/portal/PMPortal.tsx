@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Car, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileDown, FileText, Menu, Paperclip, Pencil, Play, Plus, Square, Trash2, X } from "lucide-react";
+import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Car, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileDown, FileText, Flag, Menu, Paperclip, Pencil, Play, Plus, Square, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { downloadInvoicePdf } from "@/lib/invoice-pdf";
 import { Button } from "@/components/ui/button";
@@ -308,12 +308,26 @@ const PM_STYLES = `
 .pm .pm-col:nth-child(3) { border-top-color: #3f7d4e !important; }
 .pm .pm-tickbtn { display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; border-radius: .55rem; border: 1.5px solid #cfd5db; background: #fff; color: #9aa0a6; transition: all .15s ease; }
 .pm .pm-tickbtn:hover { background: #3f7d4e; border-color: #3f7d4e; color: #fff; box-shadow: 0 3px 10px rgba(63,125,78,.3); }
+.pm .pm-task.important { background: #fff7ed; box-shadow: 0 1px 2px rgba(217,116,6,.10), 0 4px 14px rgba(217,116,6,.10); border-left: 4px solid var(--pm-orange); border-top-left-radius: .4rem; border-bottom-left-radius: .4rem; }
+.pm .pm-urgent-chip { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; background: rgba(245,154,43,.16); color: #a35803; font-size: .68rem; font-weight: 700; padding: .2rem .55rem; width: fit-content; }
+.pm .pm-urgent-toggle { display: inline-flex; align-items: center; gap: .5rem; color: var(--pm-ink); }
+.pm .pm-urgent-box { width: 1.15rem; height: 1.15rem; border-radius: .4rem; border: 1.5px solid #cfd5db; background: #fff; display: inline-flex; align-items: center; justify-content: center; color: transparent; transition: all .15s ease; flex: none; }
+.pm .pm-urgent-box.on { background: var(--pm-orange); border-color: var(--pm-orange); color: #3d2400; }
+.pm .pm-flag-on { color: var(--pm-orange-deep); fill: var(--pm-orange-deep); }
 .pm .pm-filechip { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; border: 1px solid var(--pm-line); background: #fff; color: var(--pm-ink); font-size: .7rem; font-weight: 500; padding: .25rem .6rem; text-decoration: none; transition: border-color .15s ease, box-shadow .15s ease; }
 .pm .pm-filechip:hover { border-color: var(--pm-navy); box-shadow: 0 3px 10px rgba(13,28,52,.10); }
 @media (max-width: 640px) {
   .pm .pm-boardwrap { padding: .8rem; }
   .pm .pm-tickbtn { width: 2.35rem; height: 2.35rem; }
   .pm .pm-tickbtn svg { width: 1.1rem; height: 1.1rem; }
+  .pm .pm-task { padding: 1rem !important; border-radius: 1rem; }
+  .pm .pm-task > div:first-child > p { font-size: .95rem; }
+  .pm .pm-taskactions { gap: .35rem; }
+  .pm .pm-taskactions button { width: 2.5rem !important; height: 2.5rem !important; }
+  .pm .pm-taskactions button svg { width: 1.15rem; height: 1.15rem; }
+  .pm .pm-taskactions .ml-auto { display: none; }
+  .pm .pm-filechip { font-size: .78rem; padding: .45rem .75rem; min-height: 2.1rem; }
+  .pm .pm-col { padding: .8rem; }
 }
 `;
 
@@ -939,7 +953,7 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
     if (autoAdd) { setComposer("todo"); if (onAutoAddDone) onAutoAddDone(); }
   }, [autoAdd]);
 
-  const colCards = (key: string) => cards.filter((c: Any) => c.status === key).sort((a: Any, b: Any) => a.position - b.position || String(a.created_at).localeCompare(String(b.created_at)));
+  const colCards = (key: string) => cards.filter((c: Any) => c.status === key).sort((a: Any, b: Any) => ((b.important ? 1 : 0) - (a.important ? 1 : 0)) || a.position - b.position || String(a.created_at).localeCompare(String(b.created_at)));
 
   async function dropInto(status: string, beforeId?: string) {
     if (!dragId) return;
@@ -987,8 +1001,8 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
                 <button type="button" onClick={() => setComposer(col.key)} aria-label={`Add to ${col.label}`} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#eef0f2] text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]"><Plus className="h-4 w-4" /></button>
               </div>
 
-              {composer === col.key && <AddComposer col={col.key} onCancel={() => setComposer(null)} onSubmit={async (title, notes, files) => {
-                const r = await act({ type: "cardAdd", title, notes, status: col.key, actor: viewer }, "Task added");
+              {composer === col.key && <AddComposer col={col.key} onCancel={() => setComposer(null)} onSubmit={async (title, notes, files, important) => {
+                const r = await act({ type: "cardAdd", title, notes, status: col.key, actor: viewer, important: !!important }, important ? "Important task added" : "Task added");
                 if (r?.id && files.length) await act({ type: "cardFiles", id: r.id, files, actor: viewer }, "File attached to task");
                 if (r) setComposer(null);
                 return r;
@@ -1003,18 +1017,20 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
                     onDragEnd={() => { setDragId(null); setOverCol(null); }}
                     onDragOver={(e) => { if (dragId && dragId !== c.id) e.preventDefault(); }}
                     onDrop={(e) => { e.preventDefault(); e.stopPropagation(); dropInto(col.key, c.id); }}
-                    className={`pm-task cursor-grab p-3.5 active:cursor-grabbing ${dragId === c.id ? "opacity-50" : ""}`}>
+                    className={`pm-task cursor-grab p-3.5 active:cursor-grabbing ${dragId === c.id ? "opacity-50" : ""} ${c.important ? "important" : ""}`}>
                     <div className="flex items-start justify-between gap-2">
                       <p className={`text-sm font-medium leading-snug ${c.status === "done" ? "text-[#5e5e5e] line-through" : ""}`}>{c.title}</p>
                       <span className={`pm-chip flex-none bg-white ${c.status === "doing" ? "orange" : ""}`}>{c.created_by === "Natalie" ? "Nat" : c.created_by?.split(" ")[0] ?? "·"}</span>
                     </div>
+                    {c.important ? <span className="pm-urgent-chip mt-1.5"><Flag className="h-3 w-3" /> Important</span> : null}
                     {c.notes ? <p className="clamp2 mt-1.5 text-xs text-[#5e5e5e]">{c.notes}</p> : null}
                     <div className="pm-taskactions mt-3 flex items-center gap-1 border-t border-[#e6e8ea] pt-2.5">
-                      {c.status === "doing" && (
+                      {c.status !== "done" && (
                         <button type="button" aria-label="Tick off · mark completed" title="Tick off · mark completed" className="pm-tickbtn" onClick={() => act({ type: "cardEdit", id: c.id, status: "done", actor: viewer }, "Ticked off · moved to Completed")}><Check className="h-3.5 w-3.5" /></button>
                       )}
                       <IconBtn label="Move left" onClick={() => nudge(c, -1)} disabled={c.status === "todo"}><ArrowLeft className="h-3.5 w-3.5" /></IconBtn>
                       <IconBtn label="Move right" onClick={() => nudge(c, 1)} disabled={c.status === "done"}><ArrowRight className="h-3.5 w-3.5" /></IconBtn>
+                      <IconBtn label={c.important ? "Remove important flag" : "Mark as important"} onClick={() => act({ type: "cardEdit", id: c.id, important: !c.important, actor: viewer }, c.important ? "Important flag removed" : "Marked as important")}><Flag className={`h-3.5 w-3.5 ${c.important ? "pm-flag-on" : ""}`} /></IconBtn>
                       <IconBtn label="Edit task" onClick={() => setEditing(c)}><Pencil className="h-3.5 w-3.5" /></IconBtn>
                       <span className="ml-auto text-[10px] text-[#9aa0a6]">{c.updated_at ? relDay(c.updated_at) : ""}</span>
                       <IconBtn label="Delete task" danger={confirmDel === c.id} onClick={() => {
@@ -1063,10 +1079,11 @@ function IconBtn({ children, label, onClick, disabled, danger }: { children: Any
   );
 }
 
-function AddComposer({ col, onSubmit, onCancel }: { col: string; onSubmit: (title: string, notes: string, files: Any[]) => Promise<Any | null>; onCancel: () => void }) {
+function AddComposer({ col, onSubmit, onCancel }: { col: string; onSubmit: (title: string, notes: string, files: Any[], important: boolean) => Promise<Any | null>; onCancel: () => void }) {
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [files, setFiles] = useState<Any[]>([]);
+  const [important, setImportant] = useState(false);
   const [busy, setBusy] = useState(false);
   const readFile = (f: File) => new Promise<Any>((res) => { const r = new FileReader(); r.onload = () => res({ name: f.name, dataUri: String(r.result) }); r.onerror = () => res(null); r.readAsDataURL(f); });
   return (
@@ -1077,12 +1094,17 @@ function AddComposer({ col, onSubmit, onCancel }: { col: string; onSubmit: (titl
       setBusy(true);
       const read = await Promise.all(files.map(readFile));
       const clean = read.filter(Boolean);
-      const r = await onSubmit(title.trim(), notes.trim(), clean);
+      const r = await onSubmit(title.trim(), notes.trim(), clean, important);
       setBusy(false); if (!r) return;
       setTitle(""); setNotes(""); setFiles([]);
+      setImportant(false);
     }}>
       <Input autoFocus placeholder="Task title" value={title} onChange={(e) => setTitle(e.target.value)} className="h-9" />
       <Textarea placeholder="Details (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="mt-2 text-sm" />
+      <button type="button" onClick={() => setImportant(!important)} aria-pressed={important} className="pm-urgent-toggle mt-2">
+        <span className={`pm-urgent-box ${important ? "on" : ""}`}><Flag className="h-3 w-3" /></span>
+        <span className="text-xs font-medium">Mark as important · jumps to the top</span>
+      </button>
       <div className="mt-2">
         <input type="file" multiple className="hidden" id={`taskfile-${col}`} onChange={(e) => { setFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])].slice(0, 3)); if (e.target) e.target.value = ""; }} />
         <label htmlFor={`taskfile-${col}`} className="pm-filebtn cursor-pointer"><Paperclip className="h-3.5 w-3.5" /> Attach file{files.length ? ` (${files.length}/3)` : " (optional)"}</label>

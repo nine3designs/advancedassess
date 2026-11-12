@@ -102,9 +102,9 @@ type Action =
   | { type: "fixtureResult"; id: string; score: string }
   | { type: "clientNote"; text: string }
   | { type: "deleteFile"; id: string }
-  | { type: "cardAdd"; title: string; notes?: string; status?: string; actor?: string }
+  | { type: "cardAdd"; title: string; notes?: string; status?: string; actor?: string; important?: boolean }
   | { type: "cardFiles"; id: string; files: { name: string; dataUri: string }[]; actor?: string }
-  | { type: "cardEdit"; id: string; title?: string; notes?: string; status?: string; actor?: string }
+  | { type: "cardEdit"; id: string; title?: string; notes?: string; status?: string; actor?: string; important?: boolean }
   | { type: "cardOrder"; status: string; ids: string[] }
   | { type: "cardDelete"; id: string }
   | { type: "noteAdd"; text: string }
@@ -277,7 +277,11 @@ export const portalAction = createServerFn({ method: "POST" })
       const status = CARD_STATUSES.includes(String(a.status)) ? String(a.status) : "todo";
       const { data: last } = await admin.from("board_cards").select("position").eq("client_id", cid).eq("status", status).order("position", { ascending: false }).limit(1);
       const by = a.actor === "Natalie" ? "Natalie" : "Sara";
-      const { data: card, error } = await admin.from("board_cards").insert({ client_id: cid, title: title.slice(0, 200), notes: a.notes ? String(a.notes).slice(0, 2000) : null, status, position: (Number((last as Any)?.[0]?.position) || 0) + 10, created_by: by }).select("id").single();
+      const payload: Any = { client_id: cid, title: title.slice(0, 200), notes: a.notes ? String(a.notes).slice(0, 2000) : null, status, position: (Number((last as Any)?.[0]?.position) || 0) + 10, created_by: by };
+      if (a.important === true) payload.important = true;
+      let inserted = await admin.from("board_cards").insert(payload).select("id").single();
+      if (inserted.error && payload.important) { delete payload.important; inserted = await admin.from("board_cards").insert(payload).select("id").single(); }
+      const { data: card, error } = inserted;
       if (error || !card) throw new Error("The task board isn't ready yet · please check back soon.");
       await admin.from("activity_log").insert({ client_id: cid, actor: by === "Natalie" ? "Natalie" : "client", message: `added a task: ${title.slice(0, 90)}` });
       return { ok: true, id: card.id };
@@ -292,7 +296,11 @@ export const portalAction = createServerFn({ method: "POST" })
         const { data: last } = await admin.from("board_cards").select("position").eq("client_id", cid).eq("status", patch.status).neq("id", a.id).order("position", { ascending: false }).limit(1);
         patch.position = (Number((last as Any)?.[0]?.position) || 0) + 10;
       }
-      const { data: row } = await admin.from("board_cards").update(patch).eq("id", a.id).eq("client_id", cid).select("title,status").maybeSingle();
+      if (typeof a.important === "boolean") patch.important = a.important;
+      const doUpdate = (p: Any) => admin.from("board_cards").update(p).eq("id", a.id).eq("client_id", cid).select("title,status").maybeSingle();
+      let res = await doUpdate(patch);
+      if (res.error && typeof a.important === "boolean") { const p2 = { ...patch }; delete p2.important; res = await doUpdate(p2); }
+      const { data: row } = res;
       if (!row) throw new Error("Task not found.");
       if (a.status) await admin.from("activity_log").insert({ client_id: cid, actor: a.actor === "Natalie" ? "Natalie" : "client", message: `moved "${String(row.title).slice(0, 60)}" to ${row.status === "todo" ? "To Do" : row.status === "doing" ? "In Progress" : "Done"}` });
       return { ok: true };
