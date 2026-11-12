@@ -29,7 +29,18 @@ export const Route = createFileRoute("/admin")({
 
 const TOKEN = "SaraDawson";
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
-const WEB3FORMS_KEY = "99ca148c-fefe-490c-886a-2ffbf3cc0963";
+const MAILER_URL = "https://script.google.com/macros/s/AKfycbzj1iRi6BOM4b25cBF2GLpMYF6OGd61uAXZWT51WinMCYRjTEfNPcKRGkR6gXEoECeR/exec";
+const MAILER_TOKEN = "nv3mail-2026";
+
+async function sendMail(to: string, subject: string, body: string): Promise<boolean> {
+  try {
+    const r = await fetch(MAILER_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ token: MAILER_TOKEN, to, subject, body }) });
+    const j = await r.json().catch(() => null);
+    return !!(j && j.ok);
+  } catch {
+    return false;
+  }
+}
 
 function nextMonday() {
   const d = new Date();
@@ -473,7 +484,7 @@ function InvoiceEditor({ inv, client, act, onDone }: Any) {
         "Payment details · Sort code 04-03-33 · Account 40426946", "Payment due within 7 days of invoice date.", "",
         "Natalie · Nine3 Designs",
       ].join("\n");
-      const results = await Promise.allSettled([SARA_EMAIL, ...EMAILS].map((to) => fetch("https://api.web3forms.com/submit", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ access_key: WEB3FORMS_KEY, subject: `Invoice ${v.number} · Nine3 Designs`, from_name: "Nine3 Designs · Client Portal", message: body, replyto: "natalie@nine3designs.co.uk" }) })));
+      const results = await Promise.allSettled(EMAILS.map((to) => sendMail(to, `Invoice ${v.number} · Nine3 Designs`, body)));
       if (results.some((x) => x.status === "fulfilled" && (x.value as Any).ok)) toast.success("Invoice sent to Sara's email");
       else toast.error("Marked as sent, but the email may not have gone out · check with Sara.");
       onDone();
@@ -613,7 +624,7 @@ function Availability({ act }: Any) {
         const r = await act({ type: "availabilitySave", week, days: rows, notes: notes.trim() }, "Availability saved");
         if (r) {
           const body = message();
-          const results = await Promise.allSettled(EMAILS.map((to) => fetch("https://api.web3forms.com/submit", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ access_key: WEB3FORMS_KEY, subject: `Your availability · w/c ${weekLabel(week)}`, from_name: "Nine3 Designs · Client Portal", message: body, replyto: "natalie@nine3designs.co.uk" }) })));
+          const results = await Promise.allSettled(EMAILS.map((to) => sendMail(to, `Your availability · w/c ${weekLabel(week)}`, body)));
           if (results.some((x) => x.status === "fulfilled" && (x.value as Any).ok)) { toast.success("Sara has been emailed your availability"); setSent(true); }
           else toast.error("Saved, but the email may not have gone out · check with Sara.");
         }
