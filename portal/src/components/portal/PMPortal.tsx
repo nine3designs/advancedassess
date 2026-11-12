@@ -152,6 +152,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     { v: "dashboard", l: "Dashboard" },
     { v: "board", l: "To-Do Board" },
     { v: "cal", l: "Calendar" },
+    { v: "time", l: "Invoices" },
     { v: "mileage", l: "Mileage" },
     { v: "notes", l: "Notes" },
   ];
@@ -200,7 +201,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
           <Dashboard p={p} stats={stats} weeks={weeks} maxWeek={maxWeek} rate={rate} unbilledMins={unbilledMins} running={running} viewer={viewer} go={setTab} act={act} onQuickAdd={() => { setBoardAdd(true); setTab("board"); }} />
         )}
         {tab === "board" && <Board p={p} viewer={viewer} act={act} go={setTab} autoAdd={boardAdd} onAutoAddDone={() => setBoardAdd(false)} />}
-        {tab === "time" && viewer === "Natalie" && <TimeTab entries={entries} running={running} unbilledMins={unbilledMins} rate={rate} viewer={viewer} act={act} cards={cards} invoices={p.invoices} files={p.deliverables ?? []} client={p.client} />}
+        {tab === "time" && <TimeTab entries={entries} running={running} unbilledMins={unbilledMins} rate={rate} viewer={viewer} act={act} cards={cards} invoices={p.invoices} files={p.deliverables ?? []} client={p.client} />}
         {tab === "cal" && viewer !== "Natalie" && <CalendarTab avail={(p.client?.portal_prefs?.availability ?? null) as Any} />}
         {tab === "mileage" && <MileageTab act={act} entries={((p.client?.portal_prefs?.mileage ?? []) as Any[])} />}
         {tab === "notes" && viewer !== "Natalie" && <NotesTab act={act} notes={((p.client?.portal_prefs?.sara_notes ?? []) as Any[])} />}
@@ -466,7 +467,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
           : <Tile icon={<Check className="h-5 w-5" />} tone="navy" label="Completed" value={String(doneCount)} sub="tasks finished" onClick={() => go("board")} />}
         {isNat
           ? <Tile icon={<FileText className="h-5 w-5" />} label="Unbilled" value={money((unbilledMins / 60) * rate)} sub={`${fmtMins(unbilledMins)} · ${money(rate)}/hr`} />
-          : <Tile icon={<FileText className="h-5 w-5" />} label="Invoices received" value={String(invNew.length)} sub={invNew.length ? "new invoices to view" : "none yet"} />}
+          : <Tile icon={<FileText className="h-5 w-5" />} label="Invoices" value={String(invLive.length)} sub={invNew.length ? `${invNew.length} new to view` : "view your invoices"} onClick={() => go("time")} />}
       </div>
 
       <div className="flex flex-wrap items-start gap-x-8 gap-y-3 px-1">
@@ -557,10 +558,10 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
         {isNat ? <MonthCalCard avail={(p.client?.portal_prefs?.availability ?? null) as Any} booked={((p.client?.portal_prefs?.booked ?? []) as Any[])} cta={false} onCircle={() => go("availability")} /> : null}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className={`grid gap-5 ${isNat ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
         {isNat ? boardCard : <MonthCalCard avail={avail} />}
         {recentCard}
-        {activityCard}
+        {isNat ? activityCard : null}
       </div>
       {!isNat && (
         <div className="pm-dark p-6">
@@ -1175,7 +1176,7 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
 
   return (
     <div className="space-y-5">
-      <div className="pm-card p-6 md:p-7">
+      {isNat && <div className="pm-card p-6 md:p-7">
         <div className="flex flex-col gap-6 md:flex-row md:items-center">
           <div className="flex items-center gap-5">
             <Ring frac={running ? (secs % 480) / 480 : 0}>
@@ -1204,9 +1205,9 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
-      <div className="pm-card p-5">
+      {isNat && <div className="pm-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Unbilled work</h2>
@@ -1229,11 +1230,11 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
           </div>
         )}
         {!isNat && unbilledMins === 0 && <p className="mt-3 text-sm text-[#5e5e5e]">All logged hours have been invoiced.</p>}
-      </div>
+      </div>}
 
       {isNat && <ManualLog act={act} cards={cards} todayKey={todayKey} />}
 
-      <div className="pm-card p-5">
+      {isNat && <div className="pm-card p-5">
         <h2 className="text-lg font-semibold">Work log</h2>
         {groups.length === 0 ? <p className="mt-3 text-sm text-[#5e5e5e]">No hours logged yet.</p> : (
           <div className="mt-4 space-y-5">
@@ -1252,7 +1253,7 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
       <div className="pm-card p-5">
         <h2 className="text-lg font-semibold">Invoices</h2>
