@@ -90,9 +90,9 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     })();
   }, []);
 
-  const [tab, setTab] = useState<"dashboard" | "board" | "time" | "cal" | "notes">(() => {
+  const [tab, setTab] = useState<"dashboard" | "board" | "tasks" | "time" | "cal" | "mileage" | "notes">(() => {
     const t = new URLSearchParams(window.location.search).get("tab");
-    return t === "board" || t === "time" || t === "cal" || t === "notes" ? t : "dashboard";
+    return t === "board" || t === "tasks" || t === "time" || t === "cal" || t === "mileage" || t === "notes" ? t : "dashboard";
   });
   const [boardAdd, setBoardAdd] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -147,10 +147,12 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
   const tabs = viewer === "Natalie" ? [
     { v: "dashboard", l: "Dashboard" },
     { v: "board", l: "To-Do Board" },
+    { v: "tasks", l: "Tasks" },
     { v: "time", l: "Time & Invoices" },
   ] : [
     { v: "dashboard", l: "Dashboard" },
     { v: "board", l: "To-Do Board" },
+    { v: "tasks", l: "Tasks" },
     { v: "cal", l: "Calendar" },
     { v: "time", l: "Invoices" },
     { v: "mileage", l: "Mileage" },
@@ -201,6 +203,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
           <Dashboard p={p} stats={stats} weeks={weeks} maxWeek={maxWeek} rate={rate} unbilledMins={unbilledMins} running={running} viewer={viewer} go={setTab} act={act} onQuickAdd={() => { setBoardAdd(true); setTab("board"); }} />
         )}
         {tab === "board" && <Board p={p} viewer={viewer} act={act} go={setTab} autoAdd={boardAdd} onAutoAddDone={() => setBoardAdd(false)} />}
+        {tab === "tasks" && <TasksTab p={p} viewer={viewer} act={act} />}
         {tab === "time" && <TimeTab entries={entries} running={running} unbilledMins={unbilledMins} rate={rate} viewer={viewer} act={act} cards={cards} invoices={p.invoices} files={p.deliverables ?? []} client={p.client} />}
         {tab === "cal" && viewer !== "Natalie" && <CalendarTab avail={(p.client?.portal_prefs?.availability ?? null) as Any} />}
         {tab === "mileage" && <MileageTab act={act} entries={((p.client?.portal_prefs?.mileage ?? []) as Any[])} />}
@@ -1024,6 +1027,7 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
                       <span className={`pm-chip flex-none bg-white ${c.status === "doing" ? "orange" : ""}`}>{c.created_by === "Natalie" ? "Nat" : c.created_by?.split(" ")[0] ?? "·"}</span>
                     </div>
                     {c.important ? <span className="pm-urgent-chip mt-1.5"><Flag className="h-3 w-3" /> Important</span> : null}
+                    {c.due_date ? <span className="pm-urgent-chip mt-1.5" style={{ background: "rgba(13,28,52,.07)", color: "#0d1c34" }}><CalendarDays className="h-3 w-3" /> Due {fmtDue(c.due_date)}</span> : null}
                     {c.notes ? <p className="clamp2 mt-1.5 text-xs text-[#5e5e5e]">{c.notes}</p> : null}
                     <div className="pm-taskactions mt-3 flex items-center gap-1 border-t border-[#e6e8ea] pt-2.5">
                       {c.status !== "done" && (
@@ -1473,6 +1477,145 @@ export function InvoiceSheet({ inv, client }: Any) {
         <p>{BILLER.terms}. Questions? Email {BILLER.contact}.</p>
         {inv.notes ? <p className="mt-2">{inv.notes}</p> : null}
       </div>
+    </div>
+  );
+}
+
+/* ---------------- tasks tab ---------------- */
+
+export function fmtDue(d: string) {
+  try {
+    return new Date(String(d).slice(0, 10) + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" });
+  } catch { return String(d); }
+}
+
+function dueState(d: string) {
+  const key = String(d).slice(0, 10);
+  const today = londonDay(new Date().toISOString());
+  if (key < today) return "over";
+  const soon = new Date();
+  soon.setDate(soon.getDate() + 3);
+  if (key <= londonDay(soon.toISOString())) return "soon";
+  return "";
+}
+
+const PMT_STYLES = `
+.pmt-form { border-radius: 1rem; background: #fff; border: 1px solid #e6e8ea; padding: 1.25rem; box-shadow: 0 1px 2px rgba(13,28,52,.05); }
+.pmt-row { border-radius: 1rem; background: #fff; border: 1px solid #e6e8ea; padding: 1rem 1.1rem; }
+.pmt-row.done { opacity: .7; }
+.pmt-detail { margin-top: .5rem; font-size: .82rem; line-height: 1.55; color: #4b5563; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pmt-meta { margin-top: .5rem; font-size: .68rem; color: #9aa0a6; }
+.pmt-due { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; background: rgba(13,28,52,.07); color: #0d1c34; font-size: .68rem; font-weight: 700; padding: .2rem .55rem; }
+.pmt-due.soon { background: rgba(245,154,43,.16); color: #a35803; }
+.pmt-due.over { background: rgba(192,57,43,.12); color: #c0392b; }
+.pmt-empty { border-radius: 1rem; border: 1px dashed #d5dade; padding: 1.5rem 1rem; text-align: center; font-size: .78rem; color: #5e5e5e; }
+`;
+
+export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
+  const cards: Any[] = p.board ?? [];
+  const [title, setTitle] = useState("");
+  const [details, setDetails] = useState("");
+  const [due, setDue] = useState("");
+  const [urgent, setUrgent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [showDone, setShowDone] = useState(false);
+
+  const groups: { key: string; label: string; items: Any[] }[] = [
+    { key: "doing", label: "In progress", items: cards.filter((c: Any) => c.status === "doing") },
+    { key: "todo", label: "To do", items: cards.filter((c: Any) => c.status === "todo") },
+    { key: "done", label: "Completed", items: cards.filter((c: Any) => c.status === "done") },
+  ];
+  const sortCards = (list: Any[]) => [...list].sort((a: Any, b: Any) => ((b.important ? 1 : 0) - (a.important ? 1 : 0)) || Number(a.position) - Number(b.position) || String(a.created_at).localeCompare(String(b.created_at)));
+
+  return (
+    <div className="space-y-4">
+      <style>{PMT_STYLES}</style>
+      <form
+        className="pmt-form"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (!title.trim() || busy) return;
+          setBusy(true);
+          const r = await act(
+            { type: "cardAdd", title: title.trim(), notes: details.trim(), status: "todo", actor: viewer, important: urgent, due_date: due || undefined },
+            urgent ? "Urgent task added · it's on the board" : "Task added · it's on the board"
+          );
+          if (r) { setTitle(""); setDetails(""); setDue(""); setUrgent(false); }
+          setBusy(false);
+        }}>
+        <div>
+          <h2 className="text-lg font-semibold">Add a task</h2>
+          <p className="mt-0.5 text-xs text-[#5e5e5e]">Full detail goes here · the task lands on the To-Do Board as soon as you add it.</p>
+        </div>
+        <div className="mt-4 space-y-1.5">
+          <Label>Task title</Label>
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Onboarding doc" className="h-10" maxLength={200} />
+        </div>
+        <button type="button" onClick={() => setUrgent(!urgent)} aria-pressed={urgent} className="pm-urgent-toggle mt-3">
+          <span className={`pm-urgent-box ${urgent ? "on" : ""}`}><Flag className="h-3 w-3" /></span>
+          <span className="text-xs font-medium">Flag as urgent · jumps to the top of the board</span>
+        </button>
+        <div className="mt-3 space-y-1.5">
+          <Label>Details</Label>
+          <Textarea value={details} onChange={(e) => setDetails(e.target.value)} placeholder="What needs doing? Add any detail the task needs." rows={4} className="text-sm" maxLength={2000} />
+        </div>
+        <div className="mt-3 space-y-1.5">
+          <Label>Due by (optional)</Label>
+          <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="h-10 max-w-52" />
+        </div>
+        <Button type="submit" className="pm-btn-orange mt-4 h-11 px-7" disabled={busy}>
+          {busy ? "Adding…" : <><Plus className="h-4 w-4" /> Add task</>}
+        </Button>
+      </form>
+
+      <div className="space-y-4">
+        {groups.map((g) => {
+          if (g.key === "done") {
+            if (g.items.length === 0) return null;
+            return (
+              <div key={g.key} className="space-y-2.5">
+                <button type="button" onClick={() => setShowDone((o) => !o)} className="flex items-center gap-2 text-sm font-semibold text-[#0d1c34]">
+                  <ChevronRight className={`h-4 w-4 transition-transform ${showDone ? "rotate-90" : ""}`} />
+                  Completed <span className="pm-chip">{g.items.length}</span>
+                </button>
+                {showDone && sortCards(g.items).map((c: Any) => <TaskRow key={c.id} c={c} />)}
+              </div>
+            );
+          }
+          return (
+            <div key={g.key} className="space-y-2.5">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-[#0d1c34]">{g.label}</h3>
+                <span className="pm-chip">{g.items.length}</span>
+              </div>
+              {sortCards(g.items).map((c: Any) => <TaskRow key={c.id} c={c} />)}
+              {g.items.length === 0 && <p className="pmt-empty">Nothing {g.key === "todo" ? "to do" : "in progress"} right now</p>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TaskRow({ c }: { c: Any }) {
+  const who = c.created_by === "Natalie" ? "Natalie" : (String(c.created_by ?? "·").split(" ")[0] || "·");
+  return (
+    <div className={`pmt-row ${c.status === "done" ? "done" : ""}`}>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <p className={`text-sm font-semibold leading-snug ${c.status === "done" ? "text-[#5e5e5e] line-through" : "text-[#0d1c34]"}`}>{c.title}</p>
+        {c.important ? <span className="pm-urgent-chip"><Flag className="h-3 w-3" /> Urgent</span> : null}
+        {c.due_date ? <span className={`pmt-due ${c.status !== "done" ? dueState(c.due_date) : ""}`}><CalendarDays className="h-3 w-3" /> Due {fmtDue(c.due_date)}</span> : null}
+      </div>
+      {c.notes ? <p className="pmt-detail">{c.notes}</p> : <p className="pmt-detail" style={{ fontStyle: "italic", color: "#9aa0a6" }}>No extra detail added</p>}
+      <p className="pmt-meta">Added by {who}{c.updated_at ? ` · updated ${relDay(c.updated_at)}` : ""}</p>
+      {Array.isArray(c.files) && c.files.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {(c.files as Any[]).map((f: Any, k: number) => (
+            <a key={k} href={f.dataUri} download={f.name} className="pm-filechip" title={`Download ${f.name}`}><Paperclip className="h-3 w-3 flex-none" /><span className="max-w-36 truncate">{f.name}</span></a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

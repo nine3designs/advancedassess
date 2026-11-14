@@ -15,7 +15,7 @@ import { StatusBadge } from "@/components/common";
 import { supabase } from "@/integrations/supabase/client";
 import { portalAction, getPortal } from "@/lib/portal.functions";
 import { downloadInvoicePdf } from "@/lib/invoice-pdf";
-import { Dashboard, Board, InvoiceSheet } from "@/components/portal/PMPortal";
+import { Dashboard, Board, TasksTab, InvoiceSheet } from "@/components/portal/PMPortal";
 import { InvoiceDocument } from "@/components/portal/InvoiceDocument";
 import { effectiveStatus, fmtDate, invoiceTotals, money, type LineItem } from "@/lib/format";
 import { fmtMinsLabel, londonDayKey } from "@/lib/admin-utils";
@@ -108,7 +108,7 @@ function AdminPage() {
 }
 
 function AdminShell({ act, data, onSignOut }: Any) {
-  const [tab, setTab] = useState<"dashboard" | "board" | "time" | "finance" | "availability">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "board" | "tasks" | "time" | "finance" | "availability">("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
   const entries: Any[] = data.time ?? [];
   const cards: Any[] = data.board ?? [];
@@ -150,6 +150,7 @@ function AdminShell({ act, data, onSignOut }: Any) {
   const tabs = [
     { v: "dashboard", l: "Dashboard" },
     { v: "board", l: "To-Do Board" },
+    { v: "tasks", l: "Tasks" },
     { v: "time", l: "Time Tracking" },
     { v: "finance", l: "Finance" },
     { v: "availability", l: "Availability" },
@@ -196,6 +197,7 @@ function AdminShell({ act, data, onSignOut }: Any) {
         </header>
         {tab === "dashboard" && <Dashboard p={data} stats={stats} weeks={weeks} maxWeek={maxWeek} rate={rate} unbilledMins={unbilledMins} running={running} viewer="Natalie" go={setTab as Any} act={act} />}
         {tab === "board" && <Board p={data} viewer="Natalie" act={act} go={(t: string) => setTab((t === "board" ? "board" : "time") as Any)} />}
+        {tab === "tasks" && <TasksTab p={data} viewer="Natalie" act={act} />}
         {tab === "time" && <AdminTime act={act} entries={entries} running={running} cards={cards} unbilledMins={unbilledMins} rate={rate} />}
         {tab === "finance" && <Finance act={act} invoices={invoices} entries={doneEntries} unbilledMins={unbilledMins} rate={rate} client={data.client} />}
         {tab === "availability" && <Availability act={act} />}
@@ -808,11 +810,25 @@ const ADMIN_STYLES = `
 .pm .pm-col:nth-child(3) { border-top-color: #3f7d4e !important; }
 .pm .pm-tickbtn { display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; border-radius: .55rem; border: 1.5px solid #cfd5db; background: #fff; color: #9aa0a6; transition: all .15s ease; }
 .pm .pm-tickbtn:hover { background: #3f7d4e; border-color: #3f7d4e; color: #fff; box-shadow: 0 3px 10px rgba(63,125,78,.3); }
+.pm .pm-task.important { background: #fff7ed; box-shadow: 0 1px 2px rgba(217,116,6,.10), 0 4px 14px rgba(217,116,6,.10); border-left: 4px solid var(--pm-orange); border-top-left-radius: .4rem; border-bottom-left-radius: .4rem; }
+.pm .pm-urgent-chip { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; background: rgba(245,154,43,.16); color: #a35803; font-size: .68rem; font-weight: 700; padding: .2rem .55rem; width: fit-content; }
+.pm .pm-urgent-toggle { display: inline-flex; align-items: center; gap: .5rem; color: var(--pm-ink); }
+.pm .pm-urgent-box { width: 1.15rem; height: 1.15rem; border-radius: .4rem; border: 1.5px solid #cfd5db; background: #fff; display: inline-flex; align-items: center; justify-content: center; color: transparent; transition: all .15s ease; flex: none; }
+.pm .pm-urgent-box.on { background: var(--pm-orange); border-color: var(--pm-orange); color: #3d2400; }
+.pm .pm-flag-on { color: var(--pm-orange-deep); fill: var(--pm-orange-deep); }
 .pm .pm-filechip { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; border: 1px solid var(--pm-line); background: #fff; color: var(--pm-ink); font-size: .7rem; font-weight: 500; padding: .25rem .6rem; text-decoration: none; transition: border-color .15s ease, box-shadow .15s ease; }
 .pm .pm-filechip:hover { border-color: var(--pm-navy); box-shadow: 0 3px 10px rgba(13,28,52,.10); }
 @media (max-width: 640px) {
   .pm .pm-boardwrap { padding: .8rem; }
   .pm .pm-tickbtn { width: 2.35rem; height: 2.35rem; }
   .pm .pm-tickbtn svg { width: 1.1rem; height: 1.1rem; }
+  .pm .pm-task { padding: 1rem !important; border-radius: 1rem; }
+  .pm .pm-task > div:first-child > p { font-size: .95rem; }
+  .pm .pm-taskactions { gap: .35rem; }
+  .pm .pm-taskactions button { width: 2.5rem !important; height: 2.5rem !important; }
+  .pm .pm-taskactions button svg { width: 1.15rem; height: 1.15rem; }
+  .pm .pm-taskactions .ml-auto { display: none; }
+  .pm .pm-filechip { font-size: .78rem; padding: .45rem .75rem; min-height: 2.1rem; }
+  .pm .pm-col { padding: .8rem; }
 }
 `;
