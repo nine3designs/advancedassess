@@ -1027,7 +1027,6 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
                       <span className={`pm-chip flex-none bg-white ${c.status === "doing" ? "orange" : ""}`}>{c.created_by === "Natalie" ? "Nat" : c.created_by?.split(" ")[0] ?? "·"}</span>
                     </div>
                     {c.important ? <span className="pm-urgent-chip mt-1.5"><Flag className="h-3 w-3" /> Important</span> : null}
-                    {c.due_date ? <span className="pm-urgent-chip mt-1.5" style={{ background: "rgba(13,28,52,.07)", color: "#0d1c34" }}><CalendarDays className="h-3 w-3" /> Due {fmtDue(c.due_date)}</span> : null}
                     {c.notes ? <p className="clamp2 mt-1.5 text-xs text-[#5e5e5e]">{c.notes}</p> : null}
                     <div className="pm-taskactions mt-3 flex items-center gap-1 border-t border-[#e6e8ea] pt-2.5">
                       {c.status !== "done" && (
@@ -1517,8 +1516,11 @@ export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
   const [details, setDetails] = useState("");
   const [due, setDue] = useState("");
   const [urgent, setUrgent] = useState(false);
+  const [files, setFiles] = useState<Any[]>([]);
   const [busy, setBusy] = useState(false);
   const [showDone, setShowDone] = useState(false);
+
+  const readFile = (f: File) => new Promise<Any>((res) => { const r = new FileReader(); r.onload = () => res({ name: f.name, dataUri: String(r.result) }); r.onerror = () => res(null); r.readAsDataURL(f); });
 
   const groups: { key: string; label: string; items: Any[] }[] = [
     { key: "doing", label: "In progress", items: cards.filter((c: Any) => c.status === "doing") },
@@ -1535,12 +1537,17 @@ export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
         onSubmit={async (e) => {
           e.preventDefault();
           if (!title.trim() || busy) return;
+          const total = files.reduce((s, f) => s + (f?.dataUri?.length ?? 0), 0);
+          if (total > 6_200_000) { toast.error("Those files are too large altogether · keep attachments under about 4 MB."); return; }
           setBusy(true);
+          const read = await Promise.all(files.map(readFile));
+          const clean = read.filter(Boolean);
           const r = await act(
             { type: "cardAdd", title: title.trim(), notes: details.trim(), status: "todo", actor: viewer, important: urgent, due_date: due || undefined },
             urgent ? "Urgent task added · it's on the board" : "Task added · it's on the board"
           );
-          if (r) { setTitle(""); setDetails(""); setDue(""); setUrgent(false); }
+          if (r?.id && clean.length) await act({ type: "cardFiles", id: r.id, files: clean, actor: viewer }, "Files attached to task");
+          if (r) { setTitle(""); setDetails(""); setDue(""); setUrgent(false); setFiles([]); }
           setBusy(false);
         }}>
         <div>
@@ -1562,6 +1569,17 @@ export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
         <div className="mt-3 space-y-1.5">
           <Label>Due by (optional)</Label>
           <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="h-10 max-w-52" />
+        </div>
+        <div className="mt-3">
+          <input type="file" multiple className="hidden" id="pmt-taskfile" onChange={(e) => { setFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])].slice(0, 3)); if (e.target) e.target.value = ""; }} />
+          <label htmlFor="pmt-taskfile" className="pm-filebtn cursor-pointer"><Paperclip className="h-3.5 w-3.5" /> Attach file{files.length ? ` (${files.length}/3)` : " (optional)"}</label>
+          {files.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {files.map((f: Any, k: number) => (
+                <span key={k} className="pm-filechip"><span className="max-w-36 truncate">{f.name}</span><button type="button" aria-label="Remove file" onClick={() => setFiles((prev) => prev.filter((_: Any, j: number) => j !== k))}><X className="h-3 w-3" /></button></span>
+              ))}
+            </div>
+          )}
         </div>
         <Button type="submit" className="pm-btn-orange mt-4 h-11 px-7" disabled={busy}>
           {busy ? "Adding…" : <><Plus className="h-4 w-4" /> Add task</>}
