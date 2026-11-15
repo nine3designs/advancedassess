@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Wordmark } from "@/components/portal/Wordmark";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { StatusBadge } from "@/components/common";
 import { supabase } from "@/integrations/supabase/client";
 import { portalAction, getPortal } from "@/lib/portal.functions";
@@ -199,7 +200,7 @@ function AdminShell({ act, data, onSignOut }: Any) {
         {tab === "board" && <Board p={data} viewer="Natalie" act={act} go={(t: string) => setTab((t === "board" ? "board" : "time") as Any)} />}
         {tab === "tasks" && <TasksTab p={data} viewer="Natalie" act={act} />}
         {tab === "time" && <AdminTime act={act} entries={entries} running={running} cards={cards} unbilledMins={unbilledMins} rate={rate} />}
-        {tab === "finance" && <Finance act={act} invoices={invoices} entries={doneEntries} unbilledMins={unbilledMins} rate={rate} client={data.client} />}
+        {tab === "finance" && <Finance act={act} invoices={invoices} entries={doneEntries} unbilledMins={unbilledMins} rate={rate} client={data.client} board={cards} />}
         {tab === "availability" && <Availability act={act} />}
       </main>
       <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Projects Portal - Crafted by <a href="https://nine3designs.co.uk" target="_blank" rel="noreferrer">Nine3 Designs</a></footer>
@@ -370,9 +371,10 @@ function EntryRow({ e, cardTitle, act }: Any) {
 }
 
 
-function Finance({ act, invoices, unbilledMins, rate, client }: Any) {
+function Finance({ act, invoices, unbilledMins, rate, client, board }: Any) {
   const [editId, setEditId] = useState<string | null>(null);
   const [viewInv, setViewInv] = useState<Any | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const editing = invoices.find((i: Any) => i.id === editId) ?? null;
   if (editing) return <InvoiceEditor inv={editing} client={client} act={act} onDone={() => setEditId(null)} />;
   return (
@@ -390,16 +392,16 @@ function Finance({ act, invoices, unbilledMins, rate, client }: Any) {
         </div>
         {unbilledMins > 0 && (
           <div className="mt-4 border-t border-[#f0f1f3] pt-4">
-            <Button className="pm-btn-orange h-10" onClick={async () => {
-              const r = await act({ type: "timeInvoice" });
-              if (r?.id) {
-                toast.success(`Invoice ${r.number} drafted · nothing sent to Sara yet`, { action: { label: "Open draft", onClick: () => setEditId(r.id) }, duration: 12000 });
-              }
-            }}><FileText className="h-4 w-4" /> Create draft invoice · {fmtMinsLabel(unbilledMins)} · {money((unbilledMins / 60) * rate)}</Button>
-            <p className="mt-2 text-xs text-[#5e5e5e]">One line per day from your logged hours · check it over, then send it to Sara's email.</p>
+            <Button className="pm-btn-orange h-10" onClick={() => setPickerOpen(true)}><FileText className="h-4 w-4" /> Build invoice · {fmtMinsLabel(unbilledMins)} · {money((unbilledMins / 60) * rate)}</Button>
+            <p className="mt-2 text-xs text-[#5e5e5e]">Pick what to bill · untick days or add board tasks · the rest waits for the next invoice.</p>
           </div>
         )}
       </div>
+
+      <InvoicePicker open={pickerOpen} onOpenChange={setPickerOpen} entries={entries} board={board} rate={rate} act={act} onCreated={(id: string) => {
+        toast.success("Draft invoice created · check it over, then send it to Sara");
+        setEditId(id);
+      }} />
 
       <InvoiceUpload act={act} />
 
@@ -449,6 +451,108 @@ function Finance({ act, invoices, unbilledMins, rate, client }: Any) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function InvoicePicker({ open, onOpenChange, entries, board, rate, act, onCreated }: Any) {
+  const unbilled = entries.filter((e: Any) => !e.billed && Number(e.minutes) > 0);
+  const days = useMemo(() => {
+    const byDay = new Map<string, { mins: number; notes: string[]; ids: string[] }>();
+    for (const e of unbilled) {
+      const key = londonDayKey(new Date(e.started_at ?? e.created_at));
+      const g = byDay.get(key) ?? { mins: 0, notes: [], ids: [] };
+      g.mins += Number(e.minutes);
+      if (e.note && !g.notes.includes(e.note)) g.notes.push(e.note);
+      g.ids.push(e.id);
+      byDay.set(key, g);
+    }
+    return [...byDay.entries()].sort((x, y) => x[0].localeCompare(y[0])).map(([key, g]) => ({
+      key,
+      label: new Date(key + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }),
+      ...g,
+    }));
+  }, [entries]);
+  const tasks: Any[] = (board ?? []).filter((c: Any) => !c.invoiced);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [taskSel, setTaskSel] = useState<Set<string>>(new Set());
+  const [taskRate, setTaskRate] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (open) { setSel(new Set(days.map((d: Any) => d.key))); setTaskSel(new Set()); setTaskRate({}); }
+  }, [open]);
+  const tickedMins = days.filter((d: Any) => sel.has(d.key)).reduce((s: number, d: Any) => s + d.mins, 0);
+  const taskTotal = tasks.filter((c: Any) => taskSel.has(c.id)).reduce((s: number, c: Any) => s + (Number(taskRate[c.id]) || 0), 0);
+  const grand = (tickedMins / 60) * rate + taskTotal;
+  const nothing = sel.size === 0 && taskSel.size === 0;
+  const toggle = (setS: Any, key: string) => { const n = new Set(setS instanceof Set ? setS : new Set()); if (n.has(key)) n.delete(key); else n.add(key); setS(n); };
+  const create = async () => {
+    if (nothing) { toast.error("Tick at least one day or task first"); return; }
+    setBusy(true);
+    const entryIds = unbilled.filter((e: Any) => sel.has(londonDayKey(new Date(e.started_at ?? e.created_at)))).map((e: Any) => e.id);
+    const taskList = tasks.filter((c: Any) => taskSel.has(c.id)).map((c: Any) => ({ id: c.id, title: c.title, notes: c.notes ?? null, rate: Number(taskRate[c.id]) || 0 }));
+    const r = await act({ type: "timeInvoice", entryIds, tasks: taskList });
+    setBusy(false);
+    if (r?.id) { onOpenChange(false); onCreated(r.id); }
+  };
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Build invoice</DialogTitle></DialogHeader>
+        <p className="text-xs text-[#5e5e5e]">Everything is ticked to start · untick anything you want to leave for the next invoice.</p>
+        <div className="max-h-[55vh] space-y-4 overflow-y-auto pr-1">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#5e5e5e]">Unbilled hours · {money(rate)}/hour</p>
+            {days.length === 0 ? <p className="mt-2 text-sm text-[#5e5e5e]">No unbilled hours logged.</p> : (
+              <div className="mt-2 space-y-1.5">
+                {days.map((d: Any) => (
+                  <label key={d.key} className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-[#e6e8ea] px-3 py-2.5 text-sm transition-colors hover:border-[#f59a2b]">
+                    <Checkbox checked={sel.has(d.key)} onCheckedChange={() => toggle(setSel, d.key)} className="flex-none" />
+                    <span className="min-w-0 flex-1">
+                      <span className="font-medium">{d.label}</span>
+                      {d.notes.length > 0 && <span className="block truncate text-xs text-[#5e5e5e]">{d.notes.join("; ").slice(0, 80)}</span>}
+                    </span>
+                    <span className="flex-none text-xs text-[#5e5e5e]">{fmtMinsLabel(d.mins)}</span>
+                    <span className="flex-none text-sm font-semibold">{money((d.mins / 60) * rate)}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#5e5e5e]">Board tasks · optional extras</p>
+            <p className="mt-0.5 text-[11px] text-[#5e5e5e]">Tick tasks to bill them as fixed-price lines · set the price next to each. Ticked tasks get marked as invoiced.</p>
+            {tasks.length === 0 ? <p className="mt-2 text-sm text-[#5e5e5e]">No uninvoiced tasks on the board.</p> : (
+              <div className="mt-2 space-y-1.5">
+                {tasks.map((c: Any) => (
+                  <div key={c.id} className="rounded-xl border border-[#e6e8ea] px-3 py-2.5">
+                    <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+                      <Checkbox checked={taskSel.has(c.id)} onCheckedChange={() => toggle(setTaskSel, c.id)} className="flex-none" />
+                      <span className="min-w-0 flex-1 truncate font-medium">{c.title}</span>
+                      <span className="pm-chip flex-none">{c.status === "done" ? "Done" : c.status === "doing" ? "In progress" : "To do"}</span>
+                    </label>
+                    {taskSel.has(c.id) && (
+                      <div className="mt-2 flex items-center gap-2 pl-8">
+                        <Label className="text-xs text-[#5e5e5e]">Price £</Label>
+                        <Input type="number" min="0" step="0.01" value={taskRate[c.id] ?? ""} onChange={(e) => setTaskRate((p) => ({ ...p, [c.id]: e.target.value }))} placeholder="0.00" className="h-8 w-28" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center justify-between border-t border-[#f0f1f3] pt-3">
+          <div>
+            <p className="text-xs text-[#5e5e5e]">Invoice total</p>
+            <p className="text-lg font-semibold tracking-tight">{money(grand)}</p>
+          </div>
+          <Button type="button" className="pm-btn-orange" disabled={busy || nothing} onClick={create}>
+            {busy ? "Creating..." : <><FileText className="h-4 w-4" /> Create draft invoice</>}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

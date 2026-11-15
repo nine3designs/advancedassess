@@ -117,7 +117,7 @@ type Action =
   | { type: "timeAdd"; date: string; minutes: number; note?: string; cardId?: string; actor?: string }
   | { type: "timeUpdate"; id: string; minutes: number; note?: string }
   | { type: "timeDelete"; id: string }
-  | { type: "timeInvoice" }
+  | { type: "timeInvoice"; entryIds?: string[]; tasks?: { id: string; title: string; notes?: string | null; rate: number }[] }
   | { type: "uploadInvoice"; fileName: string; title?: string; dataUri: string }
   | { type: "availabilitySave"; week: string; days: { day: string; available: boolean; note?: string }[]; notes?: string };
 
@@ -383,8 +383,14 @@ export const portalAction = createServerFn({ method: "POST" })
     }
     if (a.type === "timeInvoice") {
       const { data: rows } = await admin.from("time_entries").select("id, started_at, created_at, minutes, note").eq("client_id", cid).eq("billed", false).order("created_at");
-      const open = ((rows as Any[]) ?? []).filter((e) => Number(e.minutes) > 0);
-      if (open.length === 0) throw new Error("No unbilled hours to invoice.");
+      const allOpen = ((rows as Any[]) ?? []).filter((e) => Number(e.minutes) > 0);
+      const open = Array.isArray(a.entryIds) && a.entryIds.length ? allOpen.filter((e) => a.entryIds.includes(e.id)) : allOpen;
+      const taskLines: LineItem[] = Array.isArray(a.tasks) ? a.tasks.slice(0, 40).map((t: Any) => ({
+        description: `${String(t.title ?? "Task").slice(0, 200)}${t.notes ? ` · ${String(t.notes).slice(0, 140)}` : ""}`,
+        quantity: 1,
+        rate: Number(t.rate) || 0,
+      })) : [];
+      if (open.length === 0 && taskLines.length === 0) throw new Error("Nothing selected · tick at least one day or task.");
       const prefs = ((client as Any).portal_prefs ?? {}) as Any;
       const rate = Number(prefs.rate ?? 17);
       const dayFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", day: "numeric", month: "long", year: "numeric" });
@@ -397,11 +403,13 @@ export const portalAction = createServerFn({ method: "POST" })
         if (e.note && !g.notes.includes(e.note)) g.notes.push(e.note);
         byDay.set(key, g);
       }
-      const items: LineItem[] = [...byDay.entries()].sort((x, y) => x[0].localeCompare(y[0])).map(([key, g]) => ({
+      const dayItems: LineItem[] = [...byDay.entries()].sort((x, y) => x[0].localeCompare(y[0])).map(([key, g]) => ({
         description: `Design & admin support · ${dayFmt.format(new Date(key + "T12:00:00Z"))}${g.notes.length ? ` · ${g.notes.join("; ").slice(0, 180)}` : ""}`,
         quantity: Math.round((g.mins / 60) * 100) / 100,
         rate,
       }));
+      const items: LineItem[] = [...dayItems, ...taskLines];
+      if (items.length === 0) throw new Error("Nothing selected · tick at least one day or task.");
       const totalHours = Math.round(open.reduce((s, e) => s + Number(e.minutes), 0) / 60 * 100) / 100;
       const year = new Date().getFullYear();
       const { data: nums } = await admin.from("invoices").select("number").like("number", `N3-${year}-%`);
@@ -410,10 +418,15 @@ export const portalAction = createServerFn({ method: "POST" })
       const number = `N3-${year}-${String(maxN + 1).padStart(3, "0")}`;
       const today = new Date().toISOString().slice(0, 10);
       const due = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
-      const { data: inv, error } = await admin.from("invoices").insert({ client_id: cid, number, issue_date: today, due_date: due, status: "draft", items, tax_rate: 0, notes: `Generated from ${totalHours} logged hours at £${rate}/hour` }).select("id,number").single();
+      const draftNotes = `Generated from ${totalHours} logged hours at £${rate}/hour` + (taskLines.length ? ` + ${taskLines.length} board ${taskLines.length === 1 ? "task" : "tasks"}` : "");
+      const { data: inv, error } = await admin.from("invoices").insert({ client_id: cid, number, issue_date: today, due_date: due, status: "draft", items, tax_rate: 0, notes: draftNotes }).select("id,number").single();
       if (error || !inv) throw new Error("Could not create the invoice · please try again.");
-      await admin.from("time_entries").update({ billed: true, invoice_id: (inv as Any).id }).eq("client_id", cid).eq("billed", false);
-      await admin.from("activity_log").insert({ client_id: cid, actor: "Natalie", message: `created invoice ${number} (${fmtMins(Math.round(totalHours * 60))})` });
+      if (open.length) await admin.from("time_entries").update({ billed: true, invoice_id: (inv as Any).id }).in("id", open.map((e) => e.id));
+      if (Array.isArray(a.tasks) && a.tasks.length) {
+        const r2 = await admin.from("board_cards").update({ invoiced: true }).in("id", a.tasks.map((t: Any) => t.id));
+        if (r2?.error) { /* invoiced column may not exist yet · task flags stay manual */ }
+      }
+      await admin.from("activity_log").insert({ client_id: cid, actor: "Natalie", message: `created invoice ${number} (${fmtMins(Math.round(totalHours * 60))}${taskLines.length ? ` + ${taskLines.length} task${taskLines.length === 1 ? "" : "s"}` : ""})` });
       return { ok: true, number, id: (inv as Any).id };
     }
     if (a.type === "invoiceUpdate") {
