@@ -761,7 +761,7 @@ const ADMIN_STYLES = `
 @media (max-width: 640px) { .pm .pm-main { padding-top: 1.1rem; } .pm .pm-card { border-radius: 1.3rem; } }
 
 /* v3 polish: glass top bar · orange accents · bucket board · light buttons */
-.pm .pm-navbar { max-width: 62rem; gap: .5rem; padding: .35rem; }
+.pm .pm-navbar { max-width: min(80rem, calc(100% - 2rem)); gap: .5rem; padding: .35rem; }
 .pm .pm-brand { padding: 0 1.15rem; }
 .pm .pm-tabs { gap: .2rem; }
 .pm .pm-tab { padding: .68rem 1.35rem; font-size: .95rem; }
@@ -800,6 +800,11 @@ const ADMIN_STYLES = `
   .pm .pm-brand { padding: 0 .9rem; height: 2.55rem; }
   .pm .pm-brand img { height: 1.15rem; max-width: 140px; }
   .pm .pm-navwrap { padding-top: .7rem; }
+}
+@media (max-width: 1250px) and (min-width: 640.02px) {
+  .pm .pm-tabs { display: none; }
+  .pm .pm-burger { display: inline-flex; align-items: center; justify-content: center; width: 2.55rem; height: 2.55rem; border-radius: 999px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); color: #fff; flex: none; cursor: pointer; }
+  .pm .pm-navbar { overflow: visible; }
 }
 /* board: rounded glass columns · tick-to-complete · task file chips */
 .pm .pm-boardwrap { background: linear-gradient(135deg, #dce4ec 0%, #edf0f3 52%, #e9e2d6 100%); border-radius: 1.6rem; padding: 1rem; }

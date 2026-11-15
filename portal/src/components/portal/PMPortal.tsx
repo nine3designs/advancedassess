@@ -222,7 +222,7 @@ const PM_STYLES = `
 .pm { color: var(--pm-ink); font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif; }
 .pm h1, .pm h2, .pm h3 { font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif; color: var(--pm-ink); font-weight: 600; }
 .pm .pm-navwrap { position: sticky; top: 0; z-index: 40; padding: .9rem 0 .4rem; background: transparent; }
-.pm .pm-navbar { display: flex; align-items: center; justify-content: center; gap: .5rem; background: rgba(13,28,52,.72); backdrop-filter: blur(14px) saturate(1.25); -webkit-backdrop-filter: blur(14px) saturate(1.25); border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: .35rem; max-width: 62rem; margin: 0 auto; box-shadow: 0 14px 36px rgba(13,28,52,.28); overflow-x: auto; scrollbar-width: none; }
+.pm .pm-navbar { display: flex; align-items: center; justify-content: center; gap: .5rem; background: rgba(13,28,52,.72); backdrop-filter: blur(14px) saturate(1.25); -webkit-backdrop-filter: blur(14px) saturate(1.25); border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: .35rem; max-width: min(80rem, calc(100% - 2rem)); margin: 0 auto; box-shadow: 0 14px 36px rgba(13,28,52,.28); overflow-x: auto; scrollbar-width: none; }
 .pm .pm-navbar::-webkit-scrollbar { display: none; }
 .pm .pm-brand { flex: none; display: inline-flex; align-items: center; background: #0d1c34; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; height: 2.55rem; padding: 0 1.15rem; }
 .pm .pm-brand img { height: 1.35rem; width: auto; max-width: 200px; }
@@ -306,6 +306,11 @@ const PM_STYLES = `
 /* board: rounded glass columns · tick-to-complete · task file chips */
 .pm .pm-boardwrap { background: linear-gradient(135deg, #dce4ec 0%, #edf0f3 52%, #e9e2d6 100%); border-radius: 1.6rem; padding: 1rem; }
 @media (min-width: 768px) { .pm .pm-boardwrap { padding: 1.25rem; } }
+@media (max-width: 1250px) and (min-width: 640.02px) {
+  .pm .pm-tabs { display: none; }
+  .pm .pm-burger { display: inline-flex; align-items: center; justify-content: center; width: 2.55rem; height: 2.55rem; border-radius: 999px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); color: #fff; flex: none; cursor: pointer; }
+  .pm .pm-navbar { overflow: visible; }
+}
 .pm .pm-col { background: rgba(255,255,255,.55) !important; backdrop-filter: blur(14px) saturate(1.15); -webkit-backdrop-filter: blur(14px) saturate(1.15); border: 1px solid rgba(255,255,255,.78) !important; border-top-width: 4px !important; box-shadow: 0 10px 34px rgba(13,28,52,.10), inset 0 1px 0 rgba(255,255,255,.65) !important; }
 .pm .pm-col:nth-child(1) { border-top-color: var(--pm-navy) !important; }
 .pm .pm-col:nth-child(2) { border-top-color: var(--pm-orange) !important; }
@@ -952,6 +957,7 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
   const [composer, setComposer] = useState<ColKey | null>(null);
   const [editing, setEditing] = useState<Any | null>(null);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const [doneOpen, setDoneOpen] = useState(false);
 
   useEffect(() => {
     if (autoAdd) { setComposer("todo"); if (onAutoAddDone) onAutoAddDone(); }
@@ -1002,6 +1008,11 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
                   <h3 className="text-sm font-semibold">{col.label}</h3>
                   <span className="pm-chip">{list.length}</span>
                 </div>
+                {col.key === "done" && list.length > 0 && (
+                  <button type="button" onClick={() => setDoneOpen((o) => !o)} aria-label={doneOpen ? "Hide completed tasks" : "Show completed tasks"} className="flex h-8 items-center gap-1 rounded-full bg-[#eef0f2] px-3 text-xs font-medium text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]">
+                    {doneOpen ? "Hide" : "Show"}<ChevronRight className={`h-3.5 w-3.5 transition-transform ${doneOpen ? "rotate-90" : ""}`} />
+                  </button>
+                )}
                 <button type="button" onClick={() => setComposer(col.key)} aria-label={`Add to ${col.label}`} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#eef0f2] text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]"><Plus className="h-4 w-4" /></button>
               </div>
 
@@ -1012,6 +1023,11 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
                 return r;
               }} />}
 
+              {col.key === "done" && list.length > 0 && !doneOpen ? (
+                <button type="button" onClick={() => setDoneOpen(true)} className="w-full rounded-xl border border-dashed border-[#d5dade] px-3 py-5 text-center text-xs text-[#5e5e5e] transition-colors hover:border-[#f59a2b] hover:text-[#a35803]">
+                  {list.length} completed {list.length === 1 ? "task" : "tasks"} · tap to show
+                </button>
+              ) : (
               <div className="space-y-2.5">
                 {list.length === 0 && composer !== col.key && <p className="rounded-xl border border-dashed border-[#d5dade] px-3 py-6 text-center text-xs text-[#5e5e5e]">Nothing here yet</p>}
                 {list.map((c: Any) => (
@@ -1052,6 +1068,7 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
                   </div>
                 ))}
               </div>
+              )}
             </div>
           );
         })}
