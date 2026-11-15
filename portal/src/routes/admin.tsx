@@ -692,12 +692,12 @@ const ADMIN_STYLES = `
 .pm { color: var(--pm-ink); font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif; }
 .pm h1, .pm h2, .pm h3 { font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif; color: var(--pm-ink); font-weight: 600; }
 .pm .pm-navwrap { position: sticky; top: 0; z-index: 40; padding: .9rem 0 .4rem; background: linear-gradient(to bottom, var(--pm-soft) 78%, transparent); }
-.pm .pm-navbar { display: flex; align-items: center; gap: .4rem; background: #fff; border-radius: 999px; padding: .3rem; max-width: 46rem; margin: 0 auto; box-shadow: 0 12px 32px rgba(13,28,52,.10), 0 1px 2px rgba(13,28,52,.05); overflow-x: auto; scrollbar-width: none; }
+.pm .pm-navbar { display: flex; align-items: center; gap: .4rem; background: #fff; border-radius: 999px; padding: .3rem; max-width: 64rem; margin: 0 auto; box-shadow: 0 12px 32px rgba(13,28,52,.10), 0 1px 2px rgba(13,28,52,.05); overflow-x: auto; scrollbar-width: none; }
 .pm .pm-navbar::-webkit-scrollbar { display: none; }
 .pm .pm-brand { flex: none; display: inline-flex; align-items: center; background: var(--pm-navy); border-radius: 999px; height: 2.55rem; padding: 0 1rem; }
 .pm .pm-brand img { height: 1.05rem; width: auto; max-width: 170px; }
 .pm .pm-tabs { display: flex; gap: .1rem; min-width: max-content; }
-.pm .pm-tab { border-radius: 999px; padding: .6rem 1.05rem; font-size: .875rem; font-weight: 500; color: var(--pm-muted); white-space: nowrap; transition: color .15s ease, background .15s ease; }
+.pm .pm-tab { border-radius: 999px; padding: .6rem 1rem; font-size: .85rem; font-weight: 500; color: var(--pm-muted); white-space: nowrap; transition: color .15s ease, background .15s ease; }
 .pm .pm-tab:hover { color: var(--pm-ink); background: var(--pm-soft2); }
 .pm .pm-tab.active { background: var(--pm-navy); color: #fff; }
 .pm .pm-main { max-width: 64rem; margin: 0 auto; padding: 1.5rem 1rem 0; }
