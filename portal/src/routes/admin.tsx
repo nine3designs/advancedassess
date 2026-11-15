@@ -592,7 +592,7 @@ function InvoiceEditor({ inv, client, act, onDone }: Any) {
         "Natalie · Nine3 Designs",
       ].join("\n");
       const results = await Promise.allSettled(EMAILS.map((to) => sendMail(to, `Invoice ${v.number} · Nine3 Designs`, body)));
-      if (results.some((x) => x.status === "fulfilled" && (x.value as Any).ok)) toast.success("Invoice sent to Sara's email");
+      if (results.some((x) => x.status === "fulfilled" && x.value === true)) toast.success("Invoice sent to Sara's email");
       else toast.error("Marked as sent, but the email may not have gone out · check with Sara.");
       onDone();
     }
@@ -732,7 +732,7 @@ function Availability({ act }: Any) {
         if (r) {
           const body = message();
           const results = await Promise.allSettled(EMAILS.map((to) => sendMail(to, `Your availability · w/c ${weekLabel(week)}`, body)));
-          if (results.some((x) => x.status === "fulfilled" && (x.value as Any).ok)) { toast.success("Sara has been emailed your availability"); setSent(true); }
+          if (results.some((x) => x.status === "fulfilled" && x.value === true)) { toast.success("Sara has been emailed your availability"); setSent(true); }
           else toast.error("Saved, but the email may not have gone out · check with Sara.");
         }
         setBusy(false);
