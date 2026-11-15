@@ -759,12 +759,24 @@ const ADMIN_STYLES = `
 }
 .pm .timer-num { font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 @media (max-width: 640px) { .pm .pm-main { padding-top: 1.1rem; } .pm .pm-card { border-radius: 1.3rem; } }
+.pm .pm-main > header { padding-left: 15px; }
+
+/* mobile optimisation */
+@media (max-width: 640px) {
+  .pm .pm-main { padding: 1.1rem .75rem 0; }
+  .pm .pm-main > header { padding-left: 0; }
+  .pm .pm-main h1 { font-size: 1.5rem !important; }
+  .pm .pm-card { padding: 1rem !important; }
+  .pm .pm-boardwrap { padding: .7rem; gap: .7rem; }
+  .pm table { font-size: .8rem; }
+  .pm .pm-foot { padding: 1.6rem .75rem 1.6rem; }
+}
 
 /* v3 polish: glass top bar · orange accents · bucket board · light buttons */
 .pm .pm-navbar { max-width: min(80rem, calc(100% - 2rem)); gap: .5rem; padding: .35rem; }
 .pm .pm-brand { padding: 0 1.15rem; }
 .pm .pm-tabs { gap: .2rem; }
-.pm .pm-tab { padding: .68rem 1.35rem; font-size: .95rem; }
+.pm .pm-tab { padding: .55rem 1.05rem; font-size: .82rem; }
 .pm .pm-btn-light { background: #fff !important; color: var(--pm-ink) !important; border: 1px solid var(--pm-line) !important; border-radius: 999px !important; font-weight: 500 !important; font-size: .875rem !important; transition: background .15s ease, transform .15s ease, box-shadow .15s ease !important; }
 .pm .pm-btn-light:hover { border-color: var(--pm-navy) !important; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(13,28,52,.12); }
 .pm .pm-navwrap { background: transparent; }

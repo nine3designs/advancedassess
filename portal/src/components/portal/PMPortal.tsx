@@ -228,7 +228,7 @@ const PM_STYLES = `
 .pm .pm-brand img { height: 1.35rem; width: auto; max-width: 200px; }
 .pm .pm-brand-fallback { color: #fff; font-size: .8rem; font-weight: 600; letter-spacing: .08em; }
 .pm .pm-tabs { display: flex; gap: .2rem; min-width: max-content; }
-.pm .pm-tab { border-radius: 999px; padding: .68rem 1.35rem; font-size: .95rem; font-weight: 500; color: rgba(255,255,255,.72); white-space: nowrap; transition: color .15s ease, background .15s ease; }
+.pm .pm-tab { border-radius: 999px; padding: .55rem 1.05rem; font-size: .82rem; font-weight: 500; color: rgba(255,255,255,.72); white-space: nowrap; transition: color .15s ease, background .15s ease; }
 .pm .pm-tab:hover { color: #fff; background: rgba(255,255,255,.10); }
 .pm .pm-tab.active { background: rgba(255,255,255,.06); color: #fff; box-shadow: inset 0 0 0 1.5px var(--pm-orange), 0 0 14px rgba(245,154,43,.25); }
 .pm .pm-dark h2 { color: var(--pm-orange); }
@@ -302,6 +302,15 @@ const PM_STYLES = `
   .pm .pm-brand { padding: 0 .9rem; height: 2.55rem; }
   .pm .pm-brand img { height: 1.15rem; max-width: 140px; }
   .pm .pm-navwrap { padding-top: .7rem; }
+}
+/* mobile optimisation */
+@media (max-width: 640px) {
+  .pm .pm-main { padding: 1.1rem .75rem 0; }
+  .pm .pm-main h1 { font-size: 1.5rem !important; }
+  .pm .pm-card { padding: 1rem !important; }
+  .pm .pm-boardwrap { padding: .7rem; gap: .7rem; }
+  .pm table { font-size: .8rem; }
+  .pm .pm-foot { padding: 1.6rem .75rem 1.6rem; }
 }
 /* board: rounded glass columns · tick-to-complete · task file chips */
 .pm .pm-boardwrap { background: linear-gradient(135deg, #dce4ec 0%, #edf0f3 52%, #e9e2d6 100%); border-radius: 1.6rem; padding: 1rem; }
@@ -1008,12 +1017,14 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
                   <h3 className="text-sm font-semibold">{col.label}</h3>
                   <span className="pm-chip">{list.length}</span>
                 </div>
-                {col.key === "done" && list.length > 0 && (
-                  <button type="button" onClick={() => setDoneOpen((o) => !o)} aria-label={doneOpen ? "Hide completed tasks" : "Show completed tasks"} className="flex h-8 items-center gap-1 rounded-full bg-[#eef0f2] px-3 text-xs font-medium text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]">
-                    {doneOpen ? "Hide" : "Show"}<ChevronRight className={`h-3.5 w-3.5 transition-transform ${doneOpen ? "rotate-90" : ""}`} />
-                  </button>
-                )}
-                <button type="button" onClick={() => setComposer(col.key)} aria-label={`Add to ${col.label}`} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#eef0f2] text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]"><Plus className="h-4 w-4" /></button>
+                <div className="flex items-center gap-1.5">
+                  {col.key === "done" && list.length > 0 && (
+                    <button type="button" onClick={() => setDoneOpen((o) => !o)} aria-label={doneOpen ? "Hide completed tasks" : "Show completed tasks"} className="flex h-8 items-center gap-1 rounded-full bg-[#eef0f2] px-3 text-xs font-medium text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]">
+                      {doneOpen ? "Hide" : "Show"}<ChevronRight className={`h-3.5 w-3.5 transition-transform ${doneOpen ? "rotate-90" : ""}`} />
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setComposer(col.key)} aria-label={`Add to ${col.label}`} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#eef0f2] text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]"><Plus className="h-4 w-4" /></button>
+                </div>
               </div>
 
               {composer === col.key && <AddComposer col={col.key} onCancel={() => setComposer(null)} onSubmit={async (title, notes, files, important) => {
