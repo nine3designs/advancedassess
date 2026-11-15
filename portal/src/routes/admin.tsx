@@ -484,7 +484,8 @@ function InvoicePicker({ open, onOpenChange, entries, board, rate, act, onCreate
   const taskTotal = tasks.filter((c: Any) => taskSel.has(c.id)).reduce((s: number, c: Any) => s + (Number(taskRate[c.id]) || 0), 0);
   const grand = (tickedMins / 60) * rate + taskTotal;
   const nothing = sel.size === 0 && taskSel.size === 0;
-  const toggle = (setS: Any, key: string) => { const n = new Set(setS instanceof Set ? setS : new Set()); if (n.has(key)) n.delete(key); else n.add(key); setS(n); };
+  const toggleDay = (key: string) => setSel((prev: Set<string>) => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
+  const toggleTask = (key: string) => setTaskSel((prev: Set<string>) => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   const create = async () => {
     if (nothing) { toast.error("Tick at least one day or task first"); return; }
     setBusy(true);
@@ -506,7 +507,7 @@ function InvoicePicker({ open, onOpenChange, entries, board, rate, act, onCreate
               <div className="mt-2 space-y-1.5">
                 {days.map((d: Any) => (
                   <label key={d.key} className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-[#e6e8ea] px-3 py-2.5 text-sm transition-colors hover:border-[#f59a2b]">
-                    <Checkbox checked={sel.has(d.key)} onCheckedChange={() => toggle(setSel, d.key)} className="flex-none" />
+                    <Checkbox checked={sel.has(d.key)} onCheckedChange={() => toggleDay(d.key)} className="flex-none" />
                     <span className="min-w-0 flex-1">
                       <span className="font-medium">{d.label}</span>
                       {d.notes.length > 0 && <span className="block truncate text-xs text-[#5e5e5e]">{d.notes.join("; ").slice(0, 80)}</span>}
@@ -526,7 +527,7 @@ function InvoicePicker({ open, onOpenChange, entries, board, rate, act, onCreate
                 {tasks.map((c: Any) => (
                   <div key={c.id} className="rounded-xl border border-[#e6e8ea] px-3 py-2.5">
                     <label className="flex cursor-pointer items-center gap-2.5 text-sm">
-                      <Checkbox checked={taskSel.has(c.id)} onCheckedChange={() => toggle(setTaskSel, c.id)} className="flex-none" />
+                      <Checkbox checked={taskSel.has(c.id)} onCheckedChange={() => toggleTask(c.id)} className="flex-none" />
                       <span className="min-w-0 flex-1 truncate font-medium">{c.title}</span>
                       <span className="pm-chip flex-none">{c.status === "done" ? "Done" : c.status === "doing" ? "In progress" : "To do"}</span>
                     </label>
