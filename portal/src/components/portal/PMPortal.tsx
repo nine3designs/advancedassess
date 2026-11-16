@@ -61,6 +61,32 @@ function relDay(iso: string) {
 
 export type Act = (action: Any, success?: string) => Promise<Any | null>;
 
+export function openFileHref(href: string, download?: string) {
+  const click = (u: string, target?: string) => {
+    const a = document.createElement("a");
+    a.href = u;
+    if (download) a.download = download;
+    if (target) a.target = target;
+    a.rel = "noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+  if (href.startsWith("data:")) {
+    const meta = href.slice(5, href.indexOf(","));
+    const mime = meta.split(";")[0] || "application/octet-stream";
+    const b64 = href.slice(href.indexOf(",") + 1);
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    const u = URL.createObjectURL(new Blob([arr], { type: mime }));
+    click(u);
+    setTimeout(() => URL.revokeObjectURL(u), 60000);
+  } else {
+    click(href, "_blank");
+  }
+}
+
 export function PMPortal({ p, token }: { p: Any; token: string | null }) {
   const act0 = useServerFn(portalAction);
   const qc = useQueryClient();
@@ -1072,7 +1098,7 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
                     {Array.isArray(c.files) && c.files.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {(c.files as Any[]).map((f: Any, k: number) => (
-                          <a key={k} href={f.dataUri} download={f.name} className="pm-filechip" title={`Download ${f.name}`}><Paperclip className="h-3 w-3 flex-none" /><span className="max-w-36 truncate">{f.name}</span></a>
+                          <button key={k} type="button" className="pm-filechip" title={`Download ${f.name}`} onClick={async () => { const r = await act({ type: "cardFilesGet", id: c.id }); const m = (r?.files ?? []).find((x: Any) => x?.name === f.name); if (m?.dataUri) openFileHref(m.dataUri, m.name); }}><Paperclip className="h-3 w-3 flex-none" /><span className="max-w-36 truncate">{f.name}</span></button>
                         ))}
                       </div>
                     )}
@@ -1321,8 +1347,8 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
                   <p className="truncate text-sm font-medium">{f.title || f.file_name}</p>
                   <p className="text-xs text-[#5e5e5e]">Shared {fmtDate(f.created_at)} · by Natalie</p>
                 </div>
-                <a href={f.file_path} target="_blank" rel="noreferrer" className="pm-filebtn navy" style={{ textDecoration: "none" }}>View</a>
-                <a href={f.file_path} download={f.file_name || "invoice.pdf"} className="pm-filebtn" style={{ textDecoration: "none" }}>Download</a>
+                <button type="button" className="pm-filebtn navy" style={{ textDecoration: "none" }} onClick={async () => { const r = await act({ type: "fileGet", id: f.id }); if (r?.href) openFileHref(r.href); }}>View</button>
+                <button type="button" className="pm-filebtn" style={{ textDecoration: "none" }} onClick={async () => { const r = await act({ type: "fileGet", id: f.id }); if (r?.href) openFileHref(r.href, f.file_name || "invoice.pdf"); }}>Download</button>
               </li>
             ))}
           </ul>
@@ -1658,7 +1684,7 @@ function TaskRow({ c }: { c: Any }) {
       {Array.isArray(c.files) && c.files.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {(c.files as Any[]).map((f: Any, k: number) => (
-            <a key={k} href={f.dataUri} download={f.name} className="pm-filechip" title={`Download ${f.name}`}><Paperclip className="h-3 w-3 flex-none" /><span className="max-w-36 truncate">{f.name}</span></a>
+            <button key={k} type="button" className="pm-filechip" title={`Download ${f.name}`} onClick={async () => { const r = await act({ type: "cardFilesGet", id: c.id }); const m = (r?.files ?? []).find((x: Any) => x?.name === f.name); if (m?.dataUri) openFileHref(m.dataUri, m.name); }}><Paperclip className="h-3 w-3 flex-none" /><span className="max-w-36 truncate">{f.name}</span></button>
           ))}
         </div>
       )}

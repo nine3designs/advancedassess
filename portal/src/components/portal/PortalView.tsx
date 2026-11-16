@@ -8,7 +8,7 @@ type Any = any;
 
 export function PortalView({ token }: { token: string | null }) {
   const fetchPortal = useServerFn(getPortal);
-  const q = useQuery({ queryKey: ["portal", token], queryFn: () => fetchPortal({ data: { token } }), retry: false, refetchInterval: 30000, refetchOnWindowFocus: true });
+  const q = useQuery({ queryKey: ["portal", token], queryFn: () => fetchPortal({ data: { token } }), retry: false, staleTime: 300000, refetchOnWindowFocus: false });
   return (
     <div className="min-h-screen bg-[#eef0f2] px-3 py-2 md:px-6 md:py-3">
       {q.isLoading ? <PortalLoader /> : q.error ? (

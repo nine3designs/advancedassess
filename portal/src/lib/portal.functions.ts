@@ -50,16 +50,19 @@ export const getPortal = createServerFn({ method: "POST" })
       grab(admin.from("time_entries").select("*").eq("client_id", cid).order("created_at", { ascending: false })),
     ]);
     const deliverables = await Promise.all((files.data ?? []).map(async (f) => {
+      const isData = typeof f.file_path === "string" && f.file_path.startsWith("data:");
       let url: string | null = null;
-      if (f.file_path && (f.file_path.startsWith("http") || f.file_path.startsWith("data:"))) url = f.file_path;
-      else if (f.file_path) url = (await admin.storage.from("files").createSignedUrl(f.file_path, 3600)).data?.signedUrl ?? null;
+      if (!isData && f.file_path && f.file_path.startsWith("http")) url = f.file_path;
+      else if (!isData && f.file_path) url = (await admin.storage.from("files").createSignedUrl(f.file_path, 3600)).data?.signedUrl ?? null;
       const history = await Promise.all((((f as Any).history as Any[]) ?? []).map(async (h) => {
+        const hData = typeof h?.path === "string" && h.path.startsWith("data:");
         let hurl: string | null = null;
-        if (h?.path && (h.path.startsWith("http") || h.path.startsWith("data:"))) hurl = h.path;
-        else if (h?.path) hurl = (await admin.storage.from("files").createSignedUrl(h.path, 3600)).data?.signedUrl ?? null;
-        return { ...h, url: hurl };
+        if (!hData && h?.path && h.path.startsWith("http")) hurl = h.path;
+        else if (!hData && h?.path) hurl = (await admin.storage.from("files").createSignedUrl(h.path, 3600)).data?.signedUrl ?? null;
+        return { ...h, path: hData ? null : h?.path, url: hurl };
       }));
-      return { ...f, url, history };
+      const { file_path: _stripped, ...rest } = f;
+      return { ...rest, file_path: isData ? null : f.file_path, has_data: isData, url, history };
     }));
     const fixtureRows = await Promise.all((fixtures.data ?? []).map(async (fx) => {
       const graphics = await Promise.all((((fx as Any).graphics as Any[]) ?? []).map(async (g: Any) => {
@@ -68,6 +71,10 @@ export const getPortal = createServerFn({ method: "POST" })
         return { ...g, url: u };
       }));
       return { ...fx, graphics };
+    }));
+    const boardSlim = ((board as Any[]) ?? []).map((c: Any) => ({
+      ...c,
+      files: Array.isArray(c.files) ? c.files.map((x: Any) => ({ name: String(x?.name ?? "file").slice(0, 200) })) : [],
     }));
     return {
       client: { id: cid, name: client.name, company: client.company, portal_type: client.portal_type, home_kit: client.home_kit, away_kit: client.away_kit, monthly_fee: client.monthly_fee, notes: client.notes, portal_prefs: (client as Any).portal_prefs ?? null },
@@ -79,7 +86,7 @@ export const getPortal = createServerFn({ method: "POST" })
       fixtures: fixtureRows,
       tasks: tasks.data ?? [],
       activity: activity.data ?? [],
-      board,
+      board: boardSlim,
       time,
       rate: Number(((client as Any).portal_prefs ?? {})?.rate ?? 17),
     };
@@ -119,6 +126,8 @@ type Action =
   | { type: "timeDelete"; id: string }
   | { type: "timeInvoice"; entryIds?: string[]; tasks?: { id: string; title: string; notes?: string | null; rate: number }[] }
   | { type: "uploadInvoice"; fileName: string; title?: string; dataUri: string }
+  | { type: "fileGet"; id: string }
+  | { type: "cardFilesGet"; id: string }
   | { type: "availabilitySave"; week: string; days: { day: string; available: boolean; note?: string }[]; notes?: string };
 
 export const portalAction = createServerFn({ method: "POST" })
@@ -158,6 +167,18 @@ export const portalAction = createServerFn({ method: "POST" })
       const { data: up, error } = await admin.storage.from("files").createSignedUploadUrl(path);
       if (error || !up) throw new Error("Upload could not start");
       return { path, uploadToken: up.token };
+    }
+    if (a.type === "fileGet") {
+      const { data: f } = await admin.from("deliverables").select("file_path").eq("id", a.id).eq("client_id", cid).maybeSingle();
+      if (!f || !(f as Any).file_path) throw new Error("File not found");
+      const p = String((f as Any).file_path);
+      if (p.startsWith("data:") || p.startsWith("http")) return { href: p };
+      const s = await admin.storage.from("files").createSignedUrl(p, 600);
+      return { href: s.data?.signedUrl ?? null };
+    }
+    if (a.type === "cardFilesGet") {
+      const { data: c } = await admin.from("board_cards").select("files").eq("id", a.id).eq("client_id", cid).maybeSingle();
+      return { files: Array.isArray((c as Any)?.files) ? (c as Any).files : [] };
     }
     if (a.type === "recordUpload") {
       if (!a.path.startsWith(`${cid}/client-`)) throw new Error("Invalid upload");
