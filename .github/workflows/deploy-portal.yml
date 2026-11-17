@@ -1,0 +1,50 @@
+name: Deploy portal to Cloudflare
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "portal/**"
+      - ".github/workflows/deploy-portal.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: portal
+        run: bun install
+
+      - name: Build
+        working-directory: portal
+        run: bun run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+
+      - name: Deploy to Cloudflare Workers
+        working-directory: portal
+        run: |
+          if [ -f .output/server/index.mjs ]; then
+            npx wrangler deploy \
+              --name advancedassess-portal \
+              --var "SUPABASE_URL:${{ secrets.SUPABASE_URL }}" \
+              --var "SUPABASE_PUBLISHABLE_KEY:${{ secrets.SUPABASE_PUBLISHABLE_KEY }}" \
+              --var "SUPABASE_SERVICE_ROLE_KEY:${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+          else
+            echo "::error::Expected .output/server/index.mjs not found"
+            find .output -maxdepth 2 -type f 2>/dev/null | head -50
+            exit 1
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
