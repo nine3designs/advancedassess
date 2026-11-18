@@ -502,8 +502,10 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className={`grid grid-cols-2 gap-4 ${isNat ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
         <Tile icon={<ClipboardList className="h-5 w-5" />} tone="navy" label="Open tasks" value={String(stats.open)} sub="on the board" onClick={() => go("board")} />
+        {!isNat && <Tile icon={<Clock className="h-5 w-5" />} label="This week" value={fmtMins(stats.week)} sub="hours logged" onClick={() => go("time")} />}
+        {!isNat && <Tile icon={<FileText className="h-5 w-5" />} tone="navy" label="Unbilled hours" value={fmtMins(unbilledMins)} sub="hours not yet invoiced" onClick={() => go("time")} />}
         {isNat ? <Tile icon={<Clock className="h-5 w-5" />} label="This week" value={fmtMins(stats.week)} sub="hours logged" />
           : <Tile icon={<Play className="h-5 w-5" />} tone="dark" label="In progress" value={String(doingCount)} sub="tasks on the go" onClick={() => go("board")} />}
         {isNat ? <Tile icon={<CalendarDays className="h-5 w-5" />} tone="navy" label="This month" value={fmtMins(stats.month)} sub="hours logged" />
