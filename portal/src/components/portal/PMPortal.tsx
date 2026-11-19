@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { StatusBadge } from "@/components/common";
 import { supabase } from "@/integrations/supabase/client";
 import { portalAction } from "@/lib/portal.functions";
+import { InvoiceDocument } from "@/components/portal/InvoiceDocument";
 import { effectiveStatus, fmtDate, invoiceTotals, money, type LineItem } from "@/lib/format";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1485,81 +1486,13 @@ function ManualLog({ act, cards, todayKey }: Any) {
   );
 }
 
-const BILLER = {
-  name: "Nine3 Designs",
-  contact: "natalie@nine3designs.co.uk",
-  sort: "04-03-33",
-  account: "40426946",
-  terms: "Payment due within 7 days of invoice date",
-};
-
 export function InvoiceSheet({ inv, client }: Any) {
   if (!inv) return null;
-  const items: LineItem[] = (inv.items ?? []) as LineItem[];
-  const t = invoiceTotals(items, inv.tax_rate);
   const accName = client?.company || client?.name || "Advanced Assessment & Solutions";
   const email = client?.email || "";
   return (
-    <div className="pm-inv-sheet rounded-xl bg-white p-6 text-sm md:p-8">
-      <div className="-mx-6 -mt-6 mb-6 flex items-center justify-between rounded-t-xl px-6 py-5 md:-mx-8 md:-mt-8 md:px-8" style={{ background: "#0d1c34", color: "#fff" }}>
-        <div>
-          <p className="text-lg font-semibold tracking-tight">{BILLER.name}</p>
-          <p className="text-xs text-white/70">{BILLER.contact}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xl font-bold tracking-[0.18em]">INVOICE</p>
-          <p className="text-xs text-white/80">{inv.number}</p>
-        </div>
-      </div>
-      <div className="mb-5 grid gap-4 sm:grid-cols-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#5e5e5e]">Billed to</p>
-          <p className="mt-1 font-medium">{accName}</p>
-          {client?.name && client?.company ? <p className="text-xs text-[#5e5e5e]">{client.name}</p> : null}
-          {email ? <p className="text-xs text-[#5e5e5e]">{email}</p> : null}
-        </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#5e5e5e]">Issued</p>
-          <p className="mt-1">{fmtDate(inv.issue_date)}</p>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-[#5e5e5e]">Due</p>
-          <p className="mt-1">{fmtDate(inv.due_date)}</p>
-        </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#5e5e5e]">Status</p>
-          <p className="mt-1"><StatusBadge status={effectiveStatus(inv)} /></p>
-        </div>
-      </div>
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-[#e6e8ea] text-left text-xs uppercase tracking-wider text-[#5e5e5e]">
-            <th className="pb-2">Description</th>
-            <th className="pb-2 text-right">Qty</th>
-            <th className="pb-2 text-right">Rate</th>
-            <th className="pb-2 text-right">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((it, idx) => (
-            <tr key={idx} className="border-b border-[#f0f1f3]">
-              <td className="py-2.5 pr-3">{it.description}</td>
-              <td className="py-2.5 text-right text-[#5e5e5e]">{it.quantity}</td>
-              <td className="py-2.5 text-right text-[#5e5e5e]">{money(it.rate)}</td>
-              <td className="py-2.5 text-right font-medium">{money(Number(it.quantity) * Number(it.rate))}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="mt-4 ml-auto max-w-56 space-y-1.5 text-sm">
-        <div className="flex justify-between"><span className="text-[#5e5e5e]">Subtotal</span><span>{money(t.subtotal)}</span></div>
-        {Number(inv.tax_rate) > 0 && <div className="flex justify-between"><span className="text-[#5e5e5e]">VAT ({inv.tax_rate}%)</span><span>{money(t.tax)}</span></div>}
-        <div className="flex justify-between border-t border-[#1f2630] pt-1.5 text-base font-semibold"><span>Total</span><span>{money(t.total)}</span></div>
-      </div>
-      <div className="mt-6 rounded-xl bg-[#f6f8fa] p-4 text-xs leading-relaxed text-[#5e5e5e]">
-        <p className="mb-1 font-semibold text-[#1f2630]">Payment details</p>
-        <p>Bank transfer · Sort code {BILLER.sort} · Account {BILLER.account} · {BILLER.name}</p>
-        <p>{BILLER.terms}. Questions? Email {BILLER.contact}.</p>
-        {inv.notes ? <p className="mt-2">{inv.notes}</p> : null}
-      </div>
+    <div className="pm-inv-sheet">
+      <InvoiceDocument inv={{ ...inv, clientName: accName, clientCompany: client?.name ?? null, clientEmail: email }} />
     </div>
   );
 }
