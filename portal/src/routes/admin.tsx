@@ -371,7 +371,7 @@ function EntryRow({ e, cardTitle, act }: Any) {
 }
 
 
-function Finance({ act, invoices, unbilledMins, rate, client, board }: Any) {
+function Finance({ act, invoices, entries, unbilledMins, rate, client, board }: Any) {
   const [editId, setEditId] = useState<string | null>(null);
   const [viewInv, setViewInv] = useState<Any | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
