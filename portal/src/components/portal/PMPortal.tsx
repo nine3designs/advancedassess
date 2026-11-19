@@ -178,7 +178,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
   ] : [
     { v: "dashboard", l: "Dashboard" },
     { v: "board", l: "To-Do Board" },
-    { v: "tasks", l: "Tasks" },
+    { v: "tasks", l: "To Do" },
     { v: "cal", l: "Calendar" },
     { v: "time", l: "Invoices" },
     { v: "mileage", l: "Mileage" },
@@ -441,6 +441,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
   const myTasks: Any[] = (p.tasks ?? []).filter((t: Any) => t.status !== "done" && t.due_date).sort((a: Any, b: Any) => String(a.due_date).localeCompare(String(b.due_date))).slice(0, 6);
   const invLive: Any[] = (p.invoices ?? []).filter((i: Any) => i.status !== "draft");
   const invNew: Any[] = invLive.filter((i: Any) => i.status === "sent");
+  const todoOpen: Any[] = cards.filter((c: Any) => c.status !== "done").sort((a: Any, b: Any) => ((b.important ? 1 : 0) - (a.important ? 1 : 0)) || String(a.due_date ?? "9999-99-99").localeCompare(String(b.due_date ?? "9999-99-99")));
 
   const boardCard = (
     <div className="pm-dark p-6">
@@ -466,6 +467,32 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
         </ul>
       )}
       <button type="button" onClick={() => go("board")} className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-[#f59a2b] hover:underline">Open the board <ArrowUpRight className="h-3.5 w-3.5" /></button>
+    </div>
+  );
+  const todoCard = (
+    <div className="pm-card p-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Outstanding To Do</h2>
+        <span className="text-sm font-medium text-[#5e5e5e]">{todoOpen.length} open</span>
+      </div>
+      <p className="mt-1 text-xs text-[#5e5e5e]">Flagged tasks jump to the top.</p>
+      {todoOpen.length === 0 ? <p className="mt-4 text-sm text-[#5e5e5e]">Nothing outstanding · add items on the To Do tab.</p> : (
+        <ul className="mt-4 space-y-2.5">
+          {todoOpen.slice(0, 6).map((c: Any) => (
+            <li key={c.id} className="pm-row flex items-center gap-3 px-3 py-2.5">
+              {c.important
+                ? <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-[#f59a2b]"><Flag className="h-3 w-3 text-[#3d2400]" /></span>
+                : <span className="pm-dot" style={{ background: c.status === "doing" ? "#f59a2b" : "#0d1c34" }} />}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{c.title}</p>
+                <p className="text-[11px] text-[#5e5e5e]">{c.status === "doing" ? "In progress" : "To do"}{c.due_date ? ` · due ${fmtDate(c.due_date)}` : ""}{c.files?.length ? ` · ${c.files.length} file${c.files.length > 1 ? "s" : ""}` : ""}</p>
+              </div>
+              {c.important ? <span className="pm-chip orange flex-none">Flagged</span> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      <button type="button" onClick={() => go("tasks")} className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-[#f59a2b] hover:underline">Open To Do <ArrowUpRight className="h-3.5 w-3.5" /></button>
     </div>
   );
   const recentCard = (
@@ -604,7 +631,8 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
       </div>
 
       <div className={`grid gap-5 ${isNat ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
-        {isNat ? boardCard : <MonthCalCard avail={avail} />}
+        {isNat ? boardCard : todoCard}
+        {!isNat ? <MonthCalCard avail={avail} /> : null}
         {recentCard}
         {isNat ? activityCard : null}
       </div>
@@ -1608,7 +1636,7 @@ export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
         }}>
         <div>
           <h2 className="text-lg font-semibold">Add a task</h2>
-          <p className="mt-0.5 text-xs text-[#5e5e5e]">Full detail goes here · the task lands on the To-Do Board as soon as you add it.</p>
+          <p className="mt-0.5 text-xs text-[#5e5e5e]">Full detail goes here · it lands straight on the shared To Do list &mdash; you and Natalie can both add, and files attach right here.</p>
         </div>
         <div className="mt-4 space-y-1.5">
           <Label>Task title</Label>
