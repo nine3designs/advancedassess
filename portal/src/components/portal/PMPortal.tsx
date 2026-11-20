@@ -112,13 +112,6 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     } catch (e) { toast.error((e as Error).message); return null; }
   };
 
-  const prefs = p.client.portal_prefs ?? {};
-  const notifActs: Any[] = viewer === "Natalie" ? [] : ((p.activity ?? []) as Any[]);
-  const notifSeen = String((prefs as Any).notif_seen ?? "");
-  const notifUnread = notifActs.filter((a: Any) => !notifSeen || String(a.created_at) > notifSeen).length;
-  const rate = Number(prefs.rate ?? 17);
-  const badge = p.client.home_kit?.badge as string | undefined;
-
   const [viewer, setViewer] = useState<"Sara" | "Natalie">("Sara");
   useEffect(() => {
     (async () => {
@@ -131,6 +124,13 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
       } catch { /* stay as client viewer */ }
     })();
   }, []);
+
+  const prefs = p.client.portal_prefs ?? {};
+  const notifActs: Any[] = viewer === "Natalie" ? [] : ((p.activity ?? []) as Any[]);
+  const notifSeen = String((prefs as Any).notif_seen ?? "");
+  const notifUnread = notifActs.filter((a: Any) => !notifSeen || String(a.created_at) > notifSeen).length;
+  const rate = Number(prefs.rate ?? 17);
+  const badge = p.client.home_kit?.badge as string | undefined;
 
   const [tab, setTab] = useState<"dashboard" | "board" | "tasks" | "time" | "cal" | "mileage" | "notes" | "mytodo" | "cases">(() => {
     const t = new URLSearchParams(window.location.search).get("tab");
