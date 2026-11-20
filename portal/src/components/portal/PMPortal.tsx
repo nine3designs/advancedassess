@@ -126,7 +126,8 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
   }, []);
 
   const prefs = p.client.portal_prefs ?? {};
-  const notifActs: Any[] = viewer === "Natalie" ? [] : ((p.activity ?? []) as Any[]);
+  const NOTIF_RE = /^(added an urgent task|added a task|sent invoice|shared invoice|shared availability)/;
+  const notifActs: Any[] = viewer === "Natalie" ? [] : ((p.activity ?? []) as Any[]).filter((a: Any) => String(a.actor) === "Natalie" && NOTIF_RE.test(String(a.message).toLowerCase()));
   const notifSeen = String((prefs as Any).notif_seen ?? "");
   const notifUnread = notifActs.filter((a: Any) => !notifSeen || String(a.created_at) > notifSeen).length;
   const rate = Number(prefs.rate ?? 17);
@@ -255,7 +256,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
           </div>
           {viewer !== "Natalie" && (
             <div className="relative flex-none">
-              <button type="button" aria-label="Notifications" onClick={() => setNotifOpen((o: boolean) => !o)} className="pm-circle relative mt-1">
+              <button type="button" aria-label="Notifications" onClick={() => setNotifOpen((o: boolean) => !o)} className={`pm-notif-btn mt-1${notifUnread > 0 ? " new" : ""}`}>
                 <Bell className="h-4 w-4" />
                 {notifUnread > 0 && <span className="pm-notif-badge">{notifUnread > 9 ? "9+" : notifUnread}</span>}
               </button>
@@ -267,7 +268,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
                       <p className="text-sm font-semibold text-[#0d1c34]">Notifications</p>
                       {notifUnread > 0 && <button type="button" onClick={async () => { await act({ type: "notifSeen" }); }} className="text-xs font-semibold text-[#f59a2b] hover:underline">Mark all read</button>}
                     </div>
-                    {notifActs.length === 0 ? <p className="pmt-empty mt-2">Nothing yet · updates will land here.</p> : (
+                    {notifActs.length === 0 ? <p className="pmt-empty mt-2">Nothing yet · new tasks, invoices and availability will land here.</p> : (
                       <ul className="mt-1 max-h-80 space-y-0.5 overflow-y-auto">
                         {notifActs.map((a: Any) => {
                           const un = !notifSeen || String(a.created_at) > notifSeen;
@@ -380,6 +381,15 @@ export const PM_STYLES = `
 .pm .pm-circle:hover { color: var(--pm-ink); }
 .pm .pm-circle.dark { background: var(--pm-navy); color: #fff; box-shadow: 0 8px 20px rgba(13,28,52,.3); }
 .pm .pm-circle.orange { background: rgba(245,154,43,.14); color: var(--pm-orange-deep); }
+.pm .pm-notif-btn { position: relative; width: 2.6rem; height: 2.6rem; border-radius: 999px; background: #fff; color: var(--pm-muted); display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--pm-line); box-shadow: 0 2px 10px rgba(13,28,52,.08); transition: all .18s ease; flex: none; }
+.pm .pm-notif-btn:hover { color: var(--pm-navy); box-shadow: 0 4px 14px rgba(13,28,52,.14); transform: translateY(-1px); }
+.pm .pm-notif-btn.new { background: linear-gradient(135deg, #f7a63f, #e07f0a); border-color: transparent; color: #fff; box-shadow: 0 4px 16px rgba(245,154,43,.42); }
+.pm .pm-notif-btn.new:hover { color: #fff; }
+.pm .pm-notif-btn.new svg { animation: pm-ring 2.6s ease-in-out infinite; transform-origin: top center; }
+@keyframes pm-ring { 0%, 12%, 100% { transform: rotate(0); } 3% { transform: rotate(11deg); } 6% { transform: rotate(-9deg); } 9% { transform: rotate(5deg); } }
+.pm .pm-notif-badge { position: absolute; top: -.35rem; right: -.35rem; min-width: 1.15rem; height: 1.15rem; padding: 0 .3rem; border-radius: 999px; background: #fff; color: #d97406; font-size: .62rem; font-weight: 700; line-height: 1; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 1px 5px rgba(13,28,52,.22); }
+.pm .pm-notif-panel { position: absolute; right: 0; top: calc(100% + .55rem); z-index: 40; width: 21rem; max-width: calc(100vw - 2rem); border-radius: 1.1rem; background: #fff; border: 1px solid var(--pm-line); box-shadow: 0 18px 50px rgba(13,28,52,.18); padding: .95rem; animation: pm-pop .16s ease-out; }
+@keyframes pm-pop { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
 .pm input, .pm textarea, .pm select { font-family: 'Poppins', sans-serif; }
 .pm .timer-num { font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 .pm .pm-bar { background: var(--pm-navy); border-radius: 999px; min-height: 4px; width: 100%; max-width: .55rem; margin: 0 auto; }
