@@ -1071,7 +1071,7 @@ function NotesBox({ initial, onSave }: Any) {
   return (
     <div className="mt-2">
       <textarea value={v} onChange={(e: Any) => setV(e.target.value)} rows={3} placeholder="Summary of what was said…" className="w-full rounded-xl border border-[#d5dade] bg-white p-3 text-sm text-[#0d1c34] outline-none focus:border-[#f59a2b]" />
-      <button type="button" disabled={busy} onClick={async () => { setBusy(true); await onSave(v); setBusy(false); }} className="pm-btn mt-2 h-8 px-3 text-xs">{busy ? "Saving…" : "Save summary"}</button>
+      <button type="button" disabled={busy} onClick={async () => { setBusy(true); await onSave({ notes: v }); setBusy(false); }} className="pm-btn mt-2 h-8 px-3 text-xs">{busy ? "Saving…" : "Save summary"}</button>
     </div>
   );
 }
