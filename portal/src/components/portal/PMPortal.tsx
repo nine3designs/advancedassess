@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Car, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileDown, FileText, Flag, Menu, Paperclip, Pencil, Play, Plus, Square, Trash2, X } from "lucide-react";
+import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Car, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileDown, FileText, Flag, Menu, Paperclip, Pencil, Play, Plus, Square, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { downloadInvoicePdf } from "@/lib/invoice-pdf";
 import { Button } from "@/components/ui/button";
@@ -117,11 +117,12 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     })();
   }, []);
 
-  const [tab, setTab] = useState<"dashboard" | "board" | "tasks" | "time" | "cal" | "mileage" | "notes">(() => {
+  const [tab, setTab] = useState<"dashboard" | "board" | "tasks" | "time" | "cal" | "mileage" | "notes" | "mytodo" | "cases">(() => {
     const t = new URLSearchParams(window.location.search).get("tab");
-    return t === "board" || t === "tasks" || t === "time" || t === "cal" || t === "mileage" || t === "notes" ? t : "dashboard";
+    return ["board", "tasks", "time", "cal", "mileage", "notes", "mytodo", "cases"].includes(t) ? (t as Any) : "dashboard";
   });
   const [boardAdd, setBoardAdd] = useState(false);
+  const [boardAddUrgent, setBoardAddUrgent] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const entries: Any[] = p.time ?? [];
@@ -178,8 +179,8 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     { v: "time", l: "Time & Invoices" },
   ] : [
     { v: "dashboard", l: "Dashboard" },
-    { v: "board", l: "To-Do Board" },
-    { v: "tasks", l: "To Do" },
+    { v: "board", l: "Tasks Board" },
+    { v: "mytodo", l: "My To Do" },
     { v: "cal", l: "Calendar" },
     { v: "time", l: "Invoices" },
     { v: "mileage", l: "Mileage" },
@@ -227,14 +228,16 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
         </header>
 
         {tab === "dashboard" && (
-          <Dashboard p={p} stats={stats} weeks={weeks} maxWeek={maxWeek} rate={rate} unbilledMins={unbilledMins} running={running} viewer={viewer} go={setTab} act={act} onQuickAdd={() => { setBoardAdd(true); setTab("board"); }} />
+          <Dashboard p={p} stats={stats} weeks={weeks} maxWeek={maxWeek} rate={rate} unbilledMins={unbilledMins} running={running} viewer={viewer} go={setTab} act={act} onQuickAdd={() => { setBoardAdd(true); setTab("board"); }} onQuickUrgent={() => { setBoardAddUrgent(true); setTab("board"); }} />
         )}
-        {tab === "board" && <Board p={p} viewer={viewer} act={act} go={setTab} autoAdd={boardAdd} onAutoAddDone={() => setBoardAdd(false)} />}
+        {tab === "board" && <Board p={p} viewer={viewer} act={act} go={setTab} autoAdd={boardAdd} onAutoAddDone={() => setBoardAdd(false)} autoAddUrgent={boardAddUrgent} onAutoAddUrgentDone={() => setBoardAddUrgent(false)} />}
         {tab === "tasks" && <TasksTab p={p} viewer={viewer} act={act} />}
         {tab === "time" && <TimeTab entries={entries} running={running} unbilledMins={unbilledMins} rate={rate} viewer={viewer} act={act} cards={cards} invoices={p.invoices} files={p.deliverables ?? []} client={p.client} />}
         {tab === "cal" && viewer !== "Natalie" && <CalendarTab avail={(p.client?.portal_prefs?.availability ?? null) as Any} />}
-        {tab === "mileage" && <MileageTab act={act} entries={((p.client?.portal_prefs?.mileage ?? []) as Any[])} />}
+        {tab === "mileage" && <MileageTab act={act} entries={((p.client?.portal_prefs?.mileage ?? []) as Any[])} files={((p.deliverables ?? []) as Any[])} />}
         {tab === "notes" && viewer !== "Natalie" && <NotesTab act={act} notes={((p.client?.portal_prefs?.sara_notes ?? []) as Any[])} />}
+        {tab === "mytodo" && viewer !== "Natalie" && <MyTodoTab p={p} viewer={viewer} act={act} />}
+        {tab === "cases" && viewer !== "Natalie" && <CasesTab p={p} viewer={viewer} act={act} />}
       </main>
 
       <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Portal - Crafted by <a href="https://nine3designs.co.uk" target="_blank" rel="noreferrer">Nine3 Designs</a></footer>
@@ -374,6 +377,21 @@ const PM_STYLES = `
   .pm .pm-filechip { font-size: .78rem; padding: .45rem .75rem; min-height: 2.1rem; }
   .pm .pm-col { padding: .8rem; }
 }
+.pm .pm-postit { border-radius: .9rem; padding: 1.1rem 1rem .8rem; box-shadow: 0 8px 18px rgba(13,28,52,.10); border: 1px solid rgba(13,28,52,.05); position: relative; }
+.pm .pm-postit::before { content: ""; position: absolute; top: -.45rem; left: 50%; transform: translateX(-50%) rotate(-1.5deg); width: 3.2rem; height: .9rem; background: rgba(255,255,255,.65); border: 1px solid rgba(13,28,52,.06); border-radius: .2rem; }
+.pm .pm-case-nav { display: flex; gap: .4rem; overflow-x: auto; padding-bottom: .25rem; scrollbar-width: none; }
+.pm .pm-case-nav::-webkit-scrollbar { display: none; }
+.pm .pm-case-nav button { flex: none; display: inline-flex; align-items: center; gap: .4rem; border-radius: 999px; border: 1px solid var(--pm-line); background: #fff; padding: .45rem .85rem; font-size: .78rem; font-weight: 500; color: var(--pm-ink); white-space: nowrap; transition: all .15s ease; }
+.pm .pm-case-nav button:hover { border-color: var(--pm-orange); }
+.pm .pm-case-nav button.active { background: var(--pm-navy); color: #fff; border-color: var(--pm-navy); }
+.pm .pm-case-nav button.sub { padding-left: .65rem; font-size: .72rem; }
+.pm .pm-case-nav button .pm-dot { flex: none; }
+@media (min-width: 768px) { .pm .pm-case-nav { flex-direction: column; overflow: visible; align-items: stretch; } .pm .pm-case-nav button { text-align: left; border-radius: .8rem; justify-content: flex-start; } }
+.pm .pm-case-progress { height: .55rem; border-radius: 999px; background: var(--pm-soft2); overflow: hidden; }
+.pm .pm-case-progress > span { display: block; height: 100%; border-radius: 999px; background: var(--pm-orange); transition: width .3s ease; }
+.pm .pm-case-tick { display: inline-flex; align-items: center; gap: .45rem; }
+.pm .pm-case-tick .box { width: 1.15rem; height: 1.15rem; border-radius: .35rem; border: 1.5px solid var(--pm-line); display: inline-flex; align-items: center; justify-content: center; background: #fff; flex: none; transition: all .15s ease; }
+.pm .pm-case-tick .box.on { background: #2e9e5b; border-color: #2e9e5b; color: #fff; }
 `;
 
 /* ---------------- shared bits ---------------- */
@@ -455,6 +473,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
   const [qtNote, setQtNote] = useState("");
   const [qtBusy, setQtBusy] = useState(false);
   const todoCount = cards.filter((c: Any) => c.status === "todo").length;
+  const mineOpen = cards.filter((c: Any) => { const w = splitAssign(c.notes).who; return c.status !== "done" && (w === "Sara" || w === ""); }).length;
   const doingCount = cards.filter((c: Any) => c.status === "doing").length;
   const doneCount = cards.length - todoCount - doingCount;
   const todayMins = stats.today ?? 0;
@@ -570,16 +589,15 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
   return (
     <div className="space-y-5">
       <div className={`grid grid-cols-2 gap-4 ${isNat ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
-        <Tile icon={<ClipboardList className="h-5 w-5" />} tone="navy" label={isNat ? "Tasks to do" : "Open tasks"} value={String(isNat ? todoCount : stats.open)} sub="on the board" onClick={() => go("board")} />
-        {!isNat && <Tile icon={<Clock className="h-5 w-5" />} label="This week" value={fmtMins(stats.week)} sub="hours logged" onClick={() => go("time")} />}
-        {!isNat && <Tile icon={<FileText className="h-5 w-5" />} tone="navy" label="Unbilled hours" value={fmtMins(unbilledMins)} sub="hours not yet invoiced" onClick={() => go("time")} />}
+        <Tile icon={<ClipboardList className="h-5 w-5" />} tone="navy" label={isNat ? "Tasks to do" : "Tasks Outstanding"} value={String(isNat ? todoCount : stats.open)} sub="on the board" onClick={() => go("board")} />
+        {!isNat && <Tile icon={<Clock className="h-5 w-5" />} label="This week" value={fmtMins(sincePaidMins)} sub="hours logged · resets when an invoice is paid" onClick={() => go("time")} />}
         {isNat ? <Tile icon={<Clock className="h-5 w-5" />} label="This week" value={fmtMins(sincePaidMins)} sub="hours logged · resets when an invoice is paid" onClick={() => go("time")} />
-          : <Tile icon={<Play className="h-5 w-5" />} tone="dark" label="In progress" value={String(doingCount)} sub="tasks on the go" onClick={() => go("board")} />}
+          : <Tile icon={<Play className="h-5 w-5" />} tone="dark" label="My to do" value={String(mineOpen)} sub="assigned to you" onClick={() => go("mytodo")} />}
         {isNat ? null
           : <Tile icon={<Check className="h-5 w-5" />} tone="navy" label="Completed" value={String(doneCount)} sub="tasks finished" onClick={() => go("board")} />}
         {isNat
           ? <Tile icon={<FileText className="h-5 w-5" />} label="Unbilled" value={money((unbilledMins / 60) * rate)} sub={`${fmtMins(unbilledMins)} · ${money(rate)}/hr`} />
-          : <Tile icon={<FileText className="h-5 w-5" />} label="Invoices" value={String(invLive.length)} sub={invNew.length ? `${invNew.length} new to view` : "view your invoices"} onClick={() => go("time")} />}
+          : <Tile icon={<FileText className="h-5 w-5" />} label="Invoices" value={String(invNew.length)} sub={invNew.length ? "new to view" : "all caught up"} onClick={() => go("time")} />}
       </div>
 
       <div className="flex flex-wrap items-start gap-x-8 gap-y-3 px-1">
@@ -596,11 +614,16 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
             <h2 className="text-lg font-semibold">Quick actions</h2>
             <p className="mt-1 text-xs text-[#5e5e5e]">Jump straight to what you need</p>
           </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <button type="button" onClick={onQuickAdd} className="flex flex-col items-start gap-2 rounded-2xl bg-[var(--pm-navy)] px-4 py-5 text-left text-white transition-transform hover:-translate-y-0.5">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10"><Plus className="h-4 w-4" /></span>
               <span className="text-sm font-semibold">Add new task</span>
               <span className="text-[11px] text-white/60">Put something on the board</span>
+            </button>
+            <button type="button" onClick={onQuickUrgent} className="flex flex-col items-start gap-2 rounded-2xl bg-[#b3261e] px-4 py-5 text-left text-white transition-transform hover:-translate-y-0.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15"><Flag className="h-4 w-4" /></span>
+              <span className="text-sm font-semibold">Add URGENT task</span>
+              <span className="text-[11px] text-white/70">Put something important on the board</span>
             </button>
             <button type="button" onClick={() => go("board")} className="flex flex-col items-start gap-2 rounded-2xl bg-[var(--pm-soft)] px-4 py-5 text-left transition-transform hover:-translate-y-0.5">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[var(--pm-navy)] shadow-sm"><ClipboardList className="h-4 w-4" /></span>
@@ -666,17 +689,14 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
             </DialogContent>
           </Dialog>
         </div>
-        ) : (
-        boardCard
-        )}
+        ) : null}
 
         {isNat ? <MonthCalCard avail={(p.client?.portal_prefs?.availability ?? null) as Any} booked={((p.client?.portal_prefs?.booked ?? []) as Any[])} cta={false} onCircle={() => go("availability")} onToggleDay={toggleDay} /> : null}
       </div>
 
       <div className={`grid gap-5 ${isNat ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
-        {isNat ? boardCard : todoCard}
+        {isNat ? boardCard : null}
         {!isNat ? <MonthCalCard avail={avail} /> : null}
-        {!isNat ? recentCard : null}
       </div>
       {!isNat && (
         <div className="pm-dark p-6">
@@ -707,6 +727,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
 /* ---------------- monthly calendar ---------------- */
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const POSTIT_COLOURS = ["#FFF3B0", "#FFDCE5", "#D9EEFF", "#DFF5D3", "#F1E4FF", "#FFE7CF"];
 const BOOK_CALL_URL = "https://calendar.google.com/calendar/u/0/r/eventedit?vcon=meet&dates=20261012T170000&hl=en&add=natalie@nine3designs.co.uk&text=Free%20discovery%20call%20with%20Nine3%20Designs&details=Free%2015-minute%20video%20call%20to%20discuss%20your%20project.%20Booked%20via%20nine3designs.co.uk";
 
 function MonthCal({ avail, large, booked, onToggleDay }: { avail: Any; large?: boolean; booked?: Any[]; onToggleDay?: (dow: number) => void }) {
@@ -728,7 +749,8 @@ function MonthCal({ avail, large, booked, onToggleDay }: { avail: Any; large?: b
     }
   }
   const bookedSet = new Set<string>();
-  for (const b of booked ?? []) if (b?.date) bookedSet.add(String(b.date).slice(0, 10));
+  const bookedWho = new Map<string, string>();
+  for (const b of booked ?? []) if (b?.date) { bookedSet.add(String(b.date).slice(0, 10)); bookedWho.set(String(b.date).slice(0, 10), String((b as Any).who ?? "")); }
   const cells: (number | null)[] = [...Array(firstDow).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
   return (
     <div>
@@ -748,14 +770,15 @@ function MonthCal({ avail, large, booked, onToggleDay }: { avail: Any; large?: b
           return (
             <span key={d} className={`flex flex-col items-center ${onToggleDay ? "cursor-pointer" : ""}`} onClick={onToggleDay ? () => onToggleDay(i % 7) : undefined}>
               <span title={isBooked ? "Booked call" : undefined} className={`flex items-center justify-center rounded-full ${large ? "h-9 w-9 text-sm" : "h-7 w-7 text-xs"} ${today ? "bg-[var(--pm-orange)] font-semibold text-[#3d2400]" : isAvail || isBooked ? "bg-[rgba(245,154,43,.14)] font-semibold text-[#a35803]" : "text-[#5e5e5e]"}`}>{d}</span>
-              <span className="pm-dot mt-0.5" style={{ width: ".4rem", height: ".4rem", background: isAvail || isBooked ? "#f59a2b" : "transparent" }} />
+              <span className="pm-dot mt-0.5" style={{ width: ".4rem", height: ".4rem", background: isBooked ? (bookedWho.get(`${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`) === "Jermaine" ? "#0d1c34" : "#f59a2b") : isAvail ? "#f59a2b" : "transparent" }} />
             </span>
           );
         })())}
       </div>
       {(availSet.size > 0 || bookedSet.size > 0) ? (
         <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#5e5e5e]">
-          {availSet.size > 0 ? <span className="flex items-center gap-1.5"><span className="pm-dot" style={{ background: "#f59a2b" }} /> Days Natalie is available</span> : null}
+          {availSet.size > 0 ? <span className="flex items-center gap-1.5"><span className="pm-dot" style={{ background: "#f59a2b" }} /> Natalie</span> : null}
+          <span className="flex items-center gap-1.5"><span className="pm-dot" style={{ background: "#0d1c34" }} /> Jermaine</span>
           {bookedSet.size > 0 ? <span className="flex items-center gap-1.5"><span className="pm-dot" style={{ background: "#f59a2b" }} /> Booked calls</span> : null}
         </p>
       ) : null}
@@ -833,11 +856,11 @@ function NotesTab({ act, notes }: { act: Act; notes: Any[] }) {
         <div className="rounded-2xl border border-dashed border-[#d5dade] px-4 py-10 text-center text-sm text-[#5e5e5e]">Nothing jotted yet · your notes will collect here.</div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {notes.map((n: Any) => (
-            <div key={n.id} className="pm-card p-4">
-              <p className="whitespace-pre-wrap text-sm leading-relaxed">{n.text}</p>
-              <div className="mt-3 flex items-center justify-between border-t border-[#e6e8ea] pt-2.5">
-                <span className="text-[11px] text-[#9aa0a6]">{fmtDate(n.at)}</span>
+          {notes.map((n: Any, ni: number) => (
+            <div key={n.id} className="pm-postit" style={{ background: POSTIT_COLOURS[ni % POSTIT_COLOURS.length], transform: `rotate(${ni % 2 ? 0.7 : -0.7}deg)` }}>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#3a3627]">{n.text}</p>
+              <div className="mt-3 flex items-center justify-between border-t border-[#00000014] pt-2.5">
+                <span className="text-[11px] text-[#7a7460]">{fmtDate(n.at)}</span>
                 <IconBtn label="Delete note" danger={confirmDel === n.id} onClick={() => {
                   if (confirmDel === n.id) { act({ type: "noteDelete", id: n.id }, "Note deleted"); setConfirmDel(null); }
                   else { setConfirmDel(n.id); setTimeout(() => setConfirmDel((k) => (k === n.id ? null : k)), 2600); }
@@ -851,12 +874,391 @@ function NotesTab({ act, notes }: { act: Act; notes: Any[] }) {
   );
 }
 
+/* ---------------- my to do (Sara) ---------------- */
+
+function MyTodoTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
+  const cards: Any[] = p.board ?? [];
+  const mine = cards.filter((c: Any) => { const w = splitAssign(c.notes).who; return w === "Sara" || w === ""; });
+  const [showDone, setShowDone] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const sort = (list: Any[]) => [...list].sort((a: Any, b: Any) => ((b.important ? 1 : 0) - (a.important ? 1 : 0)) || Number(a.position) - Number(b.position));
+  const flagged = sort(mine.filter((c: Any) => c.important && c.status !== "done"));
+  const fresh = sort(mine.filter((c: Any) => !c.important && c.status === "todo"));
+  const doing = sort(mine.filter((c: Any) => c.status === "doing"));
+  const done = mine.filter((c: Any) => c.status === "done").sort((a: Any, b: Any) => String(b.updated_at).localeCompare(String(a.updated_at)));
+  const toggle = async (c: Any) => {
+    setBusy(c.id);
+    await act({ type: "cardEdit", id: c.id, status: c.status === "done" ? "todo" : "done", actor: viewer }, c.status === "done" ? "Moved back to To do" : "Ticked off");
+    setBusy(null);
+  };
+  const row = (c: Any) => (
+    <div key={c.id} className={`pmt-row ${c.status === "done" ? "done" : ""}`}>
+      <div className="flex items-start gap-2.5">
+        <button type="button" aria-label={c.status === "done" ? "Mark as not done" : "Tick off"} disabled={busy === c.id} onClick={() => toggle(c)}
+          className={`mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-md border transition-colors ${c.status === "done" ? "border-[#2e9e5b] bg-[#2e9e5b] text-white" : "border-[#c9ced6] bg-white text-transparent hover:border-[#2e9e5b]"}`}>
+          <Check className="h-3.5 w-3.5" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <p className={`text-sm font-semibold leading-snug ${c.status === "done" ? "text-[#5e5e5e] line-through" : "text-[#0d1c34]"}`}>{c.title}</p>
+            {c.important ? <span className="pm-urgent-chip"><Flag className="h-3 w-3" /> Urgent</span> : null}
+            {c.due_date ? <span className={`pmt-due ${c.status !== "done" ? dueState(c.due_date) : ""}`}><CalendarDays className="h-3 w-3" /> Due {fmtDue(c.due_date)}</span> : null}
+          </div>
+          {splitAssign(c.notes).rest ? <p className="pmt-detail">{splitAssign(c.notes).rest}</p> : null}
+          <p className="pmt-meta">Added by {c.created_by === "Natalie" ? "Natalie" : "Sara"}{c.updated_at ? ` · updated ${relDay(c.updated_at)}` : ""}</p>
+          {Array.isArray(c.files) && c.files.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(c.files as Any[]).map((f: Any, k: number) => (
+                <button key={k} type="button" className="pm-filechip" title={`Download ${f.name}`} onClick={async () => { const r = await act({ type: "cardFilesGet", id: c.id }); const m = (r?.files ?? []).find((x: Any) => x?.name === f.name); if (m?.dataUri) openFileHref(m.dataUri, m.name); }}><Paperclip className="h-3 w-3 flex-none" /><span className="max-w-36 truncate">{f.name}</span></button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+  const section = (label: string, tone: string, items: Any[], empty: string) => (
+    <div className="pm-card p-5">
+      <div className="flex items-center justify-between">
+        <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><span className="pm-dot" style={{ background: tone }} /> {label}</h3>
+        <span className="pm-chip">{items.length}</span>
+      </div>
+      {items.length === 0 ? <p className="pmt-empty mt-3">{empty}</p> : <div className="mt-3 space-y-2">{items.map(row)}</div>}
+    </div>
+  );
+  return (
+    <div className="space-y-4">
+      <style>{PMT_STYLES}</style>
+      <div>
+        <h2 className="text-xl font-semibold">My To Do</h2>
+        <p className="mt-0.5 text-xs text-[#5e5e5e]">Everything assigned to you · tick things off as you go</p>
+      </div>
+      {mine.length === 0 ? (
+        <div className="pmt-empty">Nothing assigned to you yet · tasks appear here when Natalie or you add one with your name on.</div>
+      ) : (
+        <>
+          {section("Urgent", "#e5484d", flagged, "Nothing urgent · good news.")}
+          {section("New", "#f59a2b", fresh, "No new tasks right now.")}
+          {section("In progress", "#8fb8d8", doing, "Nothing in progress · start something new.")}
+          <div className="pm-card p-5">
+            <button type="button" onClick={() => setShowDone((o: boolean) => !o)} className="flex w-full items-center justify-between">
+              <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><span className="pm-dot" style={{ background: "#2e9e5b" }} /> Completed</h3>
+              <span className="pm-chip">{done.length}{done.length ? (showDone ? " · hide" : " · show") : ""}</span>
+            </button>
+            {showDone && (done.length === 0 ? <p className="pmt-empty mt-3">Completed tasks will collect here.</p> : <div className="mt-3 space-y-2">{done.map(row)}</div>)}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- cases (Sara) ---------------- */
+
+const CASE_CHECKLIST = [
+  "Instruction", "Format of the assessment", "Enquiries and interviews undertaken", "Executive Summary (background)",
+  "Summary of the child's needs", "Analysis - Social, Family & Environment History x2", "Analysis of ability to meet children's needs",
+  "Teaching needs", "Recommendation", "Family History & Functioning", "Education and Employment", "Forensic History",
+  "Alcohol and Drugs", "Couple Relationship and Domestic Abuse", "Independence Skills", "Routine and Pace of Learning",
+  "Housing", "Social Integration and Community Resources", "Money", "Wider Family and Support Network",
+  "Working with professionals", "Health", "Emotional and Behavioural Development", "Identity Family and Social Relationships",
+  "Social presentation and self care skills", "Parenting Capacity - basic care", "Ensuring safety and managing risk",
+  "Emotional Warmth", "Stimulation", "Guidance and Boundaries", "Stability", "Answers to questions from instruction", "Declaration",
+];
+
+function caseProgress(c: Any) {
+  const done = CASE_CHECKLIST.filter((_x: string, i: number) => c?.checks?.[`check:${i}`]).length;
+  return { done, total: CASE_CHECKLIST.length };
+}
+
+function SectionEditor({ c, act, skey, label, hint, rows }: Any) {
+  const [text, setText] = useState(String(c?.sections?.[skey] ?? ""));
+  const [busy, setBusy] = useState(false);
+  const dirty = text !== String(c?.sections?.[skey] ?? "");
+  const save = async () => {
+    if (!dirty || busy) return;
+    setBusy(true);
+    await act({ type: "caseSave", id: c.id, key: skey, content: text }, "Saved");
+    setBusy(false);
+  };
+  return (
+    <div className="pm-card p-5">
+      <h3 className="text-lg font-semibold">{label}</h3>
+      {hint ? <p className="mt-1 text-xs text-[#5e5e5e]">{hint}</p> : null}
+      <Textarea value={text} onChange={(e: Any) => setText(e.target.value)} onBlur={save} rows={rows ?? 10} className="mt-3 text-sm" placeholder="Write here…" />
+      <div className="mt-2.5 flex items-center justify-between">
+        <span className="text-[11px] text-[#9aa0a6]">{dirty ? "Unsaved changes" : "All changes saved"}</span>
+        <Button type="button" className="pm-btn-orange h-9 px-5" disabled={busy || !dirty} onClick={save}>{busy ? "Saving…" : "Save"}</Button>
+      </div>
+    </div>
+  );
+}
+
+function CaseDetail({ c, act, viewer, onBack }: Any) {
+  const [sel, setSel] = useState("home");
+  const [chkOpen, setChkOpen] = useState(false);
+  const [noteText, setNoteText] = useState("");
+  const [noteBusy, setNoteBusy] = useState(false);
+  const [logDate, setLogDate] = useState(new Date().toISOString().slice(0, 10));
+  const [logH, setLogH] = useState("");
+  const [logM, setLogM] = useState("");
+  const [logNote, setLogNote] = useState("");
+  const [logBusy, setLogBusy] = useState(false);
+  const prog = caseProgress(c);
+  const isCheck = sel.startsWith("check:");
+  const chkIdx = isCheck ? parseInt(sel.slice(6), 10) : -1;
+  const notes: Any[] = Array.isArray(c.notes) ? c.notes : [];
+  const log: Any[] = Array.isArray(c.log) ? c.log : [];
+  const navBtn = (key: string, label: string, sub = false, dotColor = "") => (
+    <button key={key} type="button" onClick={() => setSel(key)} className={`${sub ? "sub " : ""}${sel === key ? "active" : ""}`}>
+      {dotColor ? <span className="pm-dot" style={{ background: dotColor }} /> : null}
+      {label}
+      {key === "checklists" ? <span className="pm-chip ml-auto">{prog.done}/{prog.total}</span> : null}
+    </button>
+  );
+  return (
+    <div className="space-y-4">
+      <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#5e5e5e] hover:text-[#0d1c34]"><ArrowLeft className="h-3.5 w-3.5" /> All cases</button>
+
+      <div className="grid gap-4 md:grid-cols-[230px_1fr]">
+        <nav className="pm-case-nav" aria-label="Case sections">
+          {navBtn("home", "Case Home")}
+          {navBtn("details", "Basic Details & Contact Info")}
+          {navBtn("dates", "Important Dates")}
+          {navBtn("checklists", "Checklists")}
+          {chkOpen && CASE_CHECKLIST.map((item: string, i: number) => navBtn(`check:${i}`, item, true, c.checks?.[`check:${i}`] ? "#2e9e5b" : "#d5dade"))}
+          {navBtn("notes", "Notes")}
+          {navBtn("log", "Time Log")}
+          {navBtn("interim", "Interim QA")}
+          {navBtn("final", "Final QA")}
+        </nav>
+
+        <div className="min-w-0 space-y-4">
+          {sel === "home" && (
+            <>
+              <div className="pm-card p-6">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-xl font-semibold">{c.title}</h2>
+                  <span className={`pm-chip ${c.assigned === "Jermaine" ? "navy" : "orange"}`}>Assigned to {c.assigned === "Jermaine" ? "Jermaine" : "Sara"}</span>
+                </div>
+                {c.info ? <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[#4b5563]">{c.info}</p> : <p className="mt-2 text-sm italic text-[#9aa0a6]">No basic info added yet · add it under Basic Details.</p>}
+                <div className="mt-4">
+                  <div className="flex items-center justify-between text-xs text-[#5e5e5e]">
+                    <span className="font-semibold">Assessment framework · checklist progress</span>
+                    <span>{prog.done}/{prog.total} complete</span>
+                  </div>
+                  <div className="pm-case-progress mt-1.5"><span style={{ width: `${prog.total ? Math.round((prog.done / prog.total) * 100) : 0}%` }} /></div>
+                </div>
+                <p className="mt-3 text-[11px] text-[#9aa0a6]">Created {fmtDate(c.created_at)} · updated {relDay(c.updated_at)}</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <button type="button" onClick={() => setSel("details")} className="pm-card p-4 text-left"><p className="text-sm font-semibold">Basic details</p><p className="mt-0.5 text-[11px] text-[#5e5e5e]">Names &amp; contact info</p></button>
+                <button type="button" onClick={() => { setChkOpen(true); setSel("check:0"); }} className="pm-card p-4 text-left"><p className="text-sm font-semibold">Checklists</p><p className="mt-0.5 text-[11px] text-[#5e5e5e]">{prog.done}/{prog.total} sections done</p></button>
+                <button type="button" onClick={() => setSel("log")} className="pm-card p-4 text-left"><p className="text-sm font-semibold">Time log</p><p className="mt-0.5 text-[11px] text-[#5e5e5e]">{log.length} entr{log.length === 1 ? "y" : "ies"}</p></button>
+              </div>
+            </>
+          )}
+
+          {sel === "details" && <SectionEditor c={c} act={act} skey="details" label="Basic Details & Contact Info" hint="Names, ages, addresses, contact details, who's who in the family" rows={12} />}
+          {sel === "dates" && <SectionEditor c={c} act={act} skey="dates" label="Important Dates" hint="Hearing dates, deadlines, key appointments, birthdays" rows={12} />}
+
+          {isCheck && chkIdx >= 0 && chkIdx < CASE_CHECKLIST.length && (
+            <div className="space-y-3">
+              <div className="pm-card p-5">
+                <button type="button" aria-pressed={!!c.checks?.[`check:${chkIdx}`]} onClick={async () => { await act({ type: "caseCheck", id: c.id, key: `check:${chkIdx}`, done: !c.checks?.[`check:${chkIdx}`] }); }} className="pm-case-tick">
+                  <span className={`box ${c.checks?.[`check:${chkIdx}`] ? "on" : ""}`}><Check className="h-3.5 w-3.5" /></span>
+                  <span className="text-sm font-semibold">Section {chkIdx + 1} of {CASE_CHECKLIST.length} · {c.checks?.[`check:${chkIdx}`] ? "Complete" : "Mark this section complete"}</span>
+                </button>
+                <p className="mt-2 text-xs text-[#5e5e5e]">{CASE_CHECKLIST[chkIdx]}</p>
+              </div>
+              <SectionEditor c={c} act={act} skey={`check:${chkIdx}`} label={CASE_CHECKLIST[chkIdx]} hint="Tick the box above when this section is finished · your writing saves here" rows={14} />
+              <div className="flex items-center justify-between">
+                <button type="button" disabled={chkIdx <= 0} onClick={() => setSel(`check:${chkIdx - 1}`)} className="pm-filebtn" style={{ opacity: chkIdx <= 0 ? .4 : 1 }}><ArrowLeft className="h-3.5 w-3.5" /> Previous</button>
+                <button type="button" disabled={chkIdx >= CASE_CHECKLIST.length - 1} onClick={() => setSel(`check:${chkIdx + 1}`)} className="pm-filebtn" style={{ opacity: chkIdx >= CASE_CHECKLIST.length - 1 ? .4 : 1 }}>Next <ChevronRight className="h-3.5 w-3.5" /></button>
+              </div>
+            </div>
+          )}
+
+          {sel === "notes" && (
+            <div className="pm-card p-5">
+              <h3 className="text-lg font-semibold">Case notes</h3>
+              <p className="mt-1 text-xs text-[#5e5e5e]">Working notes for this case · only people in this portal can see them</p>
+              <form className="mt-3" onSubmit={async (e: Any) => { e.preventDefault(); if (!noteText.trim() || noteBusy) return; setNoteBusy(true); const r = await act({ type: "caseNoteAdd", id: c.id, text: noteText }, "Note added"); setNoteBusy(false); if (r !== null) setNoteText(""); }}>
+                <Textarea value={noteText} onChange={(e: Any) => setNoteText(e.target.value)} rows={3} className="text-sm" placeholder="Add a note…" />
+                <div className="mt-2 flex justify-end"><Button type="submit" className="pm-btn-orange h-9 px-5" disabled={noteBusy}>{noteBusy ? "Saving…" : "Add note"}</Button></div>
+              </form>
+              {notes.length === 0 ? <p className="pmt-empty mt-3">No notes yet.</p> : (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {notes.map((n: Any, ni: number) => (
+                    <div key={n.id} className="pm-postit" style={{ background: POSTIT_COLOURS[ni % POSTIT_COLOURS.length], transform: `rotate(${ni % 2 ? 0.7 : -0.7}deg)` }}>
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#3a3627]">{n.text}</p>
+                      <div className="mt-3 flex items-center justify-between border-t border-[#00000014] pt-2.5">
+                        <span className="text-[11px] text-[#7a7460]">{fmtDate(n.at)}</span>
+                        <IconBtn label="Delete note" onClick={async () => { await act({ type: "caseNoteDelete", id: c.id, noteId: n.id }, "Note deleted"); }}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {sel === "log" && (
+            <div className="pm-card p-5">
+              <h3 className="text-lg font-semibold">Time log</h3>
+              <p className="mt-1 text-xs text-[#5e5e5e]">Hours spent on this case · Natalie picks these up for invoicing</p>
+              <form className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_2fr_auto]" onSubmit={async (e: Any) => {
+                e.preventDefault();
+                const mins = (parseInt(logH || "0", 10) || 0) * 60 + (parseInt(logM || "0", 10) || 0);
+                if (!logDate) { toast.error("Pick a date."); return; }
+                if (mins <= 0) { toast.error("Enter how long you worked."); return; }
+                setLogBusy(true);
+                const r = await act({ type: "caseLogAdd", id: c.id, date: logDate, hours: Math.round((mins / 60) * 100) / 100, note: logNote.trim() }, "Time logged");
+                setLogBusy(false);
+                if (r !== null) { setLogH(""); setLogM(""); setLogNote(""); }
+              }}>
+                <Input type="date" value={logDate} max={logDate} onChange={(e: Any) => setLogDate(e.target.value)} className="h-10" />
+                <div className="flex gap-2">
+                  <Input type="number" min="0" max="23" placeholder="Hrs" value={logH} onChange={(e: Any) => setLogH(e.target.value)} className="h-10" />
+                  <Input type="number" min="0" max="59" placeholder="Min" value={logM} onChange={(e: Any) => setLogM(e.target.value)} className="h-10" />
+                </div>
+                <Input value={logNote} onChange={(e: Any) => setLogNote(e.target.value)} placeholder="What was it for? (optional)" className="h-10" />
+                <Button type="submit" className="pm-btn-orange h-10" disabled={logBusy}>{logBusy ? "…" : "Add"}</Button>
+              </form>
+              {log.length === 0 ? <p className="pmt-empty mt-4">No time logged against this case yet.</p> : (
+                <ul className="mt-4 space-y-2">
+                  {log.map((t: Any) => (
+                    <li key={t.id} className="pm-row flex items-center gap-3 px-3 py-2.5">
+                      <Clock className="h-4 w-4 flex-none text-[#d97406]" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{fmtDate(t.date)}{t.note ? ` · ${t.note}` : ""}</p>
+                      </div>
+                      <span className="pm-chip orange flex-none">{Number(t.hours).toFixed(2)} h</span>
+                      <IconBtn label="Delete entry" onClick={async () => { await act({ type: "caseLogDelete", id: c.id, logId: t.id }, "Entry removed"); }}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {sel === "interim" && <SectionEditor c={c} act={act} skey="interim" label="Interim QA" hint="Mid-assessment QA notes and feedback" rows={14} />}
+          {sel === "final" && <SectionEditor c={c} act={act} skey="final" label="Final QA" hint="Final QA review before the report goes out" rows={14} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
+  const cases: Any[] = ((p.client?.portal_prefs?.cases ?? []) as Any[]);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [expandAll, setExpandAll] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [info, setInfo] = useState("");
+  const [assigned, setAssigned] = useState("Sara");
+  const [busy, setBusy] = useState(false);
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const cur = cases.find((c: Any) => c.id === openId);
+  if (cur) return <CaseDetail c={cur} act={act} viewer={viewer} onBack={() => setOpenId(null)} />;
+  const addCase = async () => {
+    if (!title.trim() || busy) return;
+    setBusy(true);
+    const r = await act({ type: "caseAdd", title: title.trim(), info: info.trim(), assigned }, "Case created");
+    setBusy(false);
+    if (r !== null) { setAddOpen(false); setTitle(""); setInfo(""); setAssigned("Sara"); if (r?.id) setOpenId(r.id); }
+  };
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold">Cases</h2>
+          <p className="mt-0.5 text-xs text-[#5e5e5e]">Every case &amp; family in one place</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" className="pm-btn h-10" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add new case</Button>
+          <Button type="button" className="pm-btn-orange h-10" onClick={() => setExpandAll((o: boolean) => !o)} disabled={cases.length === 0}>{expandAll ? "Close all cases" : "Open all cases"}</Button>
+        </div>
+      </div>
+
+      {cases.length === 0 ? (
+        <div className="pmt-empty">No cases yet · tap "Add new case" to set up the first one.</div>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {cases.map((c: Any) => {
+            const prog = caseProgress(c);
+            const notes: Any[] = Array.isArray(c.notes) ? c.notes : [];
+            return (
+              <div key={c.id} className="pm-card p-5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-base font-semibold">{c.title}</h3>
+                  <span className={`pm-chip ${c.assigned === "Jermaine" ? "navy" : "orange"}`}>{c.assigned === "Jermaine" ? "Jermaine" : "Sara"}</span>
+                </div>
+                {(expandAll || !c.info) ? null : <p className="clamp2 mt-1.5 text-xs text-[#5e5e5e]">{c.info}</p>}
+                {expandAll && c.info ? <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[#4b5563]">{c.info}</p> : null}
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-[11px] text-[#5e5e5e]">
+                    <span>Checklist</span><span>{prog.done}/{prog.total}</span>
+                  </div>
+                  <div className="pm-case-progress mt-1"><span style={{ width: `${prog.total ? Math.round((prog.done / prog.total) * 100) : 0}%` }} /></div>
+                </div>
+                {expandAll && notes.length > 0 ? (
+                  <div className="mt-3 border-t border-[#e6e8ea] pt-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#5e5e5e]">Latest note</p>
+                    <p className="clamp2 mt-1 text-xs text-[#4b5563]">{notes[0]?.text}</p>
+                  </div>
+                ) : null}
+                <div className="mt-4 flex items-center gap-2">
+                  <Button type="button" className="pm-btn h-9 flex-1" onClick={() => setOpenId(c.id)}>Open case</Button>
+                  <IconBtn label="Delete case" danger={confirmDel === c.id} onClick={() => {
+                    if (confirmDel === c.id) { act({ type: "caseDelete", id: c.id }, "Case deleted"); setConfirmDel(null); }
+                    else { setConfirmDel(c.id); setTimeout(() => setConfirmDel((k: Any) => (k === c.id ? null : k)), 2600); }
+                  }}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Add new case</DialogTitle></DialogHeader>
+          <div className="mt-2 space-y-3">
+            <div className="space-y-1.5"><Label>Case title</Label><Input autoFocus value={title} onChange={(e: Any) => setTitle(e.target.value)} placeholder="e.g. Smith family" maxLength={200} /></div>
+            <div className="space-y-1.5"><Label>Basic info (optional)</Label><Textarea value={info} onChange={(e: Any) => setInfo(e.target.value)} rows={3} placeholder="Names, who's who, anything useful" /></div>
+            <div className="space-y-1.5">
+              <Label>Assigned to</Label>
+              <select value={assigned} onChange={(e: Any) => setAssigned(e.target.value)} className="h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm">
+                <option value="Sara">Sara</option>
+                <option value="Jermaine">Jermaine</option>
+              </select>
+            </div>
+            <Button type="button" className="pm-btn-orange h-10 w-full" disabled={busy} onClick={addCase}>{busy ? "Creating…" : "Create case"}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 /* ---------------- board ---------------- */
 
 const MILEAGE_CAP = 10000;
 const MILEAGE_RATE = 0.55;
 
-export function MileageTab({ act, entries }: { act: Act; entries: Any[] }) {
+export function MileageTab({ act, entries, files }: { act: Act; entries: Any[]; files?: Any[] }) {
+  const docs = (files ?? []).filter((f: Any) => f.kind === "mileage-doc");
+  const [docBusy, setDocBusy] = useState(false);
+  const uploadDoc = async (f: File | undefined) => {
+    if (!f || docBusy) return;
+    setDocBusy(true);
+    const dataUri = await new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => res(""); r.readAsDataURL(f); });
+    try {
+      await act({ type: "mileageDoc", dataUri, fileName: f.name }, "Document uploaded · Natalie can see it");
+    } finally { setDocBusy(false); }
+  };
   const list = (entries ?? []) as Any[];
   const [driver, setDriver] = useState("Sara");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -942,6 +1344,33 @@ export function MileageTab({ act, entries }: { act: Act; entries: Any[] }) {
             </div>
           );
         })}
+      </div>
+
+      <div className="pm-card p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Mileage documents</h2>
+            <p className="mt-1 text-xs text-[#5e5e5e]">Upload a sheet or document · Natalie works the mileage out with you</p>
+          </div>
+          <span className="pm-circle orange"><Upload className="h-4 w-4" /></span>
+        </div>
+        <input type="file" id="mileagedoc" className="hidden" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv,.xlsx,.doc,.docx" disabled={docBusy} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadDoc(f); e.target.value = ""; }} />
+        <label htmlFor="mileagedoc" className={`pm-filebtn mt-4 cursor-pointer ${docBusy ? "opacity-60" : ""}`}><Upload className="h-3.5 w-3.5" /> {docBusy ? "Uploading…" : "Upload document"}</label>
+        {docs.length > 0 && (
+          <ul className="mt-3 space-y-2">
+            {docs.map((f: Any) => (
+              <li key={f.id} className="pm-row flex flex-wrap items-center gap-3 px-3 py-2.5">
+                <FileText className="h-4 w-4 flex-none text-[#d97406]" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{f.title || f.file_name}</p>
+                  <p className="text-xs text-[#5e5e5e]">Uploaded {fmtDate(f.created_at)}</p>
+                </div>
+                <button type="button" className="pm-filebtn navy" style={{ textDecoration: "none" }} onClick={async () => { const r = await act({ type: "fileGet", id: f.id }); if (r?.href || r?.url) openFileHref(r.href ?? r.url, f.file_name ?? f.title); }}>Open</button>
+                <IconBtn label="Delete document" onClick={async () => { await act({ type: "deleteFile", id: f.id }, "Document removed"); }}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="pm-card p-6">
@@ -1057,7 +1486,7 @@ export function MileageTab({ act, entries }: { act: Act; entries: Any[] }) {
   );
 }
 
-export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; viewer: string; act: Act; go: Any; autoAdd?: boolean; onAutoAddDone?: () => void }) {
+export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone, autoAddUrgent, onAutoAddUrgentDone }: { p: Any; viewer: string; act: Act; go: Any; autoAdd?: boolean; onAutoAddDone?: () => void; autoAddUrgent?: boolean; onAutoAddUrgentDone?: () => void }) {
   const cards: Any[] = p.board ?? [];
   const [dragId, setDragId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);
@@ -1066,9 +1495,13 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [doneOpen, setDoneOpen] = useState(false);
 
+  const [urgentStart, setUrgentStart] = useState(false);
   useEffect(() => {
-    if (autoAdd) { setComposer("todo"); if (onAutoAddDone) onAutoAddDone(); }
+    if (autoAdd) { setComposer("todo"); setUrgentStart(false); if (onAutoAddDone) onAutoAddDone(); }
   }, [autoAdd]);
+  useEffect(() => {
+    if (autoAddUrgent) { setComposer("todo"); setUrgentStart(true); if (onAutoAddUrgentDone) onAutoAddUrgentDone(); }
+  }, [autoAddUrgent]);
 
   const colCards = (key: string) => cards.filter((c: Any) => c.status === key).sort((a: Any, b: Any) => ((b.important ? 1 : 0) - (a.important ? 1 : 0)) || a.position - b.position || String(a.created_at).localeCompare(String(b.created_at)));
 
@@ -1126,7 +1559,7 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
                 </div>
               </div>
 
-              {composer === col.key && <AddComposer col={col.key} onCancel={() => setComposer(null)} onSubmit={async (title, notes, files, important) => {
+              {composer === col.key && <AddComposer col={col.key} startImportant={urgentStart} onCancel={() => setComposer(null)} onSubmit={async (title, notes, files, important) => {
                 const r = await act({ type: "cardAdd", title, notes, status: col.key, actor: viewer, important: !!important }, important ? "Important task added" : "Task added");
                 if (r?.id && files.length) await act({ type: "cardFiles", id: r.id, files, actor: viewer }, "File attached to task");
                 if (r) setComposer(null);
@@ -1212,11 +1645,11 @@ function IconBtn({ children, label, onClick, disabled, danger }: { children: Any
   );
 }
 
-function AddComposer({ col, onSubmit, onCancel }: { col: string; onSubmit: (title: string, notes: string, files: Any[], important: boolean) => Promise<Any | null>; onCancel: () => void }) {
+function AddComposer({ col, onSubmit, onCancel, startImportant }: { col: string; onSubmit: (title: string, notes: string, files: Any[], important: boolean) => Promise<Any | null>; onCancel: () => void; startImportant?: boolean }) {
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [files, setFiles] = useState<Any[]>([]);
-  const [important, setImportant] = useState(false);
+  const [important, setImportant] = useState(!!startImportant);
   const [assign, setAssign] = useState("");
   const [busy, setBusy] = useState(false);
   const readFile = (f: File) => new Promise<Any>((res) => { const r = new FileReader(); r.onload = () => res({ name: f.name, dataUri: String(r.result) }); r.onerror = () => res(null); r.readAsDataURL(f); });
@@ -1300,6 +1733,10 @@ function EditCard({ card, onSave, onDelete }: { card: Any; onSave: (title: strin
 function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, invoices: allInvoices, files, client }: Any) {
   const invoices = (allInvoices ?? []).filter((i: Any) => i.status !== "draft");
   const [viewInv, setViewInv] = useState<Any | null>(null);
+  const [showPaid, setShowPaid] = useState(false);
+  const unpaidInv = invoices.filter((i: Any) => effectiveStatus(i) !== "paid");
+  const paidInv = invoices.filter((i: Any) => effectiveStatus(i) === "paid");
+  const dueTotal = unpaidInv.reduce((t: number, i: Any) => t + invoiceTotals(i.items as LineItem[], i.tax_rate).total, 0);
   const isNat = viewer === "Natalie";
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -1407,13 +1844,21 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
       </div>}
 
       <div className="pm-card p-5">
-        <h2 className="text-lg font-semibold">Invoices</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">Invoices</h2>
+          {!isNat && invoices.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <span className="pm-chip orange">{unpaidInv.length} unpaid invoice{unpaidInv.length === 1 ? "" : "s"}</span>
+              <span className="pm-chip navy">{money(dueTotal)} due</span>
+            </div>
+          )}
+        </div>
         {invoices.length === 0 ? <p className="mt-3 text-sm text-[#5e5e5e]">Invoices raised for this work will appear here.</p> : (
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-xs uppercase tracking-wider text-[#5e5e5e]"><tr><th className="pb-2">Invoice</th><th className="pb-2">Issued</th><th className="pb-2">Due</th><th className="pb-2">Status</th><th className="pb-2 text-right">Total</th><th className="pb-2 text-right">PDF</th></tr></thead>
               <tbody>
-                {invoices.map((i: Any) => (
+                {(isNat ? invoices : (showPaid ? [...unpaidInv, ...paidInv] : unpaidInv)).map((i: Any) => (
                   <tr key={i.id} className="border-t border-[#f0f1f3]">
                     <td className="py-2.5 font-medium">{i.number}</td>
                     <td className="py-2.5 text-[#5e5e5e]">{fmtDate(i.issue_date)}</td>
@@ -1426,6 +1871,11 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
               </tbody>
             </table>
           </div>
+        )}
+        {!isNat && paidInv.length > 0 && (
+          <button type="button" onClick={() => setShowPaid((o: boolean) => !o)} className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-[var(--pm-line)] px-3.5 py-1.5 text-xs font-semibold text-[#5e5e5e] hover:border-[var(--pm-orange)]">
+            {showPaid ? "Hide paid invoices" : `Show paid invoices (${paidInv.length})`}
+          </button>
         )}
       </div>
 

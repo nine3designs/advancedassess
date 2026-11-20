@@ -128,7 +128,17 @@ type Action =
   | { type: "uploadInvoice"; fileName: string; title?: string; dataUri: string }
   | { type: "fileGet"; id: string }
   | { type: "cardFilesGet"; id: string }
-  | { type: "availabilitySave"; week: string; days: { day: string; available: boolean; note?: string }[]; notes?: string };
+  | { type: "availabilitySave"; week: string; days: { day: string; available: boolean; note?: string }[]; notes?: string }
+  | { type: "caseAdd"; title: string; info?: string; assigned?: string }
+  | { type: "caseUpdate"; id: string; title?: string; info?: string; assigned?: string }
+  | { type: "caseDelete"; id: string }
+  | { type: "caseSave"; id: string; key: string; content: string }
+  | { type: "caseCheck"; id: string; key: string; done: boolean }
+  | { type: "caseNoteAdd"; id: string; text: string }
+  | { type: "caseNoteDelete"; id: string; noteId: string }
+  | { type: "caseLogAdd"; id: string; date: string; hours: number; note?: string }
+  | { type: "caseLogDelete"; id: string; logId: string }
+  | { type: "mileageDoc"; dataUri: string; fileName: string };
 
 export const portalAction = createServerFn({ method: "POST" })
   .inputValidator((d: Access & { action: Action }) => d)
@@ -521,6 +531,82 @@ export const portalAction = createServerFn({ method: "POST" })
       const list = (Array.isArray(prefs.sara_notes) ? prefs.sara_notes : []).filter((n: Any) => n?.id !== a.id);
       const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, sara_notes: list } }).eq("id", cid);
       if (error) throw new Error("Could not delete that note · please try again.");
+      return { ok: true };
+    }
+    if (a.type.startsWith("case")) {
+      const { data: cur } = await admin.from("clients").select("portal_prefs").eq("id", cid).maybeSingle();
+      const prefs = (cur?.portal_prefs ?? {}) as Any;
+      const list = Array.isArray(prefs.cases) ? prefs.cases : [];
+      const mutate = async (id: string, fn: (c: Any) => Any | null) => {
+        const idx = list.findIndex((x: Any) => x?.id === id);
+        if (idx < 0) throw new Error("That case couldn't be found.");
+        const item = fn(list[idx]);
+        if (!item) list.splice(idx, 1);
+        else { item.updated_at = now(); list[idx] = item; }
+        const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, cases: list } }).eq("id", cid);
+        if (error) throw new Error("Could not save the case · please try again.");
+        return { ok: true };
+      };
+      if (a.type === "caseAdd") {
+        const title = String(a.title ?? "").trim().slice(0, 200);
+        if (!title) throw new Error("Give the case a title.");
+        const item = { id: crypto.randomUUID(), title, info: String(a.info ?? "").slice(0, 4000), assigned: a.assigned === "Jermaine" ? "Jermaine" : "Sara", sections: {} as Any, checks: {} as Any, notes: [] as Any[], log: [] as Any[], created_at: now(), updated_at: now() };
+        const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, cases: [item, ...list].slice(0, 100) } }).eq("id", cid);
+        if (error) throw new Error("Cases aren't ready yet · please check back soon.");
+        await admin.from("activity_log").insert({ client_id: cid, actor: "client", message: `added case: ${title}` });
+        return { id: item.id };
+      }
+      if (a.type === "caseUpdate") return await mutate(String(a.id), (c: Any) => {
+        if (a.title != null) c.title = String(a.title).trim().slice(0, 200) || c.title;
+        if (a.info != null) c.info = String(a.info).slice(0, 4000);
+        if (a.assigned != null) c.assigned = a.assigned === "Jermaine" ? "Jermaine" : "Sara";
+        return c;
+      });
+      if (a.type === "caseDelete") return await mutate(String(a.id), () => null);
+      if (a.type === "caseSave") return await mutate(String(a.id), (c: Any) => {
+        c.sections = c.sections ?? {};
+        c.sections[String(a.key).slice(0, 60)] = String(a.content ?? "").slice(0, 30000);
+        return c;
+      });
+      if (a.type === "caseCheck") return await mutate(String(a.id), (c: Any) => {
+        c.checks = c.checks ?? {};
+        c.checks[String(a.key).slice(0, 60)] = !!a.done;
+        return c;
+      });
+      if (a.type === "caseNoteAdd") {
+        const text = String(a.text ?? "").trim();
+        if (!text) throw new Error("Write something first.");
+        return await mutate(String(a.id), (c: Any) => {
+          c.notes = [{ id: crypto.randomUUID(), text: text.slice(0, 4000), at: now() }, ...(Array.isArray(c.notes) ? c.notes : [])].slice(0, 200);
+          return c;
+        });
+      }
+      if (a.type === "caseNoteDelete") return await mutate(String(a.id), (c: Any) => {
+        c.notes = (Array.isArray(c.notes) ? c.notes : []).filter((n: Any) => n?.id !== a.noteId);
+        return c;
+      });
+      if (a.type === "caseLogAdd") {
+        const hours = Math.round(Number(a.hours) * 100) / 100;
+        if (!hours || hours <= 0) throw new Error("Enter the hours for that entry.");
+        return await mutate(String(a.id), (c: Any) => {
+          c.log = [{ id: crypto.randomUUID(), date: String(a.date ?? "").slice(0, 10), hours, note: String(a.note ?? "").slice(0, 500) }, ...(Array.isArray(c.log) ? c.log : [])].slice(0, 500);
+          return c;
+        });
+      }
+      if (a.type === "caseLogDelete") return await mutate(String(a.id), (c: Any) => {
+        c.log = (Array.isArray(c.log) ? c.log : []).filter((n: Any) => n?.id !== a.logId);
+        return c;
+      });
+      throw new Error("Unknown case action.");
+    }
+    if (a.type === "mileageDoc") {
+      const ok = /^(data:application\/pdf|data:image\/(png|jpe?g|webp)|data:text\/plain)/.test(String(a.dataUri ?? ""));
+      if (!ok) throw new Error("Upload a PDF, image or text file.");
+      if (String(a.dataUri).length > 6_500_000) throw new Error("That file is too large · please keep it under about 4 MB.");
+      const title = String(a.fileName || "Mileage document").slice(0, 200);
+      const { error } = await admin.from("deliverables").insert({ client_id: cid, kind: "mileage-doc", title, file_path: a.dataUri, file_name: String(a.fileName || "document").slice(0, 200), status: "shared", uploaded_by: "client", week_of: new Date().toISOString().slice(0, 10) });
+      if (error) throw new Error("Could not save that document · please try again.");
+      await admin.from("activity_log").insert({ client_id: cid, actor: "client", message: `uploaded mileage document: ${title}` });
       return { ok: true };
     }
     if (a.type === "mileageAdd") {
