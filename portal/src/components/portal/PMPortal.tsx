@@ -1559,8 +1559,17 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
 
           {sel === "checklists" && c.form_k && (
             <div className="pm-card p-5">
-              <h3 className="text-lg font-semibold">Form K assessment</h3>
-              <p className="mt-2 rounded-xl bg-[#eef0f2] px-3 py-2 text-[11px] text-[#5e5e5e]">This is a Form K case · the DBS / Medical / References checks live on Case Home, so the MALD framework checklist is hidden here.</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-semibold">Form K assessment checklist</h3>
+                <span className="pm-chip">{prog.done}/{prog.total} complete</span>
+              </div>
+              <div className="pm-case-progress mt-3"><span style={{ width: `${prog.total ? Math.round((prog.done / prog.total) * 100) : 0}%` }} /></div>
+              <p className="mt-3 rounded-xl bg-[#eef0f2] px-3 py-2 text-[11px] text-[#5e5e5e]">The full Form K checklist below · the DBS / Medical / References quick-checks also live on Case Home. Tap "Colours &amp; notes" on any item for colour-coding and notes.</p>
+              <ul className="mt-3 space-y-1">
+                {FORMK_CHECKLIST.map((item: Any, i: number) => (
+                  <ChecklistItem key={`fk${i}`} item={item.t} i={i} c={c} act={act} na={!!item.na} />
+                ))}
+              </ul>
             </div>
           )}
 
