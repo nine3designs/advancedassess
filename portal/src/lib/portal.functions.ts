@@ -612,6 +612,12 @@ export const portalAction = createServerFn({ method: "POST" })
           return c;
         }
         if (key === "form_k") { c.form_k = String(a.content ?? "") === "1"; return c; }
+        if (key === "travel") {
+          try { c.travel = JSON.parse(String(a.content ?? "[]")); } catch { c.travel = []; }
+          if (!Array.isArray(c.travel)) c.travel = [];
+          c.travel = c.travel.slice(0, 400).map((t: Any) => ({ id: String(t?.id ?? "").slice(0, 40), date: String(t?.date ?? "").slice(0, 10), activity: String(t?.activity ?? "").slice(0, 200), prof: Math.max(0, Math.min(3000, Number(t?.prof) || 0)), travel: Math.max(0, Math.min(3000, Number(t?.travel) || 0)), miles: Math.max(0, Math.min(2000, Number(t?.miles) || 0)), from: String(t?.from ?? "").slice(0, 12).toUpperCase(), to: String(t?.to ?? "").slice(0, 12).toUpperCase(), trip: t?.trip === "return" ? "return" : "single" }));
+          return c;
+        }
         if (key.startsWith("qa:") && key.endsWith(":date")) {
           c.qa = c.qa ?? {};
           c.qa[key.slice(3)] = String(a.content ?? "").slice(0, 10);

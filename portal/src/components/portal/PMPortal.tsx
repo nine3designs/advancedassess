@@ -1440,6 +1440,254 @@ function FilingDateCard({ c, act }: Any) {
   );
 }
 
+const TRAVEL_RATE = 0.45;
+
+function fmtHrs(mins: number) {
+  const m = Math.round(Number(mins) || 0);
+  if (!m) return "";
+  const h = Math.floor(m / 60), r = m % 60;
+  return h && r ? `${h} hr ${r}` : h ? `${h} hr${h === 1 ? "" : "s"}` : `${r} min${r === 1 ? "" : "s"}`;
+}
+
+function TravelTab({ c, act }: Any) {
+  const rows: Any[] = Array.isArray(c?.travel) ? c.travel : [];
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [activity, setActivity] = useState("");
+  const [profH, setProfH] = useState(""); const [profM, setProfM] = useState("");
+  const [travH, setTravH] = useState(""); const [travM, setTravM] = useState("");
+  const [mode, setMode] = useState<"manual" | "route">("manual");
+  const [miles, setMiles] = useState("");
+  const [fromPc, setFromPc] = useState(""); const [toPc, setToPc] = useState("");
+  const [trip, setTrip] = useState("single");
+  const [calc, setCalc] = useState<Any | null>(null);
+  const [calcBusy, setCalcBusy] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const totProf = rows.reduce((s2: number, r: Any) => s2 + Number(r.prof || 0), 0);
+  const totTrav = rows.reduce((s2: number, r: Any) => s2 + Number(r.travel || 0), 0);
+  const totMiles = Math.round(rows.reduce((s2: number, r: Any) => s2 + Number(r.miles || 0), 0) * 10) / 10;
+  const charge = Math.round(totMiles * TRAVEL_RATE * 100) / 100;
+  const calcRoute = async () => {
+    if (calcBusy) return;
+    const clean = (x: string) => x.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const f = clean(fromPc), t = clean(toPc);
+    if (f.length < 4 || t.length < 4) { toast.error("Enter both postcodes or outcodes."); return; }
+    setCalcBusy(true);
+    try {
+      const geo = async (pc: string) => {
+        const eps: string[] = [`https://api.postcodes.io/postcodes/${pc}`, `https://findthatpostcode.uk/postcodes/${pc}.json`];
+        if (pc.length > 4) eps.push(`https://api.postcodes.io/outcodes/${pc}`);
+        for (const ep of eps) {
+          try {
+            const r = await fetch(ep).then((x: Any) => x.json());
+            const raw = r?.result ?? r?.data;
+            if (!raw) continue;
+            const g = Array.isArray(raw) ? raw[0] : raw;
+            const a2 = (g?.attributes ?? g) ?? {};
+            const lat = Number(a2.latitude), lng = Number(a2.longitude);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng, pc: String(a2.postcode ?? a2.outcode ?? pc) };
+          } catch { continue; }
+        }
+        throw new Error("geo");
+      };
+      let A: Any, B: Any;
+      try { A = await geo(f); B = await geo(t); } catch { toast.error("One of those postcodes doesn't look right · check them and try again."); return; }
+      let mi = 0;
+      for (const rp of ["https://router.project-osrm.org", "https://routing.openstreetmap.de/routed-car"]) {
+        try {
+          const r = await fetch(`${rp}/route/v1/driving/${A.lng},${A.lat};${B.lng},${B.lat}?overview=false`).then((x: Any) => x.json());
+          const d = r?.routes?.[0]?.distance;
+          if (d > 0) { mi = Math.round((d / 1609.344) * 10) / 10; break; }
+        } catch { continue; }
+      }
+      if (!mi) {
+        const R = 3958.7613;
+        const dLat = (B.lat - A.lat) * Math.PI / 180, dLng = (B.lng - A.lng) * Math.PI / 180;
+        const h = Math.sin(dLat / 2) ** 2 + Math.cos(A.lat * Math.PI / 180) * Math.cos(B.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+        mi = Math.round(2 * R * Math.asin(Math.sqrt(h)) * 1.25 * 10) / 10;
+      }
+      setCalc({ miles: mi, from: A.pc, to: B.pc });
+    } finally { setCalcBusy(false); }
+  };
+  const addRow = async () => {
+    if (busy) return;
+    const prof = (Number(profH) || 0) * 60 + (Number(profM) || 0);
+    const trav = (Number(travH) || 0) * 60 + (Number(travM) || 0);
+    const useMiles = mode === "route" ? (calc ? calc.miles : 0) : Number(miles);
+    if (!activity.trim() && !useMiles && !prof && !trav) { toast.error("Add what you did, or the miles first."); return; }
+    if (mode === "route" && !useMiles) { toast.error("Work out the miles first."); return; }
+    setBusy(true);
+    const list = [...rows, { id: `tr${Date.now()}`, date, activity: activity.trim(), prof, travel: trav, miles: useMiles, from: mode === "route" && calc ? calc.from : fromPc.trim().toUpperCase(), to: mode === "route" && calc ? calc.to : toPc.trim().toUpperCase(), trip }];
+    await act({ type: "caseSave", id: c.id, key: "travel", content: JSON.stringify(list) }, "Added to Travel & Mileage");
+    setActivity(""); setProfH(""); setProfM(""); setTravH(""); setTravM(""); setMiles(""); setCalc(null);
+    setBusy(false);
+  };
+  const delRow = async (id: string) => {
+    await act({ type: "caseSave", id: c.id, key: "travel", content: JSON.stringify(rows.filter((r: Any) => r.id !== id)) }, "Entry removed");
+  };
+  const downloadCsv = () => {
+    const q = (v: Any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const L: string[] = [];
+    L.push(q(`name of case: ${c.title}`));
+    L.push(q("Sara Dawson - Advanced Assessment & Solutions"));
+    L.push(q(`type of assessment and who of - specialist ${c.form_k ? "Form K" : "MALD"} assessment`));
+    L.push("");
+    L.push([q("activity"), q("DATE"), q("PROF hours charged"), q("TRAVEL hours charged"), q("MILEAGE miles"), q("MILEAGE charge @ 45p"), q("journey details"), q("single or return journey")].join(","));
+    for (const r of rows) L.push([q(r.activity), q(r.date ? String(r.date).split("-").reverse().join(".") : ""), q(r.prof ? fmtHrs(r.prof) : ""), q(r.travel ? fmtHrs(r.travel) : ""), q(r.miles ? `${r.miles} miles` : ""), q(r.miles ? `£${(Number(r.miles) * TRAVEL_RATE).toFixed(2)}` : ""), q(r.from && r.to ? `${r.from} to ${r.to}` : String(r.from || r.to || "")), q(r.miles ? (r.trip === "return" ? "return" : "single") : "")].join(","));
+    L.push("");
+    L.push([q("TOTAL"), "", q(fmtHrs(totProf)), q(fmtHrs(totTrav)), q(`${totMiles} miles`), q(`£${charge.toFixed(2)}`), "", ""].join(","));
+    L.push("");
+    L.push(q(`date: ${new Date().toISOString().slice(0, 10).split("-").reverse().join(".")}`));
+    const blob = new Blob(["\ufeff" + L.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `Travel & Mileage - ${c.title}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  };
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="pm-card p-5"><p className="text-xs font-medium text-[#5e5e5e]">Hours done</p><p className="mt-1.5 text-2xl font-semibold tracking-tight">{fmtHrs(totProf) || "0"}</p><p className="mt-1 text-[11px] text-[#9aa0a6]">prof hours charged</p></div>
+        <div className="pm-card p-5"><p className="text-xs font-medium text-[#5e5e5e]">Time on road</p><p className="mt-1.5 text-2xl font-semibold tracking-tight">{fmtHrs(totTrav) || "0"}</p><p className="mt-1 text-[11px] text-[#9aa0a6]">travel hours charged</p></div>
+        <div className="pm-card p-5"><p className="text-xs font-medium text-[#5e5e5e]">Miles</p><p className="mt-1.5 text-2xl font-semibold tracking-tight">{totMiles.toLocaleString()}</p><p className="mt-1 text-[11px] text-[#9aa0a6]">total for this case</p></div>
+        <div className="pm-card p-5"><p className="text-xs font-medium text-[#5e5e5e]">Mileage charge</p><p className="mt-1.5 text-2xl font-semibold tracking-tight">£{charge.toFixed(2)}</p><p className="mt-1 text-[11px] text-[#9aa0a6]">{TRAVEL_RATE * 100}p a mile</p></div>
+      </div>
+
+      <div className="pm-card p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold">Add an entry</h3>
+            <p className="mt-1 text-xs text-[#5e5e5e]">Sessions, observations, travel · everything lands on one sheet for this case</p>
+          </div>
+          <span className="pm-circle orange"><Car className="h-4 w-4" /></span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-12">
+          <div className="sm:col-span-4">
+            <Label className="text-xs font-medium">What was done</Label>
+            <Input placeholder="e.g. assessment session at Vernon's home - joint" value={activity} onChange={(e: Any) => setActivity(e.target.value)} className="mt-1.5 h-9 text-sm" />
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="text-xs font-medium">Date</Label>
+            <Input type="date" value={date} onChange={(e: Any) => setDate(e.target.value)} className="mt-1.5 h-9 text-sm" />
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="text-xs font-medium">Hours done</Label>
+            <div className="mt-1.5 flex gap-1.5">
+              <Input type="number" min="0" placeholder="hrs" value={profH} onChange={(e: Any) => setProfH(e.target.value)} className="h-9 text-sm" />
+              <Input type="number" min="0" max="59" placeholder="min" value={profM} onChange={(e: Any) => setProfM(e.target.value)} className="h-9 text-sm" />
+            </div>
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="text-xs font-medium">Hours on road</Label>
+            <div className="mt-1.5 flex gap-1.5">
+              <Input type="number" min="0" placeholder="hrs" value={travH} onChange={(e: Any) => setTravH(e.target.value)} className="h-9 text-sm" />
+              <Input type="number" min="0" max="59" placeholder="min" value={travM} onChange={(e: Any) => setTravM(e.target.value)} className="h-9 text-sm" />
+            </div>
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="text-xs font-medium">Miles by</Label>
+            <div className="mt-1.5 grid grid-cols-2 gap-1.5 rounded-xl bg-[#eef0f2] p-1">
+              <button type="button" onClick={() => setMode("manual")} className={`h-7 rounded-lg text-xs font-semibold transition-colors ${mode === "manual" ? "bg-[var(--pm-navy)] text-white" : "text-[#5e5e5e]"}`}>Manual</button>
+              <button type="button" onClick={() => setMode("route")} className={`h-7 rounded-lg text-xs font-semibold transition-colors ${mode === "route" ? "bg-[var(--pm-navy)] text-white" : "text-[#5e5e5e]"}`}>Postcodes</button>
+            </div>
+          </div>
+          {mode === "manual" ? (
+            <>
+              <div className="sm:col-span-2">
+                <Label className="text-xs font-medium">Miles</Label>
+                <Input type="number" min="0" step="0.1" placeholder="e.g. 120" value={miles} onChange={(e: Any) => setMiles(e.target.value)} className="mt-1.5 h-9 text-sm" />
+              </div>
+              <div className="sm:col-span-4">
+                <Label className="text-xs font-medium">Journey details (optional)</Label>
+                <Input placeholder="e.g. YO25 9 to WF6 1AQ" value={fromPc} onChange={(e: Any) => setFromPc(e.target.value)} className="mt-1.5 h-9 text-sm" />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="sm:col-span-2">
+                <Label className="text-xs font-medium">From postcode</Label>
+                <Input placeholder="e.g. YO25 9" value={fromPc} onChange={(e: Any) => { setFromPc(e.target.value); setCalc(null); }} className="mt-1.5 h-9 text-sm uppercase" />
+              </div>
+              <div className="sm:col-span-2">
+                <Label className="text-xs font-medium">To postcode</Label>
+                <Input placeholder="e.g. WF6 1AQ" value={toPc} onChange={(e: Any) => { setToPc(e.target.value); setCalc(null); }} className="mt-1.5 h-9 text-sm uppercase" />
+              </div>
+              <div className="sm:col-span-2">
+                <Label className="text-xs font-medium">Journey</Label>
+                <div className="mt-1.5 grid grid-cols-2 gap-1.5 rounded-xl bg-[#eef0f2] p-1">
+                  {["single", "return"].map((tp) => (
+                    <button key={tp} type="button" onClick={() => setTrip(tp)} className={`h-7 rounded-lg text-xs font-semibold capitalize transition-colors ${trip === tp ? "bg-[var(--pm-navy)] text-white" : "text-[#5e5e5e]"}`}>{tp}</button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+          <div className="flex items-end gap-2 sm:col-span-4">
+            {mode === "route" ? <Button type="button" className="pm-btn h-9 px-3" disabled={calcBusy || busy} onClick={calcRoute}>{calcBusy ? "Working it out…" : calc ? "Recalculate" : "Work out miles"}</Button> : null}
+            <div className="flex-1">
+              <Label className="text-xs font-medium opacity-0">.</Label>
+              <Button type="button" className="pm-btn-orange h-9 w-full px-3" disabled={busy} onClick={addRow}>{busy ? "Saving…" : "Add entry"}</Button>
+            </div>
+          </div>
+          {mode === "route" && calc ? <p className="sm:col-span-12 rounded-full bg-[rgba(245,154,43,.14)] px-3 py-1.5 text-xs font-semibold text-[#a35803]">{calc.miles} miles · {calc.from} to {calc.to} · {trip === "return" ? "return journey (distance is one-way · double the miles if there and back)" : "single journey"}</p> : null}
+        </div>
+      </div>
+
+      <div className="pm-card overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-6 pb-1 pt-5">
+          <div>
+            <h3 className="text-lg font-semibold">Travel &amp; Mileage sheet</h3>
+            <p className="mt-0.5 text-xs text-[#5e5e5e]">{rows.length} {rows.length === 1 ? "entry" : "entries"} · mileage at {TRAVEL_RATE * 100}p a mile</p>
+          </div>
+          {rows.length > 0 ? <Button type="button" className="pm-btn h-9" onClick={downloadCsv}><FileDown className="h-4 w-4" /> Download sheet</Button> : null}
+        </div>
+        {rows.length === 0 ? (
+          <p className="pmt-empty m-6">Nothing logged yet · add the first entry above.</p>
+        ) : (
+          <div className="overflow-x-auto px-3 pb-4">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead>
+                <tr className="border-b border-[#e6e8ea] text-left text-[11px] font-semibold uppercase tracking-wide text-[#9aa0a6]">
+                  <th className="px-3 py-2">Activity</th><th className="px-3 py-2">Date</th><th className="px-3 py-2">Prof</th><th className="px-3 py-2">Travel</th><th className="px-3 py-2">Miles</th><th className="px-3 py-2">Journey</th><th className="px-3 py-2">Trip</th><th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r: Any) => (
+                  <tr key={r.id} className="border-b border-[#eef0f2]">
+                    <td className="px-3 py-2.5 font-medium">{r.activity || "Entry"}</td>
+                    <td className="px-3 py-2.5 text-[#5e5e5e]">{r.date ? fmtDate(r.date) : ""}</td>
+                    <td className="px-3 py-2.5">{fmtHrs(r.prof) || <span className="text-[#c3c9cf]">–</span>}</td>
+                    <td className="px-3 py-2.5">{fmtHrs(r.travel) || <span className="text-[#c3c9cf]">–</span>}</td>
+                    <td className="px-3 py-2.5">{r.miles ? <span className="font-semibold">{r.miles} mi</span> : <span className="text-[#c3c9cf]">–</span>}</td>
+                    <td className="px-3 py-2.5 text-[#5e5e5e]">{r.from && r.to ? `${r.from} to ${r.to}` : String(r.from || r.to || "")}</td>
+                    <td className="px-3 py-2.5 text-[#5e5e5e]">{r.miles ? (r.trip === "return" ? "return" : "single") : ""}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      <IconBtn label="Delete entry" danger={confirmDel === r.id} onClick={() => {
+                        if (confirmDel === r.id) { delRow(r.id); setConfirmDel(null); }
+                        else { setConfirmDel(r.id); setTimeout(() => setConfirmDel((k: Any) => (k === r.id ? null : k)), 2600); }
+                      }}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+                    </td>
+                  </tr>
+                ))}
+                <tr className="text-sm font-semibold">
+                  <td className="px-3 py-2.5">TOTAL</td>
+                  <td className="px-3 py-2.5"></td>
+                  <td className="px-3 py-2.5">{fmtHrs(totProf) || "0"}</td>
+                  <td className="px-3 py-2.5">{fmtHrs(totTrav) || "0"}</td>
+                  <td className="px-3 py-2.5">{totMiles} miles</td>
+                  <td className="px-3 py-2.5">£{charge.toFixed(2)} @ {TRAVEL_RATE * 100}p</td>
+                  <td className="px-3 py-2.5"></td><td className="px-3 py-2.5"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DateBoxes({ c, act }: Any) {
   const dates: Any[] = Array.isArray(c?.date_boxes) ? [...c.date_boxes] : [];
   while (dates.length < 10) dates.push({});
@@ -1522,6 +1770,7 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
           {navBtn("checklists", "Checklists")}
           {navBtn("notes", "Notes")}
           {navBtn("log", "Time Log")}
+          {navBtn("travel", "Travel & Mileage")}
           {navBtn("interim", "Interim QA")}
           {navBtn("final", "Final QA")}
         </nav>
@@ -1618,6 +1867,8 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
               <div style={{ position: "fixed", left: "-99999px", top: 0, zIndex: -1 }} aria-hidden="true"><NotesSheet c={c} /></div>
             </div>
           )}
+
+          {sel === "travel" && <TravelTab c={c} act={act} />}
 
           {sel === "log" && (
             <div className="pm-card p-5">
