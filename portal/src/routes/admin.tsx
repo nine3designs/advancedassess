@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, FileDown, FileText, Play, Square, Upload, Send, MailCheck, Plus, Trash2, ArrowLeft, ClipboardList, Clock, CalendarDays, Menu, X } from "lucide-react";
+import { Check, FileDown, FileText, Play, Square, Upload, Send, MailCheck, Plus, Trash2, ArrowLeft, ClipboardList, Clock, CalendarDays, Menu, X, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,6 +110,7 @@ function AdminPage() {
 
 function AdminShell({ act, data, onSignOut }: Any) {
   const [tab, setTab] = useState<"dashboard" | "board" | "tasks" | "time" | "finance" | "availability">("dashboard");
+  const [autoAdd, setAutoAdd] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const entries: Any[] = data.time ?? [];
   const cards: Any[] = data.board ?? [];
@@ -151,7 +152,6 @@ function AdminShell({ act, data, onSignOut }: Any) {
   const tabs = [
     { v: "dashboard", l: "Dashboard" },
     { v: "board", l: "To-Do Board" },
-    { v: "tasks", l: "Tasks" },
     { v: "time", l: "Time Tracking" },
     { v: "finance", l: "Finance" },
     { v: "availability", l: "Availability" },
@@ -196,14 +196,19 @@ function AdminShell({ act, data, onSignOut }: Any) {
             <button type="button" onClick={onSignOut} className="pm-linkbtn">Sign out</button>
           </div>
         </header>
-        {tab === "dashboard" && <Dashboard p={data} stats={stats} weeks={weeks} maxWeek={maxWeek} rate={rate} unbilledMins={unbilledMins} running={running} viewer="Natalie" go={setTab as Any} act={act} />}
-        {tab === "board" && <Board p={data} viewer="Natalie" act={act} go={(t: string) => setTab((t === "board" ? "board" : "time") as Any)} />}
-        {tab === "tasks" && <TasksTab p={data} viewer="Natalie" act={act} />}
+        {tab === "dashboard" && <Dashboard p={data} stats={stats} weeks={weeks} maxWeek={maxWeek} rate={rate} unbilledMins={unbilledMins} running={running} viewer="Natalie" go={setTab as Any} act={act} onQuickAdd={() => { setAutoAdd(true); setTab("board"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />}
+        {tab === "board" && <Board p={data} viewer="Natalie" act={act} go={(t: string) => setTab((t === "board" ? "board" : "time") as Any)} autoAdd={autoAdd} onAutoAddDone={() => setAutoAdd(false)} />}
         {tab === "time" && <AdminTime act={act} entries={entries} running={running} cards={cards} unbilledMins={unbilledMins} rate={rate} />}
         {tab === "finance" && <Finance act={act} invoices={invoices} entries={doneEntries} unbilledMins={unbilledMins} rate={rate} client={data.client} board={cards} />}
         {tab === "availability" && <Availability act={act} />}
       </main>
-      <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Projects Portal - Crafted by <a href="https://nine3designs.co.uk" target="_blank" rel="noreferrer">Nine3 Designs</a></footer>
+        <div className="pm-mobbar">
+          <button type="button" onClick={() => setTab("dashboard")}><ClipboardList className="h-5 w-5" />Home</button>
+          <button type="button" onClick={() => { setAutoAdd(true); setTab("board"); }}><Plus className="h-5 w-5" />Add task</button>
+          <button type="button" onClick={() => setTab("time")}><Clock className="h-5 w-5" />Time</button>
+          <button type="button" onClick={() => setTab("finance")}><FileText className="h-5 w-5" />Finance</button>
+        </div>
+        <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Projects Portal - Crafted by <a href="https://nine3designs.co.uk" target="_blank" rel="noreferrer">Nine3 Designs</a></footer>
     </div>
   );
 }
@@ -297,6 +302,7 @@ function ManualLog({ act, cards, todayKey }: Any) {
 }
 
 function WorkLog({ act, entries, cards, todayKey }: Any) {
+  const [open, setOpen] = useState(true);
   const groups = useMemo(() => {
     const map = new Map<string, Any[]>();
     for (const e of entries) {
@@ -308,8 +314,11 @@ function WorkLog({ act, entries, cards, todayKey }: Any) {
   const dayLabel = (key: string) => new Date(key + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" });
   return (
     <div className="pm-card p-5">
-      <h2 className="text-lg font-semibold">Work log</h2>
-      {groups.length === 0 ? <p className="mt-3 text-sm text-[#5e5e5e]">No hours logged yet.</p> : (
+      <button type="button" onClick={() => setOpen((o: boolean) => !o)} className="flex w-full items-center justify-between text-left">
+        <h2 className="text-lg font-semibold">Work log</h2>
+        <span className="flex items-center gap-2 text-xs text-[#5e5e5e]"><ChevronRight className={`h-4 w-4 transition-transform ${open ? "rotate-90" : ""}`} /></span>
+      </button>
+      {open ? (groups.length === 0 ? <p className="mt-3 text-sm text-[#5e5e5e]">No hours logged yet.</p> : (
         <div className="mt-4 space-y-5">
           {groups.map(([day, list]: Any) => (
             <div key={day}>
@@ -325,7 +334,7 @@ function WorkLog({ act, entries, cards, todayKey }: Any) {
             </div>
           ))}
         </div>
-      )}
+      ) : null)}
     </div>
   );
 }
@@ -439,6 +448,10 @@ function Finance({ act, invoices, entries, unbilledMins, rate, client, board }: 
             </table>
           </div>
         )}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#e6e8ea] pt-3 text-sm">
+          <span className="font-semibold">Total invoiced {new Date().getFullYear()} YTD</span>
+          <span className="font-semibold">{money(invoices.filter((i: Any) => i.status !== "draft" && String(i.issue_date).startsWith(String(new Date().getFullYear()))).reduce((sum: number, i: Any) => sum + invoiceTotals(i.items as LineItem[], i.tax_rate).total, 0))}</span>
+        </div>
       </div>
 
       <Dialog open={!!viewInv} onOpenChange={(o: boolean) => { if (!o) setViewInv(null); }}>
@@ -953,4 +966,9 @@ const ADMIN_STYLES = `
   .pm .pm-filechip { font-size: .78rem; padding: .45rem .75rem; min-height: 2.1rem; }
   .pm .pm-col { padding: .8rem; }
 }
+
+.pm .pm-mobbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; display: flex; gap: .5rem; justify-content: space-around; background: rgba(255,255,255,.94); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid #e6e8ea; padding: .55rem .8rem calc(.55rem + env(safe-area-inset-bottom)); }
+.pm .pm-mobbar button { display: inline-flex; flex-direction: column; align-items: center; gap: .15rem; font-size: .62rem; font-weight: 600; color: #0d1c34; }
+@media (max-width: 767px) { .pm .pm-main { padding-bottom: 5.4rem; } .pm .pm-foot { padding-bottom: 5.8rem; } }
+@media (min-width: 768px) { .pm .pm-mobbar { display: none; } }
 `;

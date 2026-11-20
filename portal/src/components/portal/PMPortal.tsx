@@ -421,10 +421,26 @@ function ChipStat({ label, value, tone }: { label: string; value: string; tone: 
 
 const BOARD_ICONS = [ClipboardList, CalendarDays, Clock];
 
+function splitAssign(notes?: string | null) {
+  const t = String(notes ?? "");
+  const m = t.match(/^\[assign:(Sara|Natalie)\]\s*/i);
+  return m ? { who: m[1][0].toUpperCase() + m[1].slice(1).toLowerCase(), rest: t.slice(m[0].length) } : { who: "", rest: t };
+}
+function withAssign(who: string, rest: string) {
+  const r = String(rest ?? "").replace(/^\[assign:(Sara|Natalie)\]\s*/i, "");
+  return who ? `[assign:${who}] ${r}`.trim() : r;
+}
+function AssignChip({ who }: { who: string }) {
+  if (!who) return null;
+  return <span className="pm-chip flex-none" style={{ background: "#e8eef7", color: "#1f3a5f" }}>{"\u2192"} {who}</span>;
+}
+const COL_ACCENT: Record<string, string> = { todo: "#f59a2b", doing: "#8fb8d8", done: "#2e9e5b" };
+
 export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, running, viewer, go, act, onQuickAdd }: Any) {
   const cards: Any[] = p.board ?? [];
   const open_ = cards.filter((c: Any) => c.status !== "done");
-  const upNext = open_.sort((a: Any, b: Any) => a.position - b.position).slice(0, 4);
+  const urg = open_.filter((c: Any) => c.important);
+  const upNext = (urg.length ? urg : open_.sort((a: Any, b: Any) => a.position - b.position)).slice(0, 4);
   const doneList = cards.filter((c: Any) => c.status === "done").sort((a: Any, b: Any) => String(b.updated_at).localeCompare(String(a.updated_at))).slice(0, 5);
   const activity: Any[] = (p.activity ?? []).filter((a: Any) => {
     if (viewer === "Natalie") return true;
@@ -432,6 +448,12 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
     return msg.includes("task") || msg.startsWith("moved");
   }).slice(0, 6);
   const [busy, setBusy] = useState(false);
+  const [qtOpen, setQtOpen] = useState(false);
+  const [qtDate, setQtDate] = useState(londonDay(new Date().toISOString()));
+  const [qtH, setQtH] = useState("");
+  const [qtM, setQtM] = useState("");
+  const [qtNote, setQtNote] = useState("");
+  const [qtBusy, setQtBusy] = useState(false);
   const todoCount = cards.filter((c: Any) => c.status === "todo").length;
   const doingCount = cards.filter((c: Any) => c.status === "doing").length;
   const doneCount = cards.length - todoCount - doingCount;
@@ -443,14 +465,31 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
   const invLive: Any[] = (p.invoices ?? []).filter((i: Any) => i.status !== "draft");
   const invNew: Any[] = invLive.filter((i: Any) => i.status === "sent");
   const todoOpen: Any[] = cards.filter((c: Any) => c.status !== "done").sort((a: Any, b: Any) => ((b.important ? 1 : 0) - (a.important ? 1 : 0)) || String(a.due_date ?? "9999-99-99").localeCompare(String(b.due_date ?? "9999-99-99")));
+  const paidDays = (p.invoices ?? []).filter((i: Any) => i.status === "paid" && i.paid_at).map((i: Any) => String(i.paid_at).slice(0, 10)).sort();
+  const lastPaid = paidDays.length ? paidDays[paidDays.length - 1] : "";
+  const sincePaidMins = (p.time ?? []).filter((e: Any) => e.ended_at && Number(e.minutes) > 0 && (!lastPaid || londonDay(String(e.started_at ?? e.created_at)) >= lastPaid)).reduce((s: number, e: Any) => s + Number(e.minutes), 0);
+  const urgentOpen = todoOpen.filter((c: Any) => c.important);
+  const toggleDay = async (dow: number) => {
+    const prefs = (p.client?.portal_prefs ?? {}) as Any;
+    const av = prefs.availability ?? {};
+    const dayName = DAY_NAMES[(dow + 1) % 7];
+    const prev = Array.isArray(av.days) ? av.days : [];
+    const was = !!(prev.find((d: Any) => String(d?.day) === dayName)?.available);
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => {
+      const existing = prev.find((d: Any) => String(d?.day) === day);
+      return { day, available: day === dayName ? !was : !!existing?.available, note: existing?.note ?? "" };
+    });
+    const monday = (d: Date) => { const x = new Date(d); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.toISOString().slice(0, 10); };
+    await act({ type: "availabilitySave", week: String(av.week_start ?? monday(new Date())), days, notes: av.notes ?? "" }, "Availability updated");
+  };
 
   const boardCard = (
     <div className="pm-dark p-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">On the board</h2>
-        <span className="text-sm font-medium text-white/70">{stats.open} open</span>
+        <h2 className="text-lg font-semibold">Urgent tasks</h2>
+        <span className="text-sm font-medium text-white/70">{urgentOpen.length ? `${urgentOpen.length} urgent` : `${stats.open} open`}</span>
       </div>
-      {upNext.length === 0 ? <p className="mt-4 text-sm text-white/60">Nothing queued · add tasks on the board.</p> : (
+      {upNext.length === 0 ? <p className="mt-4 text-sm text-white/60">No urgent tasks right now · add tasks on the board.</p> : (
         <ul className="mt-4 space-y-3.5">
           {upNext.map((c: Any, i: number) => {
             const Ico = BOARD_ICONS[i % BOARD_ICONS.length];
@@ -461,7 +500,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
                   <p className="truncate text-sm font-medium text-white">{c.title}</p>
                   <p className="text-[11px] text-white/50">{c.status === "doing" ? "In progress" : "To do"}</p>
                 </div>
-                <span className="pm-dot" style={{ background: c.status === "doing" ? "#f59a2b" : "rgba(255,255,255,.25)" }} />
+                <span className="pm-dot" style={{ background: c.important ? "#e5484d" : c.status === "doing" ? "#f59a2b" : "rgba(255,255,255,.25)" }} />
               </li>
             );
           })}
@@ -530,13 +569,13 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
 
   return (
     <div className="space-y-5">
-      <div className={`grid grid-cols-2 gap-4 ${isNat ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
-        <Tile icon={<ClipboardList className="h-5 w-5" />} tone="navy" label="Open tasks" value={String(stats.open)} sub="on the board" onClick={() => go("board")} />
+      <div className={`grid grid-cols-2 gap-4 ${isNat ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
+        <Tile icon={<ClipboardList className="h-5 w-5" />} tone="navy" label={isNat ? "Tasks to do" : "Open tasks"} value={String(isNat ? todoCount : stats.open)} sub="on the board" onClick={() => go("board")} />
         {!isNat && <Tile icon={<Clock className="h-5 w-5" />} label="This week" value={fmtMins(stats.week)} sub="hours logged" onClick={() => go("time")} />}
         {!isNat && <Tile icon={<FileText className="h-5 w-5" />} tone="navy" label="Unbilled hours" value={fmtMins(unbilledMins)} sub="hours not yet invoiced" onClick={() => go("time")} />}
-        {isNat ? <Tile icon={<Clock className="h-5 w-5" />} label="This week" value={fmtMins(stats.week)} sub="hours logged" />
+        {isNat ? <Tile icon={<Clock className="h-5 w-5" />} label="This week" value={fmtMins(sincePaidMins)} sub="hours logged · resets when an invoice is paid" onClick={() => go("time")} />
           : <Tile icon={<Play className="h-5 w-5" />} tone="dark" label="In progress" value={String(doingCount)} sub="tasks on the go" onClick={() => go("board")} />}
-        {isNat ? <Tile icon={<CalendarDays className="h-5 w-5" />} tone="navy" label="This month" value={fmtMins(stats.month)} sub="hours logged" />
+        {isNat ? null
           : <Tile icon={<Check className="h-5 w-5" />} tone="navy" label="Completed" value={String(doneCount)} sub="tasks finished" onClick={() => go("board")} />}
         {isNat
           ? <Tile icon={<FileText className="h-5 w-5" />} label="Unbilled" value={money((unbilledMins / 60) * rate)} sub={`${fmtMins(unbilledMins)} · ${money(rate)}/hr`} />
@@ -551,30 +590,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
-        {isNat ? (
-        <div className="pm-card p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">Progress</h2>
-              <p className="mt-1 text-xs text-[#5e5e5e]">Working hours · last 6 weeks</p>
-            </div>
-            <button type="button" aria-label="Open time tracking" onClick={() => go("time")} className="pm-circle orange"><ArrowUpRight className="h-4 w-4" /></button>
-          </div>
-          <p className="mt-3 text-3xl font-semibold tracking-tight">{(stats.week / 60).toFixed(1)} <span className="text-lg font-medium text-[#5e5e5e]">H</span></p>
-          <div className="mt-5 flex items-end justify-between gap-3" style={{ height: 130 }}>
-            {weeks.map((w) => (
-              <div key={w.key} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
-                <span className="text-[10px] font-medium text-[#5e5e5e]">{w.mins ? fmtMins(w.mins) : ""}</span>
-                <div className="flex flex-1 items-end" style={{ width: "100%" }}>
-                  <div className={w.key === stats.thisWeek ? "pm-bar now" : "pm-bar"} style={{ height: `${Math.max(3, (w.mins / maxWeek) * 92)}%` }} />
-                </div>
-                <span className="pm-dot" style={{ background: w.key === stats.thisWeek ? "#f59a2b" : "#0d1c34" }} />
-                <span className="text-center text-[10px] text-[#5e5e5e]">{w.label.split(" ")[0]}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        ) : (
+        {!isNat && (
         <div className="pm-card self-start p-6 lg:col-span-2">
           <div>
             <h2 className="text-lg font-semibold">Quick actions</h2>
@@ -623,19 +639,44 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
               <Square className="h-4 w-4" /> Stop timer
             </Button>
           )}
+          <div className="mt-4 grid w-full grid-cols-2 gap-2">
+            <Button type="button" className="pm-btn h-9" onClick={() => setQtOpen(true)}><Plus className="h-4 w-4" /> Quick Add Time</Button>
+            <Button type="button" className="pm-btn-orange h-9" onClick={() => (onQuickAdd ? onQuickAdd() : go("board"))}><ClipboardList className="h-4 w-4" /> Log Task</Button>
+          </div>
+          <Dialog open={qtOpen} onOpenChange={setQtOpen}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader><DialogTitle>Quick Add Time</DialogTitle></DialogHeader>
+              <div className="mt-2 space-y-3">
+                <div className="space-y-1.5"><Label>Date</Label><Input type="date" value={qtDate} max={londonDay(new Date().toISOString())} onChange={(e) => setQtDate(e.target.value)} /></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5"><Label>Hours</Label><Input type="number" min="0" max="23" value={qtH} onChange={(e) => setQtH(e.target.value)} /></div>
+                  <div className="space-y-1.5"><Label>Minutes</Label><Input type="number" min="0" max="59" value={qtM} onChange={(e) => setQtM(e.target.value)} /></div>
+                </div>
+                <div className="space-y-1.5"><Label>What was it for? (optional)</Label><Input value={qtNote} onChange={(e) => setQtNote(e.target.value)} placeholder="e.g. QA report proofreading" /></div>
+                <Button type="button" className="pm-btn-orange h-10 w-full" disabled={qtBusy} onClick={async () => {
+                  const mins = (parseInt(qtH || "0", 10) || 0) * 60 + (parseInt(qtM || "0", 10) || 0);
+                  if (!qtDate) { toast.error("Pick a date."); return; }
+                  if (mins <= 0) { toast.error("Enter how long you worked."); return; }
+                  setQtBusy(true);
+                  const r = await act({ type: "timeAdd", date: qtDate, minutes: mins, note: qtNote.trim(), actor: "Natalie" }, "Time logged");
+                  setQtBusy(false);
+                  if (r !== null) { setQtOpen(false); setQtH(""); setQtM(""); setQtNote(""); }
+                }}>{qtBusy ? "Saving…" : "Log time"}</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
         ) : (
         boardCard
         )}
 
-        {isNat ? <MonthCalCard avail={(p.client?.portal_prefs?.availability ?? null) as Any} booked={((p.client?.portal_prefs?.booked ?? []) as Any[])} cta={false} onCircle={() => go("availability")} /> : null}
+        {isNat ? <MonthCalCard avail={(p.client?.portal_prefs?.availability ?? null) as Any} booked={((p.client?.portal_prefs?.booked ?? []) as Any[])} cta={false} onCircle={() => go("availability")} onToggleDay={toggleDay} /> : null}
       </div>
 
       <div className={`grid gap-5 ${isNat ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
         {isNat ? boardCard : todoCard}
         {!isNat ? <MonthCalCard avail={avail} /> : null}
-        {recentCard}
-        {isNat ? activityCard : null}
+        {!isNat ? recentCard : null}
       </div>
       {!isNat && (
         <div className="pm-dark p-6">
@@ -668,7 +709,7 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const BOOK_CALL_URL = "https://calendar.google.com/calendar/u/0/r/eventedit?vcon=meet&dates=20261012T170000&hl=en&add=natalie@nine3designs.co.uk&text=Free%20discovery%20call%20with%20Nine3%20Designs&details=Free%2015-minute%20video%20call%20to%20discuss%20your%20project.%20Booked%20via%20nine3designs.co.uk";
 
-function MonthCal({ avail, large, booked }: { avail: Any; large?: boolean; booked?: Any[] }) {
+function MonthCal({ avail, large, booked, onToggleDay }: { avail: Any; large?: boolean; booked?: Any[]; onToggleDay?: (dow: number) => void }) {
   const [off, setOff] = useState(0);
   const base = new Date();
   base.setDate(1);
@@ -705,7 +746,7 @@ function MonthCal({ avail, large, booked }: { avail: Any; large?: boolean; booke
           const isAvail = availSet.has(`${y}-${m}-${d}`);
           const isBooked = bookedSet.has(`${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
           return (
-            <span key={d} className="flex flex-col items-center">
+            <span key={d} className={`flex flex-col items-center ${onToggleDay ? "cursor-pointer" : ""}`} onClick={onToggleDay ? () => onToggleDay(i % 7) : undefined}>
               <span title={isBooked ? "Booked call" : undefined} className={`flex items-center justify-center rounded-full ${large ? "h-9 w-9 text-sm" : "h-7 w-7 text-xs"} ${today ? "bg-[var(--pm-orange)] font-semibold text-[#3d2400]" : isAvail || isBooked ? "bg-[rgba(245,154,43,.14)] font-semibold text-[#a35803]" : "text-[#5e5e5e]"}`}>{d}</span>
               <span className="pm-dot mt-0.5" style={{ width: ".4rem", height: ".4rem", background: isAvail || isBooked ? "#f59a2b" : "transparent" }} />
             </span>
@@ -722,7 +763,7 @@ function MonthCal({ avail, large, booked }: { avail: Any; large?: boolean; booke
   );
 }
 
-function MonthCalCard({ avail, booked, cta = true, onCircle }: { avail: Any; booked?: Any[]; cta?: boolean; onCircle?: () => void }) {
+function MonthCalCard({ avail, booked, cta = true, onCircle, onToggleDay }: { avail: Any; booked?: Any[]; cta?: boolean; onCircle?: () => void; onToggleDay?: (dow: number) => void }) {
   return (
     <div className="pm-card flex flex-col p-6">
       <div className="flex w-full items-center justify-between">
@@ -730,7 +771,7 @@ function MonthCalCard({ avail, booked, cta = true, onCircle }: { avail: Any; boo
         <button type="button" aria-label="Availability settings" onClick={onCircle} style={onCircle ? { cursor: "pointer" } : undefined}><span className="pm-circle"><CalendarDays className="h-4 w-4" /></span></button>
       </div>
       <div className="mt-3 flex-1">
-        <MonthCal avail={avail} booked={booked} />
+        <MonthCal avail={avail} booked={booked} onToggleDay={onToggleDay} />
       </div>
       {cta ? (
         <a href={BOOK_CALL_URL} target="_blank" rel="noreferrer" className="pm-btn-orange mt-4 inline-flex h-10 items-center justify-center gap-2 px-5 text-sm no-underline">
@@ -1065,13 +1106,14 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
           const isOver = overCol === col.key;
           return (
             <div key={col.key}
-              className={`pm-col ${isOver ? "drop" : ""}`}
+              className={`pm-col ${isOver ? "drop" : ""}`} style={{ background: "rgba(255,255,255,.55)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", border: "1px solid rgba(255,255,255,.65)", borderRadius: 20, boxShadow: "0 8px 28px rgba(13,28,52,.08)" }}
               onDragOver={(e) => { e.preventDefault(); setOverCol(col.key); }}
               onDragLeave={() => setOverCol((c) => (c === col.key ? null : c))}
               onDrop={(e) => { e.preventDefault(); dropInto(col.key); }}>
               <div className="mb-3 flex items-center justify-between px-1">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold">{col.label}</h3>
+                  <span className="pm-dot" style={{ background: COL_ACCENT[col.key] }} />
+                  <h3 className="text-sm font-semibold uppercase tracking-wide">{col.label}</h3>
                   <span className="pm-chip">{list.length}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -1105,13 +1147,15 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone }: { p: Any; 
                     onDragEnd={() => { setDragId(null); setOverCol(null); }}
                     onDragOver={(e) => { if (dragId && dragId !== c.id) e.preventDefault(); }}
                     onDrop={(e) => { e.preventDefault(); e.stopPropagation(); dropInto(col.key, c.id); }}
-                    className={`pm-task cursor-grab p-3.5 active:cursor-grabbing ${dragId === c.id ? "opacity-50" : ""} ${c.important ? "important" : ""}`}>
+                    className={`pm-task cursor-grab p-3.5 active:cursor-grabbing ${dragId === c.id ? "opacity-50" : ""} ${c.important ? "important" : ""}`} style={{ borderLeft: `4px solid ${c.important || (c.status !== "done" && c.due_date && dueState(c.due_date) === "over") ? "#e5484d" : c.status === "done" ? "#2e9e5b" : c.status === "doing" ? "#8fb8d8" : "#f59a2b"}` }}>
                     <div className="flex items-start justify-between gap-2">
                       <p className={`text-sm font-medium leading-snug ${c.status === "done" ? "text-[#5e5e5e] line-through" : ""}`}>{c.title}</p>
+                      <AssignChip who={splitAssign(c.notes).who} />
                       <span className={`pm-chip flex-none bg-white ${c.status === "doing" ? "orange" : ""}`}>{c.created_by === "Natalie" ? "Nat" : c.created_by?.split(" ")[0] ?? "·"}</span>
                     </div>
                     {c.important ? <span className="pm-urgent-chip mt-1.5"><Flag className="h-3 w-3" /> Important</span> : null}
-                    {c.notes ? <p className="clamp2 mt-1.5 text-xs text-[#5e5e5e]">{c.notes}</p> : null}
+                    {c.status !== "done" && c.due_date && dueState(c.due_date) === "over" ? <span className="pm-urgent-chip mt-1.5" style={{ background: "#fdecec", color: "#c53030" }}><CalendarDays className="h-3 w-3" /> Overdue</span> : null}
+                    {splitAssign(c.notes).rest ? <p className="clamp2 mt-1.5 text-xs text-[#5e5e5e]">{splitAssign(c.notes).rest}</p> : null}
                     <div className="pm-taskactions mt-3 flex items-center gap-1 border-t border-[#e6e8ea] pt-2.5">
                       {c.status !== "done" && (
                         <button type="button" aria-label="Tick off · mark completed" title="Tick off · mark completed" className="pm-tickbtn" onClick={() => act({ type: "cardEdit", id: c.id, status: "done", actor: viewer }, "Ticked off · moved to Completed")}><Check className="h-3.5 w-3.5" /></button>
@@ -1173,6 +1217,7 @@ function AddComposer({ col, onSubmit, onCancel }: { col: string; onSubmit: (titl
   const [notes, setNotes] = useState("");
   const [files, setFiles] = useState<Any[]>([]);
   const [important, setImportant] = useState(false);
+  const [assign, setAssign] = useState("");
   const [busy, setBusy] = useState(false);
   const readFile = (f: File) => new Promise<Any>((res) => { const r = new FileReader(); r.onload = () => res({ name: f.name, dataUri: String(r.result) }); r.onerror = () => res(null); r.readAsDataURL(f); });
   return (
@@ -1183,10 +1228,10 @@ function AddComposer({ col, onSubmit, onCancel }: { col: string; onSubmit: (titl
       setBusy(true);
       const read = await Promise.all(files.map(readFile));
       const clean = read.filter(Boolean);
-      const r = await onSubmit(title.trim(), notes.trim(), clean, important);
+      const r = await onSubmit(title.trim(), withAssign(assign, notes.trim()), clean, important);
       setBusy(false); if (!r) return;
       setTitle(""); setNotes(""); setFiles([]);
-      setImportant(false);
+      setImportant(false); setAssign("");
     }}>
       <Input autoFocus placeholder="Task title" value={title} onChange={(e) => setTitle(e.target.value)} className="h-9" />
       <Textarea placeholder="Details (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="mt-2 text-sm" />
@@ -1194,6 +1239,14 @@ function AddComposer({ col, onSubmit, onCancel }: { col: string; onSubmit: (titl
         <span className={`pm-urgent-box ${important ? "on" : ""}`}><Flag className="h-3 w-3" /></span>
         <span className="text-xs font-medium">Mark as important · jumps to the top</span>
       </button>
+      <div className="mt-2 space-y-1.5">
+        <Label>Assign to</Label>
+        <select value={assign} onChange={(e) => setAssign(e.target.value)} className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm">
+          <option value="">Unassigned</option>
+          <option value="Sara">Sara</option>
+          <option value="Natalie">Natalie</option>
+        </select>
+      </div>
       <div className="mt-2">
         <input type="file" multiple className="hidden" id={`taskfile-${col}`} onChange={(e) => { setFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])].slice(0, 3)); if (e.target) e.target.value = ""; }} />
         <label htmlFor={`taskfile-${col}`} className="pm-filebtn cursor-pointer"><Paperclip className="h-3.5 w-3.5" /> Attach file{files.length ? ` (${files.length}/3)` : " (optional)"}</label>
@@ -1215,7 +1268,9 @@ function AddComposer({ col, onSubmit, onCancel }: { col: string; onSubmit: (titl
 
 function EditCard({ card, onSave, onDelete }: { card: Any; onSave: (title: string, notes: string) => Promise<Any | null>; onDelete: () => Promise<Any | null> }) {
   const [title, setTitle] = useState(card.title ?? "");
-  const [notes, setNotes] = useState(card.notes ?? "");
+  const _sp = splitAssign(card.notes);
+  const [notes, setNotes] = useState(_sp.rest);
+  const [assign, setAssign] = useState(_sp.who);
   const [confirm, setConfirm] = useState(false);
   return (
     <div>
@@ -1223,10 +1278,18 @@ function EditCard({ card, onSave, onDelete }: { card: Any; onSave: (title: strin
       <div className="mt-4 space-y-3">
         <div className="space-y-1.5"><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} /></div>
         <div className="space-y-1.5"><Label>Details</Label><Textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
+        <div className="space-y-1.5">
+          <Label>Assign to</Label>
+          <select value={assign} onChange={(e) => setAssign(e.target.value)} className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm">
+            <option value="">Unassigned</option>
+            <option value="Sara">Sara</option>
+            <option value="Natalie">Natalie</option>
+          </select>
+        </div>
       </div>
       <div className="mt-5 flex items-center justify-between gap-2">
         <Button type="button" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={async () => { if (!confirm) { setConfirm(true); setTimeout(() => setConfirm(false), 2600); return; } await onDelete(); }}>{confirm ? "Really delete?" : "Delete"}</Button>
-        <Button type="button" className="pm-btn" onClick={async () => { if (!title.trim()) { toast.error("Title can't be empty."); return; } await onSave(title.trim(), notes.trim()); }}>Save changes</Button>
+        <Button type="button" className="pm-btn" onClick={async () => { if (!title.trim()) { toast.error("Title can't be empty."); return; } await onSave(title.trim(), withAssign(assign, notes.trim())); }}>Save changes</Button>
       </div>
     </div>
   );
@@ -1536,6 +1599,7 @@ export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
   const [files, setFiles] = useState<Any[]>([]);
   const [busy, setBusy] = useState(false);
   const [showDone, setShowDone] = useState(false);
+  const [assign, setAssign] = useState("");
 
   const readFile = (f: File) => new Promise<Any>((res) => { const r = new FileReader(); r.onload = () => res({ name: f.name, dataUri: String(r.result) }); r.onerror = () => res(null); r.readAsDataURL(f); });
 
@@ -1560,11 +1624,11 @@ export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
           const read = await Promise.all(files.map(readFile));
           const clean = read.filter(Boolean);
           const r = await act(
-            { type: "cardAdd", title: title.trim(), notes: details.trim(), status: "todo", actor: viewer, important: urgent, due_date: due || undefined },
+            { type: "cardAdd", title: title.trim(), notes: withAssign(assign, details.trim()), status: "todo", actor: viewer, important: urgent, due_date: due || undefined },
             urgent ? "Urgent task added · it's on the board" : "Task added · it's on the board"
           );
           if (r?.id && clean.length) await act({ type: "cardFiles", id: r.id, files: clean, actor: viewer }, "Files attached to task");
-          if (r) { setTitle(""); setDetails(""); setDue(""); setUrgent(false); setFiles([]); }
+          if (r) { setTitle(""); setDetails(""); setDue(""); setUrgent(false); setFiles([]); setAssign(""); }
           setBusy(false);
         }}>
         <div>
@@ -1586,6 +1650,14 @@ export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
         <div className="mt-3 space-y-1.5">
           <Label>Due by (optional)</Label>
           <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="h-10 max-w-52" />
+        </div>
+        <div className="mt-3 space-y-1.5">
+          <Label>Assign to</Label>
+          <select value={assign} onChange={(e) => setAssign(e.target.value)} className="h-10 w-full max-w-52 rounded-md border border-input bg-transparent px-3 text-sm">
+            <option value="">Unassigned</option>
+            <option value="Sara">Sara</option>
+            <option value="Natalie">Natalie</option>
+          </select>
         </div>
         <div className="mt-3">
           <input type="file" multiple className="hidden" id="pmt-taskfile" onChange={(e) => { setFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])].slice(0, 3)); if (e.target) e.target.value = ""; }} />
@@ -1640,9 +1712,10 @@ function TaskRow({ c }: { c: Any }) {
       <div className="flex flex-wrap items-center gap-1.5">
         <p className={`text-sm font-semibold leading-snug ${c.status === "done" ? "text-[#5e5e5e] line-through" : "text-[#0d1c34]"}`}>{c.title}</p>
         {c.important ? <span className="pm-urgent-chip"><Flag className="h-3 w-3" /> Urgent</span> : null}
+        {splitAssign(c.notes).who ? <span className="pm-chip">{"\u2192"} {splitAssign(c.notes).who}</span> : null}
         {c.due_date ? <span className={`pmt-due ${c.status !== "done" ? dueState(c.due_date) : ""}`}><CalendarDays className="h-3 w-3" /> Due {fmtDue(c.due_date)}</span> : null}
       </div>
-      {c.notes ? <p className="pmt-detail">{c.notes}</p> : <p className="pmt-detail" style={{ fontStyle: "italic", color: "#9aa0a6" }}>No extra detail added</p>}
+      {splitAssign(c.notes).rest ? <p className="pmt-detail">{splitAssign(c.notes).rest}</p> : <p className="pmt-detail" style={{ fontStyle: "italic", color: "#9aa0a6" }}>No extra detail added</p>}
       <p className="pmt-meta">Added by {who}{c.updated_at ? ` · updated ${relDay(c.updated_at)}` : ""}</p>
       {Array.isArray(c.files) && c.files.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
