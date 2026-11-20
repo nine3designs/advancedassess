@@ -480,6 +480,7 @@ export const PM_STYLES = `
 .pm .pm-navy-board h2, .pm .pm-navy-board h3 { color: #fff; }
 .pm .pm-navy-board .pm-drag-hint, .pm .pm-navy-board .pm-drag-hide { color: rgba(255,255,255,.65) !important; }
 .pm .pm-navy-board .pm-col { background: rgba(255,255,255,.08) !important; border: 1px solid rgba(255,255,255,.18) !important; box-shadow: none !important; }
+.pm .pm-navy-board .pm-boardwrap { background: transparent !important; }
 .pm .pm-navy-board .pm-col .pm-chip { background: rgba(13,28,52,.55); color: #fff; }
 .pm .pm-navy-board .pm-col > div > button, .pm .pm-navy-board .pm-col .flex.items-center.gap-1\.5 button { background: rgba(255,255,255,.14) !important; color: #fff !important; }
 .pm .pm-navy-board .pm-task { background: rgba(255,255,255,.12) !important; border: 1px solid rgba(255,255,255,.2) !important; color: #fff; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
