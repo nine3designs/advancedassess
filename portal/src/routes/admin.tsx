@@ -334,7 +334,7 @@ function WorkLog({ act, entries, cards, todayKey }: Any) {
             </div>
           ))}
         </div>
-      ) : null)}
+      )) : null}
     </div>
   );
 }
