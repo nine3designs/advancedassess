@@ -138,6 +138,10 @@ type Action =
   | { type: "caseNoteDelete"; id: string; noteId: string }
   | { type: "caseLogAdd"; id: string; date: string; hours: number; note?: string }
   | { type: "caseLogDelete"; id: string; logId: string }
+  | { type: "caseQaFiles"; id: string; slot: "interim" | "final"; kind: "report" | "amend"; files: { name: string; dataUri: string }[]; actor?: string }
+  | { type: "caseQaFileDelete"; id: string; slot: "interim" | "final"; kind: "report" | "amend"; fileId: string }
+  | { type: "natNoteAdd"; text: string }
+  | { type: "natNoteDelete"; id: string }
   | { type: "mileageDoc"; dataUri: string; fileName: string };
 
 export const portalAction = createServerFn({ method: "POST" })
@@ -533,6 +537,25 @@ export const portalAction = createServerFn({ method: "POST" })
       if (error) throw new Error("Could not delete that note · please try again.");
       return { ok: true };
     }
+    if (a.type === "natNoteAdd") {
+      const text = String(a.text ?? "").trim();
+      if (!text) throw new Error("Write something first.");
+      const { data: cur } = await admin.from("clients").select("portal_prefs").eq("id", cid).maybeSingle();
+      const prefs = (cur?.portal_prefs ?? {}) as Any;
+      const list = Array.isArray(prefs.nat_notes) ? prefs.nat_notes : [];
+      const item = { id: crypto.randomUUID(), text: text.slice(0, 2000), at: now() };
+      const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, nat_notes: [item, ...list].slice(0, 200) } }).eq("id", cid);
+      if (error) throw new Error("Notes aren't ready yet · please check back soon.");
+      return { ok: true };
+    }
+    if (a.type === "natNoteDelete") {
+      const { data: cur } = await admin.from("clients").select("portal_prefs").eq("id", cid).maybeSingle();
+      const prefs = (cur?.portal_prefs ?? {}) as Any;
+      const list = (Array.isArray(prefs.nat_notes) ? prefs.nat_notes : []).filter((n: Any) => n?.id !== a.id);
+      const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, nat_notes: list } }).eq("id", cid);
+      if (error) throw new Error("Could not delete that note · please try again.");
+      return { ok: true };
+    }
     if (a.type.startsWith("case")) {
       const { data: cur } = await admin.from("clients").select("portal_prefs").eq("id", cid).maybeSingle();
       const prefs = (cur?.portal_prefs ?? {}) as Any;
@@ -585,6 +608,32 @@ export const portalAction = createServerFn({ method: "POST" })
         c.notes = (Array.isArray(c.notes) ? c.notes : []).filter((n: Any) => n?.id !== a.noteId);
         return c;
       });
+      if (a.type === "caseQaFiles") {
+        const slot = a.slot === "final" ? "final" : "interim";
+        const kind = a.kind === "amend" ? "amend" : "report";
+        const clean: Any[] = [];
+        for (const f of (Array.isArray(a.files) ? a.files : [])) {
+          const uri = String(f?.dataUri ?? "");
+          const ok = /^(data:application\/pdf|data:image\/(png|jpe?g|webp)|data:text\/plain|data:application\/(msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document))/.test(uri);
+          if (!ok) throw new Error("Upload a PDF, Word, image or text file.");
+          if (uri.length > 6_500_000) throw new Error("That file is too large · please keep it under about 4 MB.");
+          clean.push({ id: crypto.randomUUID(), name: String(f?.name ?? "file").slice(0, 200), dataUri: uri, at: now() });
+        }
+        if (!clean.length) throw new Error("Choose a file first.");
+        return await mutate(String(a.id), (c: Any) => {
+          c.qa = c.qa ?? {};
+          c.qa[`${slot}:${kind}`] = [...((c.qa[`${slot}:${kind}`] as Any[]) ?? []), ...clean].slice(-6);
+          return c;
+        });
+      }
+      if (a.type === "caseQaFileDelete") {
+        const slot = a.slot === "final" ? "final" : "interim";
+        const kind = a.kind === "amend" ? "amend" : "report";
+        return await mutate(String(a.id), (c: Any) => {
+          if (c.qa?.[`${slot}:${kind}`]) c.qa[`${slot}:${kind}`] = (c.qa[`${slot}:${kind}`] as Any[]).filter((x: Any) => x?.id !== a.fileId);
+          return c;
+        });
+      }
       if (a.type === "caseLogAdd") {
         const hours = Math.round(Number(a.hours) * 100) / 100;
         if (!hours || hours <= 0) throw new Error("Enter the hours for that entry.");

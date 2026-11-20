@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Car, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileDown, FileText, Flag, Menu, Paperclip, Pencil, Play, Plus, Square, Trash2, Upload, X } from "lucide-react";
+import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Car, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileDown, FileText, Flag, FolderOpen, LayoutDashboard, ListTodo, Menu, Paperclip, Pencil, Play, Plus, Square, StickyNote, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { downloadInvoicePdf } from "@/lib/invoice-pdf";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,18 @@ const COLUMNS = [
   { key: "done", label: "Done" },
 ] as const;
 type ColKey = (typeof COLUMNS)[number]["key"];
+
+const TAB_ICONS: Record<string, Any> = {
+  dashboard: LayoutDashboard,
+  board: ClipboardList,
+  tasks: ListTodo,
+  mytodo: ListTodo,
+  time: Clock,
+  cal: CalendarDays,
+  mileage: Car,
+  notes: StickyNote,
+  cases: FolderOpen,
+};
 
 const londonDay = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date(iso));
 
@@ -195,30 +207,38 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     <div className="pm">
       <style>{PM_STYLES}</style>
 
-      <div className="pm-navwrap">
-        <nav className="pm-navbar" aria-label="Portal sections">
-          <span className="pm-brand">
-            {badge ? <img src={badge} alt="Advanced Assessment & Solutions" /> : <span className="pm-brand-fallback">AAS</span>}
-          </span>
-          <div className="pm-tabs pm-tabs-sara">
-            {tabs.map((t) => (
-              <button key={t.v} type="button" onClick={() => { setTab(t.v as Any); window.scrollTo({ top: 0, behavior: "smooth" }); }} className={`pm-tab ${t.v === tab ? "active" : ""}`}>
-                {t.l}
-              </button>
-            ))}
-          </div>
-          <button type="button" className="pm-burger" aria-label="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
-            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-        </nav>
-        <div className={`pm-menu ${menuOpen ? "open" : ""}`}>
-          {tabs.map((t) => (
-            <button key={t.v} type="button" className={t.v === tab ? "active" : ""} onClick={() => { setMenuOpen(false); setTab(t.v as Any); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
-              {t.l}
-            </button>
-          ))}
+      <aside className={`pm-side ${menuOpen ? "open" : ""}`} aria-label="Portal sections">
+        <div className="pm-side-head">
+          {badge ? <img src={badge} alt="Advanced Assessment & Solutions" /> : <span className="pm-brand-fallback">AAS</span>}
         </div>
-      </div>
+        <nav className="pm-side-nav">
+          {tabs.map((t) => {
+            const Ic = TAB_ICONS[t.v];
+            return (
+              <button key={t.v} type="button" onClick={() => { setMenuOpen(false); setTab(t.v as Any); window.scrollTo({ top: 0, behavior: "smooth" }); }} className={`pm-side-item ${t.v === tab ? "active" : ""}`}>
+                {Ic ? <Ic className="h-4 w-4 flex-none" /> : null}
+                <span>{t.l}</span>
+              </button>
+            );
+          })}
+        </nav>
+        <div className="pm-side-foot">
+          <span className="pm-side-avatar">{(viewer === "Natalie" ? "Natalie" : welcome).slice(0, 1)}</span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-white">{viewer === "Natalie" ? "Natalie" : welcome}</p>
+            <p className="text-[11px] text-white/50">{viewer === "Natalie" ? "Admin" : "Client portal"}</p>
+          </div>
+        </div>
+      </aside>
+      {menuOpen && <button type="button" className="pm-scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
+      <div className="pm-content">
+        <div className="pm-topbar">
+          <button type="button" className="pm-burger" aria-label="Open menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
+            <Menu className="h-5 w-5" />
+          </button>
+          <span className="pm-topbar-title">{tabs.find((t) => t.v === tab)?.l ?? "Dashboard"}</span>
+          <span className="pm-topbar-badge">{badge ? <img src={badge} alt="" /> : <span className="pm-brand-fallback">AAS</span>}</span>
+        </div>
 
       <main className="pm-main">
         <header className="mb-6">
@@ -241,7 +261,8 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
         {tab === "cases" && viewer !== "Natalie" && <CasesTab p={p} viewer={viewer} act={act} />}
       </main>
 
-      <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Portal - Crafted by <a href="https://nine3designs.co.uk" target="_blank" rel="noreferrer">Nine3 Designs</a></footer>
+        <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Portal - Crafted by <a href="https://nine3designs.co.uk" target="_blank" rel="noreferrer">Nine3 Designs</a></footer>
+      </div>
     </div>
   );
 }
@@ -252,16 +273,32 @@ const PM_STYLES = `
 .pm { --pm-navy:#0d1c34; --pm-navy2:#16294a; --pm-orange:#f59a2b; --pm-orange-deep:#d97406; --pm-soft:#eef0f2; --pm-soft2:#e7eaee; --pm-ink:#1f2630; --pm-muted:#5e5e5e; --pm-line:#e6e8ea; }
 .pm { color: var(--pm-ink); font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif; }
 .pm h1, .pm h2, .pm h3 { font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif; color: var(--pm-ink); font-weight: 600; }
-.pm .pm-navwrap { position: sticky; top: 0; z-index: 40; padding: .9rem 0 .4rem; background: transparent; }
-.pm .pm-navbar { display: flex; align-items: center; justify-content: center; gap: .5rem; background: rgba(13,28,52,.72); backdrop-filter: blur(14px) saturate(1.25); -webkit-backdrop-filter: blur(14px) saturate(1.25); border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: .35rem; max-width: min(80rem, calc(100% - 2rem)); margin: 0 auto; box-shadow: 0 14px 36px rgba(13,28,52,.28); overflow-x: auto; scrollbar-width: none; }
-.pm .pm-navbar::-webkit-scrollbar { display: none; }
-.pm .pm-brand { flex: none; display: inline-flex; align-items: center; background: #0d1c34; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; height: 2.55rem; padding: 0 1.15rem; }
-.pm .pm-brand img { height: 1.35rem; width: auto; max-width: 200px; }
+.pm { display: flex; min-height: 100vh; }
+.pm .pm-side { position: fixed; top: 0; bottom: 0; left: 0; z-index: 60; width: 15.5rem; display: flex; flex-direction: column; background: linear-gradient(180deg, #0d1c34 0%, #101f3b 100%); border-right: 1px solid rgba(255,255,255,.08); box-shadow: 20px 0 60px rgba(13,28,52,.18); transform: translateX(-105%); transition: transform .28s cubic-bezier(.4,0,.2,1); }
+.pm .pm-side.open { transform: none; box-shadow: 30px 0 80px rgba(13,28,52,.45); }
+.pm .pm-side-head { display: flex; align-items: center; height: 4.4rem; padding: 0 1.4rem; border-bottom: 1px solid rgba(255,255,255,.08); flex: none; }
+.pm .pm-side-head img { height: 1.5rem; width: auto; max-width: 11rem; }
 .pm .pm-brand-fallback { color: #fff; font-size: .8rem; font-weight: 600; letter-spacing: .08em; }
-.pm .pm-tabs { display: flex; gap: .2rem; min-width: max-content; }
-.pm .pm-tab { border-radius: 999px; padding: .55rem 1.05rem; font-size: .82rem; font-weight: 500; color: rgba(255,255,255,.72); white-space: nowrap; transition: color .15s ease, background .15s ease; }
-.pm .pm-tab:hover { color: #fff; background: rgba(255,255,255,.10); }
-.pm .pm-tab.active { background: rgba(255,255,255,.06); color: #fff; box-shadow: inset 0 0 0 1.5px var(--pm-orange), 0 0 14px rgba(245,154,43,.25); }
+.pm .pm-side-nav { flex: 1; overflow-y: auto; padding: 1rem .8rem; display: flex; flex-direction: column; gap: .2rem; }
+.pm .pm-side-item { position: relative; display: flex; align-items: center; gap: .7rem; border-radius: .8rem; padding: .68rem .9rem; font-size: .875rem; font-weight: 500; color: rgba(255,255,255,.72); transition: background .15s ease, color .15s ease; text-align: left; }
+.pm .pm-side-item:hover { color: #fff; background: rgba(255,255,255,.08); }
+.pm .pm-side-item.active { color: #fff; background: rgba(255,255,255,.10); box-shadow: inset 0 0 0 1px rgba(255,255,255,.10); }
+.pm .pm-side-item.active svg { color: var(--pm-orange); }
+.pm .pm-side-item.active::before { content: ""; position: absolute; left: -.8rem; top: 22%; bottom: 22%; width: 3px; border-radius: 999px; background: var(--pm-orange); }
+.pm .pm-side-foot { display: flex; align-items: center; gap: .7rem; padding: 1rem 1.1rem 1.2rem; border-top: 1px solid rgba(255,255,255,.08); flex: none; }
+.pm .pm-side-avatar { width: 2.3rem; height: 2.3rem; border-radius: 999px; background: var(--pm-orange); color: #3d2400; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: .9rem; flex: none; }
+.pm .pm-content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pm .pm-topbar { display: flex; align-items: center; gap: .8rem; position: sticky; top: 0; z-index: 40; background: rgba(255,255,255,.86); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: .7rem 1rem; border-bottom: 1px solid var(--pm-line); }
+.pm .pm-topbar-title { font-size: .95rem; font-weight: 600; color: var(--pm-navy); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pm .pm-topbar-badge { display: inline-flex; align-items: center; background: var(--pm-navy); border-radius: 999px; height: 2.2rem; padding: 0 .9rem; flex: none; }
+.pm .pm-topbar-badge img { height: 1.1rem; width: auto; max-width: 130px; }
+.pm .pm-burger { display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: .9rem; background: var(--pm-navy); color: #fff; border: none; flex: none; cursor: pointer; }
+.pm .pm-scrim { position: fixed; inset: 0; z-index: 55; background: rgba(13,28,52,.45); border: none; cursor: pointer; }
+@media (min-width: 1024px) {
+  .pm .pm-side { transform: none; width: 16rem; }
+  .pm .pm-topbar { display: none; }
+  .pm .pm-scrim { display: none; }
+}
 .pm .pm-dark h2 { color: var(--pm-orange); }
 .pm .pm-col { background: linear-gradient(180deg, #ffffff 0%, #f4f6f8 100%); border: 1px solid var(--pm-line); border-top-width: 4px; box-shadow: 0 2px 6px rgba(13,28,52,.05), 0 14px 30px rgba(13,28,52,.07); }
 .pm .pm-col:nth-child(1) { border-top-color: var(--pm-navy); }
@@ -271,7 +308,7 @@ const PM_STYLES = `
 .pm .pm-col:nth-child(2) .pm-chip { background: rgba(245,154,43,.18); color: #a35803; }
 .pm .pm-col:nth-child(3) .pm-chip { background: rgba(63,125,78,.14); color: #2c5e39; }
 .pm .pm-col .pm-task { box-shadow: 0 1px 2px rgba(13,28,52,.08); }
-.pm .pm-main { max-width: 64rem; margin: 0 auto; padding: 1.5rem 1rem 0; }
+.pm .pm-main { width: 100%; max-width: 68rem; margin: 0 auto; padding: 1.6rem 1.4rem 0; }
 .pm .pm-foot { max-width: 64rem; margin: 0 auto; padding: 2.2rem 1rem 2rem; text-align: center; font-size: .72rem; color: #9aa1a9; }
 .pm .pm-card { background: #fff; border-radius: 1.5rem; box-shadow: 0 1px 2px rgba(13,28,52,.04), 0 12px 32px rgba(13,28,52,.06); transition: transform .18s ease, box-shadow .18s ease; }
 .pm .pm-card:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(13,28,52,.05), 0 18px 44px rgba(13,28,52,.10); }
@@ -316,24 +353,14 @@ const PM_STYLES = `
 .pm .pm-row:hover { background: #e6e9ee; }
 .pm .pm-tile-dark { background: var(--pm-navy) !important; box-shadow: 0 16px 40px rgba(13,28,52,.28); }
 .pm .pm-tile-icon.ondark { background: rgba(245,154,43,.22); color: var(--pm-orange); }
-.pm .pm-burger { display: none; }
-.pm .pm-menu { display: none; }
-.pm .pm-menu.open { display: block; position: absolute; top: calc(100% + .4rem); left: .5rem; right: .5rem; z-index: 50; background: rgba(13,28,52,.97); border: 1px solid rgba(255,255,255,.14); border-radius: 1.25rem; box-shadow: 0 18px 44px rgba(13,28,52,.35); overflow: hidden; }
-.pm .pm-menu button { display: block; width: 100%; text-align: left; padding: .9rem 1.2rem; color: rgba(255,255,255,.85); font-size: .95rem; font-weight: 500; border-bottom: 1px solid rgba(255,255,255,.08); }
-.pm .pm-menu button:last-child { border-bottom: none; }
-.pm .pm-menu button.active { color: #fff; background: rgba(255,255,255,.06); box-shadow: inset 3px 0 0 var(--pm-orange); }
 @media (max-width: 640px) {
   .pm .pm-main { padding-top: 1.1rem; }
   .pm .pm-card { border-radius: 1.3rem; }
-  .pm .pm-tabs-sara { display: none; }
   .pm .pm-taskactions button { width: 2.35rem !important; height: 2.35rem !important; font-size: .85rem; }
   .pm .pm-taskactions button svg { width: 1.1rem; height: 1.1rem; }
   .pm .pm-task { touch-action: pan-y; }
-  .pm .pm-burger { display: inline-flex; align-items: center; justify-content: center; width: 2.55rem; height: 2.55rem; border-radius: 999px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); color: #fff; flex: none; }
-  .pm .pm-navbar { max-width: calc(100% - 1.5rem); justify-content: space-between; gap: .4rem; }
-  .pm .pm-brand { padding: 0 .9rem; height: 2.55rem; }
-  .pm .pm-brand img { height: 1.15rem; max-width: 140px; }
-  .pm .pm-navwrap { padding-top: .7rem; }
+  .pm .pm-side { width: min(17rem, 84vw); }
+  .pm .pm-main { padding-left: .9rem; padding-right: .9rem; }
 }
 /* mobile optimisation */
 @media (max-width: 640px) {
@@ -347,11 +374,6 @@ const PM_STYLES = `
 /* board: rounded glass columns · tick-to-complete · task file chips */
 .pm .pm-boardwrap { background: linear-gradient(135deg, #dce4ec 0%, #edf0f3 52%, #e9e2d6 100%); border-radius: 1.6rem; padding: 1rem; }
 @media (min-width: 768px) { .pm .pm-boardwrap { padding: 1.25rem; } }
-@media (max-width: 1250px) and (min-width: 640.02px) {
-  .pm .pm-tabs { display: none; }
-  .pm .pm-burger { display: inline-flex; align-items: center; justify-content: center; width: 2.55rem; height: 2.55rem; border-radius: 999px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); color: #fff; flex: none; cursor: pointer; }
-  .pm .pm-navbar { overflow: visible; }
-}
 .pm .pm-col { background: rgba(255,255,255,.55) !important; backdrop-filter: blur(14px) saturate(1.15); -webkit-backdrop-filter: blur(14px) saturate(1.15); border: 1px solid rgba(255,255,255,.78) !important; border-top-width: 4px !important; box-shadow: 0 10px 34px rgba(13,28,52,.10), inset 0 1px 0 rgba(255,255,255,.65) !important; }
 .pm .pm-col:nth-child(1) { border-top-color: var(--pm-navy) !important; }
 .pm .pm-col:nth-child(2) { border-top-color: var(--pm-orange) !important; }
