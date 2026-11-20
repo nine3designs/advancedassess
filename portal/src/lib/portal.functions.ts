@@ -136,6 +136,7 @@ type Action =
   | { type: "caseCheck"; id: string; key: string; done: boolean }
   | { type: "caseMald"; id: string; item: number; who: string; colour?: string; notes?: string }
   | { type: "caseFormK"; id: string; item: string; done: boolean; date?: string }
+  | { type: "notifSeen" }
   | { type: "caseNoteAdd"; id: string; text: string }
   | { type: "caseNoteDelete"; id: string; noteId: string }
   | { type: "caseLogAdd"; id: string; date: string; hours: number; note?: string }
@@ -323,7 +324,7 @@ export const portalAction = createServerFn({ method: "POST" })
       if (inserted.error && payload.important) { delete payload.important; inserted = await admin.from("board_cards").insert(payload).select("id").single(); }
       const { data: card, error } = inserted;
       if (error || !card) throw new Error("The task board isn't ready yet · please check back soon.");
-      await admin.from("activity_log").insert({ client_id: cid, actor: by === "Natalie" ? "Natalie" : "client", message: `added a task: ${title.slice(0, 90)}` });
+      await admin.from("activity_log").insert({ client_id: cid, actor: by === "Natalie" ? "Natalie" : "client", message: `added ${a.important ? "an URGENT task" : "a task"}: ${title.slice(0, 90)}` });
       return { ok: true, id: card.id };
     }
     if (a.type === "cardEdit") {
@@ -504,6 +505,13 @@ export const portalAction = createServerFn({ method: "POST" })
       const { error } = await admin.from("deliverables").insert({ client_id: cid, kind: "invoice", title, file_path: a.dataUri, file_name: String(a.fileName || "invoice.pdf").slice(0, 200), status: "shared", uploaded_by: "Natalie", week_of: now().slice(0, 10) });
       if (error) throw new Error("Could not save the invoice · please try again.");
       await admin.from("activity_log").insert({ client_id: cid, actor: "Natalie", message: `shared invoice: ${title.slice(0, 80)}` });
+      return { ok: true };
+    }
+    if (a.type === "notifSeen") {
+      const prefs = ((client as Any).portal_prefs ?? {}) as Any;
+      prefs.notif_seen = now();
+      const { error } = await admin.from("clients").update({ portal_prefs: prefs }).eq("id", cid);
+      if (error) throw new Error("Could not update notifications · please try again.");
       return { ok: true };
     }
     if (a.type === "availabilitySave") {

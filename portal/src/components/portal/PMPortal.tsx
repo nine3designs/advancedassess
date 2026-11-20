@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Car, Check, ChevronLeft, ChevronRight, Circle, ClipboardList, Clock, FileDown, FileText, Flag, FolderOpen, LayoutDashboard, ListTodo, Menu, Paperclip, Pencil, Play, Plus, Square, StickyNote, Trash2, Upload, X } from "lucide-react";
+import { ArrowUpRight, ArrowLeft, ArrowRight, Bell, CalendarDays, Car, Check, ChevronLeft, ChevronRight, Circle, ClipboardList, Clock, FileDown, FileText, Flag, FolderOpen, LayoutDashboard, ListTodo, Menu, Paperclip, Pencil, Play, Plus, Square, StickyNote, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { downloadInvoicePdf } from "@/lib/invoice-pdf";
 import { Button } from "@/components/ui/button";
@@ -113,6 +113,9 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
   };
 
   const prefs = p.client.portal_prefs ?? {};
+  const notifActs: Any[] = viewer === "Natalie" ? [] : ((p.activity ?? []) as Any[]);
+  const notifSeen = String((prefs as Any).notif_seen ?? "");
+  const notifUnread = notifActs.filter((a: Any) => !notifSeen || String(a.created_at) > notifSeen).length;
   const rate = Number(prefs.rate ?? 17);
   const badge = p.client.home_kit?.badge as string | undefined;
 
@@ -136,6 +139,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
   const [boardAdd, setBoardAdd] = useState(false);
   const [boardAddUrgent, setBoardAddUrgent] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
 
   const entries: Any[] = p.time ?? [];
   const cards: Any[] = p.board ?? [];
@@ -242,11 +246,46 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
         </div>
 
       <main className="pm-main">
-        <header className="mb-6">
-          <h1 className="text-[1.65rem] font-semibold tracking-tight md:text-4xl">{viewer === "Natalie" ? "HQ Projects Portal" : "HQ Workspace"}</h1>
-          {viewer === "Natalie"
-            ? <p className="mt-1 text-[1.65rem] font-semibold tracking-tight text-[var(--pm-orange)] md:text-4xl">Hi, Natalie</p>
-            : <p className="mt-1 text-[1.65rem] font-semibold tracking-tight text-[var(--pm-orange)] md:text-4xl">Welcome back, {welcome}</p>}
+        <header className="mb-6 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-[1.65rem] font-semibold tracking-tight md:text-4xl">{viewer === "Natalie" ? "HQ Projects Portal" : "HQ Workspace"}</h1>
+            {viewer === "Natalie"
+              ? <p className="mt-1 text-[1.65rem] font-semibold tracking-tight text-[var(--pm-orange)] md:text-4xl">Hi, Natalie</p>
+              : <p className="mt-1 text-[1.65rem] font-semibold tracking-tight text-[var(--pm-orange)] md:text-4xl">Welcome back, {welcome}</p>}
+          </div>
+          {viewer !== "Natalie" && (
+            <div className="relative flex-none">
+              <button type="button" aria-label="Notifications" onClick={() => setNotifOpen((o: boolean) => !o)} className="pm-circle relative mt-1">
+                <Bell className="h-4 w-4" />
+                {notifUnread > 0 && <span className="pm-notif-badge">{notifUnread > 9 ? "9+" : notifUnread}</span>}
+              </button>
+              {notifOpen && (
+                <>
+                  <button type="button" aria-label="Close notifications" className="fixed inset-0 z-30 cursor-default" onClick={() => setNotifOpen(false)} />
+                  <div className="pm-notif-panel">
+                    <div className="flex items-center justify-between gap-2 border-b border-[#e6e8ea] pb-2.5">
+                      <p className="text-sm font-semibold text-[#0d1c34]">Notifications</p>
+                      {notifUnread > 0 && <button type="button" onClick={async () => { await act({ type: "notifSeen" }); }} className="text-xs font-semibold text-[#f59a2b] hover:underline">Mark all read</button>}
+                    </div>
+                    {notifActs.length === 0 ? <p className="pmt-empty mt-2">Nothing yet · updates will land here.</p> : (
+                      <ul className="mt-1 max-h-80 space-y-0.5 overflow-y-auto">
+                        {notifActs.map((a: Any) => {
+                          const un = !notifSeen || String(a.created_at) > notifSeen;
+                          return (
+                            <li key={a.id} className={`flex items-start gap-2.5 rounded-lg px-2.5 py-2 ${un ? "bg-[#fff7ec]" : ""}`}>
+                              <span className="mt-1.5 h-2 w-2 flex-none rounded-full" style={{ background: un ? "#f59a2b" : "#d6dade" }} />
+                              <p className="min-w-0 flex-1 text-xs leading-snug text-[#0d1c34]"><span className="font-semibold">{a.actor === "client" ? "Sara" : a.actor}</span> {a.message}</p>
+                              <span className="flex-none pt-0.5 text-[10px] text-[#9aa0a6]">{relDay(a.created_at)}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </header>
 
         {tab === "dashboard" && (
@@ -427,6 +466,8 @@ export const PM_STYLES = `
 .pm .pm-check-row:hover { background: var(--pm-soft2); }
 .pm .pm-check-row .box { width: 1.15rem; height: 1.15rem; border-radius: .35rem; border: 1.5px solid var(--pm-line); display: inline-flex; align-items: center; justify-content: center; background: #fff; flex: none; transition: all .15s ease; color: #fff; }
 .pm .pm-check-row .box.on { background: #2e9e5b; border-color: #2e9e5b; }
+.pm .pm-notif-badge { position: absolute; top: -4px; right: -4px; min-width: 1.1rem; height: 1.1rem; border-radius: 999px; background: #e5484d; color: #fff; font-size: .6rem; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 .28rem; }
+.pm .pm-notif-panel { position: absolute; right: 0; top: 3rem; z-index: 50; width: min(22rem, calc(100vw - 2rem)); background: #fff; border-radius: 1rem; border: 1px solid var(--pm-line); box-shadow: 0 18px 44px rgba(13,28,52,.18); padding: 1rem; }
 `;
 
 /* ---------------- shared bits ---------------- */
@@ -612,6 +653,32 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
     </div>
   );
 
+  const tasksDueBlock = !isNat ? (
+    <div className="grid gap-5 lg:grid-cols-2">
+      <div className="pm-dark self-start p-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Tasks due</h2>
+          <button type="button" aria-label="Open the board" onClick={() => go("board")} className="pm-circle"><ClipboardList className="h-4 w-4" /></button>
+        </div>
+        {myTasks.length === 0 ? <p className="mt-3 text-sm text-white/60">No dated tasks right now.</p> : (
+          <ul className="mt-4 grid gap-2.5">
+            {myTasks.map((t: Any) => (
+              <li key={t.id} className="pm-row flex items-center gap-3 px-3 py-2.5">
+                <span className="pm-dot" style={{ background: "#f59a2b" }} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{t.title}</p>
+                  {t.notes ? <p className="truncate text-xs text-white/60">{t.notes}</p> : null}
+                </div>
+                <span className="pm-chip line">Due {fmtDate(t.due_date)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <MonthCalCard avail={avail} />
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-5">
       <div className={`grid grid-cols-2 gap-4 ${isNat ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
@@ -625,6 +692,8 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
           ? <Tile icon={<FileText className="h-5 w-5" />} label="Unbilled" value={money((unbilledMins / 60) * rate)} sub={`${fmtMins(unbilledMins)} · ${money(rate)}/hr`} />
           : <Tile icon={<FileText className="h-5 w-5" />} label="Invoices" value={String(invNew.length)} sub={invNew.length ? "new to view" : "all caught up"} onClick={() => go("time")} />}
       </div>
+
+      {tasksDueBlock}
 
       {!isNat && (
         <div className="pm-card self-start p-6">
@@ -713,32 +782,6 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
 
         {isNat ? <MonthCalCard avail={(p.client?.portal_prefs?.availability ?? null) as Any} booked={((p.client?.portal_prefs?.booked ?? []) as Any[])} cta={false} onCircle={() => go("availability")} onToggleDay={toggleDay} /> : null}
         {isNat ? boardCard : null}
-      </div>
-      )}
-
-      {!isNat && (
-      <div className="grid gap-5 lg:grid-cols-2">
-        <MonthCalCard avail={avail} />
-        <div className="pm-dark self-start p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Tasks due</h2>
-            <button type="button" aria-label="Open the board" onClick={() => go("board")} className="pm-circle"><ClipboardList className="h-4 w-4" /></button>
-          </div>
-          {myTasks.length === 0 ? <p className="mt-3 text-sm text-white/60">No dated tasks right now.</p> : (
-            <ul className="mt-4 grid gap-2.5">
-              {myTasks.map((t: Any) => (
-                <li key={t.id} className="pm-row flex items-center gap-3 px-3 py-2.5">
-                  <span className="pm-dot" style={{ background: "#f59a2b" }} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{t.title}</p>
-                    {t.notes ? <p className="truncate text-xs text-white/60">{t.notes}</p> : null}
-                  </div>
-                  <span className="pm-chip line">Due {fmtDate(t.due_date)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
       </div>
       )}
 
