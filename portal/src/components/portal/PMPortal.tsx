@@ -905,6 +905,7 @@ function MyTodoTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
   const [noteText, setNoteText] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [composer, setComposer] = useState<null | "normal" | "urgent">(null);
 
   const notes: Any[] = ((p.client?.portal_prefs?.sara_notes ?? []) as Any[]);
   const open_ = mine.filter((c: Any) => c.status !== "done");
@@ -970,10 +971,25 @@ function MyTodoTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
   return (
     <div className="space-y-4">
       <style>{PMT_STYLES}</style>
-      <div>
-        <h2 className="text-xl font-semibold">My To Do</h2>
-        <p className="mt-0.5 text-xs text-[#5e5e5e]">Everything assigned to you · tick things off as you go</p>
+      <style>{PM_STYLES}</style>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold">My To Do</h2>
+          <p className="mt-0.5 text-xs text-[#5e5e5e]">Everything assigned to you · tick things off as you go</p>
+        </div>
+        <div className="flex flex-col items-stretch gap-2 sm:items-end">
+          <Button className="pm-btn" onClick={() => setComposer(composer === "normal" ? null : "normal")}><Plus className="h-4 w-4" /> Add New Task</Button>
+          <Button className="pm-btn-orange" onClick={() => setComposer(composer === "urgent" ? null : "urgent")}><Flag className="h-4 w-4" /> Add Urgent Task</Button>
+        </div>
       </div>
+      {composer && (
+        <AddComposer col="mytodo" startImportant={composer === "urgent"} onCancel={() => setComposer(null)} onSubmit={async (title, notes, files, important) => {
+          const r = await act({ type: "cardAdd", title, notes, status: "todo", actor: viewer, important: !!important }, important ? "Urgent task added" : "Task added");
+          if (r?.id && files.length) await act({ type: "cardFiles", id: r.id, files, actor: viewer }, "File attached to task");
+          if (r) setComposer(null);
+          return r;
+        }} />
+      )}
 
       {mine.length === 0 ? (
         <div className="pmt-empty">Nothing assigned to you yet · tasks appear here when Natalie or you add one with your name on.</div>
@@ -1176,6 +1192,37 @@ function QaSection({ c, act, slot, label, hint }: Any) {
   );
 }
 
+function FormKCard({ c, act }: Any) {
+  const fk = c.formk ?? {};
+  const rows = [
+    { k: "dbs", label: "DBS checks requested" },
+    { k: "medical", label: "Medical checks requested" },
+    { k: "refs", label: "References requested" },
+  ];
+  return (
+    <div className="pm-card p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-lg font-semibold">Form K</h3>
+        <button type="button" aria-pressed={!!c.form_k} onClick={async () => { await act({ type: "caseSave", id: c.id, key: "form_k", content: c.form_k ? "" : "1" }, c.form_k ? "Form K removed from case" : "Marked as Form K assessment"); }} className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${c.form_k ? "bg-[#0d1c34] text-white" : "bg-[#eef0f2] text-[#0d1c34] hover:bg-[#e2e5e9]"}`}>{c.form_k ? "Form K assessment ✓" : "Mark as Form K"}</button>
+      </div>
+      {c.form_k ? (
+        <ul className="mt-3 space-y-2">
+          {rows.map((r) => {
+            const st = fk[r.k] ?? {};
+            return (
+              <li key={r.k} className="pm-row flex flex-wrap items-center gap-3 px-3 py-2.5">
+                <button type="button" aria-label={r.label} aria-pressed={!!st.done} onClick={async () => { await act({ type: "caseFormK", id: c.id, item: r.k, done: !st.done, date: st.date ?? "" }); }} className="pm-tickbtn mt-0 flex-none" style={st.done ? { background: "#2e9e5b", borderColor: "#2e9e5b", color: "#fff" } : undefined}><Check className="h-3.5 w-3.5" /></button>
+                <span className={`min-w-0 flex-1 text-sm font-medium ${st.done ? "text-[#9aa0a6] line-through" : "text-[#0d1c34]"}`}>{r.label}</span>
+                <Input type="date" value={st.date ?? ""} onChange={async (e: Any) => { await act({ type: "caseFormK", id: c.id, item: r.k, done: !!st.done, date: e.target.value }); }} className="h-9 max-w-40" />
+              </li>
+            );
+          })}
+        </ul>
+      ) : <p className="mt-2 text-xs italic text-[#9aa0a6]">Not a Form K assessment · tap "Mark as Form K" to switch on the checks.</p>}
+    </div>
+  );
+}
+
 function FilingDateCard({ c, act }: Any) {
   const [date, setDate] = useState(String(c?.filing_date ?? ""));
   const [busy, setBusy] = useState(false);
@@ -1297,6 +1344,7 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
                 <p className="mt-3 text-[11px] text-[#9aa0a6]">Created {fmtDate(c.created_at)} · updated {relDay(c.updated_at)}</p>
               </div>
               <FilingDateCard c={c} act={act} />
+              <FormKCard c={c} act={act} />
               <div className="grid gap-3 sm:grid-cols-3">
                 <button type="button" onClick={() => setSel("details")} className="pm-card p-4 text-left"><p className="text-sm font-semibold">Basic details</p><p className="mt-0.5 text-[11px] text-[#5e5e5e]">Names &amp; contact info</p></button>
                 <button type="button" onClick={() => setSel("checklists")} className="pm-card p-4 text-left"><p className="text-sm font-semibold">Checklists</p><p className="mt-0.5 text-[11px] text-[#5e5e5e]">{prog.done}/{prog.total} sections done</p></button>
@@ -1403,6 +1451,7 @@ export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
   const [title, setTitle] = useState("");
   const [info, setInfo] = useState("");
   const [assigned, setAssigned] = useState("Sara");
+  const [aType, setAType] = useState("standard");
   const [busy, setBusy] = useState(false);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const cur = cases.find((c: Any) => c.id === openId);
@@ -1410,16 +1459,16 @@ export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
   const addCase = async () => {
     if (!title.trim() || busy) return;
     setBusy(true);
-    const r = await act({ type: "caseAdd", title: title.trim(), info: info.trim(), assigned }, "Case created");
+    const r = await act({ type: "caseAdd", title: title.trim(), info: info.trim(), assigned, form_k: aType === "formk" }, "Case created");
     setBusy(false);
-    if (r !== null) { setAddOpen(false); setTitle(""); setInfo(""); setAssigned("Sara"); if (r?.id) setOpenId(r.id); }
+    if (r !== null) { setAddOpen(false); setTitle(""); setInfo(""); setAssigned("Sara"); setAType("standard"); if (r?.id) setOpenId(r.id); }
   };
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold">Cases</h2>
-          <p className="mt-0.5 text-xs text-[#5e5e5e]">Every case &amp; family in one place</p>
+          <p className="mt-0.5 text-xs text-[#5e5e5e]">Every case &amp; family in one place · soonest filing date first</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" className="pm-btn h-10" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add new case</Button>
@@ -1431,7 +1480,7 @@ export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
         <div className="pmt-empty">No cases yet · tap "Add new case" to set up the first one.</div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {cases.map((c: Any) => {
+          {[...cases].sort((x: Any, y: Any) => String(x.filing_date || "9999-99-99").localeCompare(String(y.filing_date || "9999-99-99"))).map((c: Any) => {
             const prog = caseProgress(c);
             const notes: Any[] = Array.isArray(c.notes) ? c.notes : [];
             return (
@@ -1479,6 +1528,13 @@ export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
               <select value={assigned} onChange={(e: Any) => setAssigned(e.target.value)} className="h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm">
                 <option value="Sara">Sara</option>
                 <option value="Jermaine">Jermaine</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Assessment type</Label>
+              <select value={aType} onChange={(e: Any) => setAType(e.target.value)} className="h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm">
+                <option value="standard">Standard assessment</option>
+                <option value="formk">Form K</option>
               </select>
             </div>
             <Button type="button" className="pm-btn-orange h-10 w-full" disabled={busy} onClick={addCase}>{busy ? "Creating…" : "Create case"}</Button>

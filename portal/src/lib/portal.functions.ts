@@ -135,6 +135,7 @@ type Action =
   | { type: "caseSave"; id: string; key: string; content: string }
   | { type: "caseCheck"; id: string; key: string; done: boolean }
   | { type: "caseMald"; id: string; item: number; who: string; colour?: string; notes?: string }
+  | { type: "caseFormK"; id: string; item: string; done: boolean; date?: string }
   | { type: "caseNoteAdd"; id: string; text: string }
   | { type: "caseNoteDelete"; id: string; noteId: string }
   | { type: "caseLogAdd"; id: string; date: string; hours: number; note?: string }
@@ -574,7 +575,7 @@ export const portalAction = createServerFn({ method: "POST" })
       if (a.type === "caseAdd") {
         const title = String(a.title ?? "").trim().slice(0, 200);
         if (!title) throw new Error("Give the case a title.");
-        const item = { id: crypto.randomUUID(), title, info: String(a.info ?? "").slice(0, 4000), assigned: a.assigned === "Jermaine" ? "Jermaine" : "Sara", sections: {} as Any, checks: {} as Any, notes: [] as Any[], log: [] as Any[], created_at: now(), updated_at: now() };
+        const item = { id: crypto.randomUUID(), title, info: String(a.info ?? "").slice(0, 4000), assigned: a.assigned === "Jermaine" ? "Jermaine" : "Sara", form_k: !!a.form_k, sections: {} as Any, checks: {} as Any, notes: [] as Any[], log: [] as Any[], created_at: now(), updated_at: now() };
         const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, cases: [item, ...list].slice(0, 100) } }).eq("id", cid);
         if (error) throw new Error("Cases aren't ready yet · please check back soon.");
         await admin.from("activity_log").insert({ client_id: cid, actor: "client", message: `added case: ${title}` });
@@ -596,6 +597,7 @@ export const portalAction = createServerFn({ method: "POST" })
           return c;
         }
         if (key === "filing_date") { c.filing_date = String(a.content ?? "").slice(0, 10); return c; }
+        if (key === "form_k") { c.form_k = String(a.content ?? "") === "1"; return c; }
         if (key.startsWith("qa:") && key.endsWith(":date")) {
           c.qa = c.qa ?? {};
           c.qa[key.slice(3)] = String(a.content ?? "").slice(0, 10);
@@ -608,6 +610,12 @@ export const portalAction = createServerFn({ method: "POST" })
       if (a.type === "caseCheck") return await mutate(String(a.id), (c: Any) => {
         c.checks = c.checks ?? {};
         c.checks[String(a.key).slice(0, 60)] = !!a.done;
+        return c;
+      });
+      if (a.type === "caseFormK") return await mutate(String(a.id), (c: Any) => {
+        c.formk = c.formk ?? {};
+        const item = ["dbs", "medical", "refs"].includes(String(a.item)) ? String(a.item) : "dbs";
+        c.formk[item] = { done: !!a.done, date: String(a.date ?? "").slice(0, 10) };
         return c;
       });
       if (a.type === "caseMald") return await mutate(String(a.id), (c: Any) => {
