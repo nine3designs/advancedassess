@@ -133,7 +133,7 @@ type Action =
   | { type: "caseUpdate"; id: string; title?: string; info?: string; assigned?: string }
   | { type: "caseDelete"; id: string }
   | { type: "caseSave"; id: string; key: string; content: string }
-  | { type: "caseCheck"; id: string; key: string; done: boolean }
+  | { type: "caseCheck"; id: string; key: string; done: boolean; na?: boolean }
   | { type: "caseMald"; id: string; item: number; who: string; colour?: string; notes?: string }
   | { type: "caseFormK"; id: string; item: string; done: boolean; date?: string }
   | { type: "notifSeen" }
@@ -605,6 +605,12 @@ export const portalAction = createServerFn({ method: "POST" })
           return c;
         }
         if (key === "filing_date") { c.filing_date = String(a.content ?? "").slice(0, 10); return c; }
+        if (key === "people") {
+          try { c.people = JSON.parse(String(a.content ?? "[]")); } catch { c.people = []; }
+          if (!Array.isArray(c.people)) c.people = [];
+          c.people = c.people.slice(0, 12).map((d: Any) => ({ role: d?.role === "adult" ? "adult" : "child", name: String(d?.name ?? "").slice(0, 120), dob: String(d?.dob ?? "").slice(0, 10), address: String(d?.address ?? "").slice(0, 500) }));
+          return c;
+        }
         if (key === "form_k") { c.form_k = String(a.content ?? "") === "1"; return c; }
         if (key.startsWith("qa:") && key.endsWith(":date")) {
           c.qa = c.qa ?? {};
@@ -617,7 +623,7 @@ export const portalAction = createServerFn({ method: "POST" })
       });
       if (a.type === "caseCheck") return await mutate(String(a.id), (c: Any) => {
         c.checks = c.checks ?? {};
-        c.checks[String(a.key).slice(0, 60)] = !!a.done;
+        c.checks[String(a.key).slice(0, 60)] = a.na ? "na" : !!a.done;
         return c;
       });
       if (a.type === "caseFormK") return await mutate(String(a.id), (c: Any) => {

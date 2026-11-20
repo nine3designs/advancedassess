@@ -43,3 +43,41 @@ export async function downloadInvoicePdf(node: HTMLElement | null, filename: str
   pdf.addImage(img, "PNG", (pageW - w) / 2, margin, w, h, undefined, "FAST");
   pdf.save(filename);
 }
+
+// Renders a notes/letterhead DOM node into a real multi-page A4 PDF
+export async function downloadNotesPdf(node: HTMLElement | null, filename: string) {
+  if (!node) throw new Error("Notes sheet not on screen.");
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+    import("html2canvas-pro"),
+    import("jspdf"),
+  ]);
+  const holder = document.createElement("div");
+  holder.style.cssText = "position:fixed;left:-99999px;top:0;width:820px;background:#ffffff;z-index:-1;";
+  const clone = node.cloneNode(true) as HTMLElement;
+  holder.appendChild(clone);
+  document.body.appendChild(holder);
+  let canvas: HTMLCanvasElement;
+  try {
+    canvas = await html2canvas(holder, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false, width: 820 });
+  } finally {
+    holder.remove();
+  }
+  const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait", compress: true });
+  const pageW = 210, pageH = 297, margin = 6;
+  const maxW = pageW - margin * 2, maxH = pageH - margin * 2;
+  const pxPerMm = canvas.width / maxW;
+  const pageHpx = Math.floor(maxH * pxPerMm);
+  let y = 0, page = 0;
+  while (y < canvas.height - 2) {
+    const h = Math.min(pageHpx, canvas.height - y);
+    const tmp = document.createElement("canvas");
+    tmp.width = canvas.width; tmp.height = h;
+    const ctx = tmp.getContext("2d");
+    if (ctx) { ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, tmp.width, tmp.height); ctx.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h); }
+    if (page > 0) pdf.addPage();
+    pdf.addImage(tmp.toDataURL("image/png"), "PNG", margin, margin, maxW, h / pxPerMm, undefined, "FAST");
+    y += h; page++;
+    if (page > 20) break;
+  }
+  pdf.save(filename);
+}

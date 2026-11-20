@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowUpRight, ArrowLeft, ArrowRight, Bell, CalendarDays, Car, Check, ChevronLeft, ChevronRight, Circle, ClipboardList, Clock, FileDown, FileText, Flag, FolderOpen, LayoutDashboard, ListTodo, Menu, Paperclip, Pencil, Play, Plus, Square, StickyNote, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
-import { downloadInvoicePdf } from "@/lib/invoice-pdf";
+import { downloadInvoicePdf, downloadNotesPdf } from "@/lib/invoice-pdf";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -190,7 +190,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
 
   const tabs = viewer === "Natalie" ? [
     { v: "dashboard", l: "Dashboard" },
-    { v: "tasks", l: "Tasks" },
+    { v: "tasks", l: "My Tasks" },
     { v: "cases", l: "Cases" },
     { v: "board", l: "To-Do Board" },
     { v: "time", l: "Time & Invoices" },
@@ -466,8 +466,15 @@ export const PM_STYLES = `
 .pm .pm-check-row:hover { background: var(--pm-soft2); }
 .pm .pm-check-row .box { width: 1.15rem; height: 1.15rem; border-radius: .35rem; border: 1.5px solid var(--pm-line); display: inline-flex; align-items: center; justify-content: center; background: #fff; flex: none; transition: all .15s ease; color: #fff; }
 .pm .pm-check-row .box.on { background: #2e9e5b; border-color: #2e9e5b; }
-.pm .pm-notif-badge { position: absolute; top: -4px; right: -4px; min-width: 1.1rem; height: 1.1rem; border-radius: 999px; background: #e5484d; color: #fff; font-size: .6rem; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 .28rem; }
-.pm .pm-notif-panel { position: absolute; right: 0; top: 3rem; z-index: 50; width: min(22rem, calc(100vw - 2rem)); background: #fff; border-radius: 1rem; border: 1px solid var(--pm-line); box-shadow: 0 18px 44px rgba(13,28,52,.18); padding: 1rem; }
+.pm .pm-navy-board { background: linear-gradient(155deg, #0d1c34 0%, #142a4d 55%, #1d3f63 100%); border-radius: 1.75rem; padding: 1.4rem 1.4rem 1.6rem; box-shadow: 0 18px 44px rgba(13,28,52,.35); }
+.pm .pm-navy-board h2, .pm .pm-navy-board h3 { color: #fff; }
+.pm .pm-navy-board .pm-drag-hint, .pm .pm-navy-board .pm-drag-hide { color: rgba(255,255,255,.65) !important; }
+.pm .pm-navy-board .pm-col { background: rgba(255,255,255,.08) !important; border: 1px solid rgba(255,255,255,.18) !important; box-shadow: none !important; }
+.pm .pm-navy-board .pm-col .pm-chip { background: rgba(13,28,52,.55); color: #fff; }
+.pm .pm-navy-board .pm-col > div > button, .pm .pm-navy-board .pm-col .flex.items-center.gap-1\.5 button { background: rgba(255,255,255,.14) !important; color: #fff !important; }
+.pm .pm-navy-board .pm-task { background: rgba(255,255,255,.12) !important; border: 1px solid rgba(255,255,255,.2) !important; color: #fff; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.pm .pm-navy-board .pm-task-more { background: transparent; }
+.pm .pm-navy-board .pm-taskactions { border-color: rgba(255,255,255,.2); }
 `;
 
 /* ---------------- shared bits ---------------- */
@@ -1100,9 +1107,64 @@ const CASE_CHECKLIST = [
   "Photos taken in family time and attached to report",
 ];
 
+const FORMK_CHECKLIST: { t: string; na?: boolean }[] = [
+  { t: "Details about the child/ren" },
+  { t: "Details about siblings", na: true },
+  { t: "Details about the carer/s" },
+  { t: "Details about the parent/s" },
+  { t: "Genogram" },
+  { t: "Introduction to the child/ren and their history" },
+  { t: "Introduction to the carer/s and their relationship with the child/ren" },
+  { t: "Introduction to the parent/s" },
+  { t: "Details of any children or other adults in the household" },
+  { t: "Child/ren's health and education history" },
+  { t: "Parental health, education and employment history" },
+  { t: "Work undertaken to complete assessment" },
+  { t: "Recommendation (Part 1)" },
+  { t: "How have the carer/s' experiences influenced the person they are now - childhood" },
+  { t: "How have the carer/s' experiences influenced the person they are now - adulthood and caring for children" },
+  { t: "How have the carer/s' experiences influenced the person they are now - adult relationships" },
+  { t: "How have the carer/s' experiences influenced the person they are now - education and employment" },
+  { t: "How will the carer/s' health and lifestyle influence their care of the child/ren?" },
+  { t: "How will the carer/s meet the child/ren's needs throughout childhood, into young adulthood and beyond?" },
+  { t: "Describe family relationships both within the home and with wider family members" },
+  { t: "How will the carer/s' financial situation be affected by caring for the child/ren?" },
+  { t: "How will the carer/s' housing be affected by caring for the child/ren?" },
+  { t: "How will the carer/s' household and work commitments be managed whilst caring for the child/ren?" },
+  { t: "How will important people in the carer/s' life and wider community be able to support them in their care of the child/ren?" },
+  { t: "Summary of analysis - strengths, vulnerabilities and meaning for the child" },
+  { t: "Recommendation (final)" },
+  { t: "Prospective kinship carer/s' comments on the assessment" },
+  { t: "Team manager comments" },
+  { t: "Signatures completed" },
+  { t: "Checks & references: DBS" },
+  { t: "Checks & references: Local authority records" },
+  { t: "Checks & references: Medical report" },
+  { t: "Checks & references: Nursery/school/college" },
+  { t: "Checks & references: Employer" },
+  { t: "Checks & references: Home visit" },
+  { t: "Checks & references: Health and safety" },
+  { t: "Checks & references: Other", na: true },
+  { t: "References" },
+];
+
 function caseProgress(c: Any) {
-  const done = CASE_CHECKLIST.filter((_x: string, i: number) => c?.checks?.[`check:${i}`]).length;
-  return { done, total: CASE_CHECKLIST.length };
+  const list: Any[] = c?.form_k ? FORMK_CHECKLIST : CASE_CHECKLIST;
+  const done = list.filter((_x: Any, i: number) => c?.checks?.[`check:${i}`] === true).length;
+  return { done, total: list.length };
+}
+
+function ageFromDob(dob: string) {
+  if (!dob) return "";
+  const d = new Date(dob + "T00:00:00");
+  if (isNaN(d.getTime())) return "";
+  const t = new Date();
+  let a = t.getFullYear() - d.getFullYear();
+  const m = t.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && t.getDate() < d.getDate())) a--;
+  if (a < 0) return "Not born yet";
+  if (a < 2) { const mo = Math.round((Date.now() - d.getTime()) / (86400000 * 30.44)); return `${mo} month${mo === 1 ? "" : "s"} old`; }
+  return `${a} year${a === 1 ? "" : "s"} old`;
 }
 
 function daysUntil(d: string) {
@@ -1143,10 +1205,12 @@ function NotesBox({ initial, onSave }: Any) {
   );
 }
 
-function ChecklistItem({ item, i, c, act }: Any) {
+function ChecklistItem({ item, i, c, act, na }: Any) {
   const [open, setOpen] = useState(false);
   const [who, setWho] = useState("mum");
-  const on = !!c.checks?.[`check:${i}`];
+  const val = c.checks?.[`check:${i}`];
+  const on = val === true;
+  const naOn = val === "na";
   const isParentItem = i >= 9 && i <= 30;
   const mald = c.mald?.[String(i)] ?? {};
   const slotKey = isParentItem ? who : "all";
@@ -1157,11 +1221,13 @@ function ChecklistItem({ item, i, c, act }: Any) {
       <div className="flex items-center gap-1">
         <button type="button" aria-pressed={on} onClick={async () => { await act({ type: "caseCheck", id: c.id, key: `check:${i}`, done: !on }); }} className="pm-check-row w-full">
           <span className={`box ${on ? "on" : ""}`}><Check className="h-3.5 w-3.5" /></span>
-          <span className={`min-w-0 flex-1 text-left text-sm ${on ? "text-[#9aa0a6] line-through" : "font-medium"}`}>{item}</span>
+          <span className={`min-w-0 flex-1 text-left text-sm ${on || naOn ? "text-[#9aa0a6] line-through" : "font-medium"}`}>{item}</span>
+          {naOn ? <span className="pm-chip orange flex-none">N/A</span> : null}
           {mald.all?.colour ? <ColourDot k={mald.all.colour} /> : null}
           {mald.mum?.colour ? <ColourDot k={mald.mum.colour} /> : null}
           {mald.dad?.colour ? <ColourDot k={mald.dad.colour} /> : null}
         </button>
+        {na ? <button type="button" aria-pressed={naOn} onClick={() => act({ type: "caseCheck", id: c.id, key: `check:${i}`, done: false, na: !naOn })} className={`flex-none rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${naOn ? "bg-[#a35803] text-white" : "bg-[#eef0f2] text-[#0d1c34] hover:bg-[#f59a2b] hover:text-[#3d2400]"}`}>N/A</button> : null}
         <button type="button" onClick={() => setOpen((o: boolean) => !o)} aria-expanded={open} className="flex-none rounded-full bg-[#eef0f2] px-2.5 py-1.5 text-[11px] font-semibold text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]">{open ? "Close" : "Colours & notes"}</button>
       </div>
       {open && (
@@ -1243,6 +1309,87 @@ function QaSection({ c, act, slot, label, hint }: Any) {
   );
 }
 
+function NotesSheet({ c }: Any) {
+  const notes: Any[] = Array.isArray(c?.notes) ? c.notes : [];
+  return (
+    <div className="pm-notes-sheet" style={{ width: 820, background: "#fff", padding: "48px 56px 40px", fontFamily: "Poppins, sans-serif", color: "#0d1c34" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "3px solid #0d1c34", paddingBottom: 18 }}>
+        <img src="/branding/sara-logo.png" alt="" style={{ height: 64, maxWidth: 300 }} />
+        <div style={{ textAlign: "right", fontSize: 12, color: "#5e5e5e", lineHeight: 1.6 }}>
+          <p style={{ margin: 0, fontWeight: 600, fontSize: 15, color: "#0d1c34" }}>Sara Dawson</p>
+          <p style={{ margin: 0 }}>Advanced Assessment &amp; Solutions</p>
+          <p style={{ margin: 0 }}>e: sara@advancedassessmentandsolutions.co.uk</p>
+          <p style={{ margin: 0 }}>m: 07862 754980 · w: advancedassessmentandsolutions.co.uk</p>
+        </div>
+      </div>
+      <h2 style={{ margin: "26px 0 4px", fontSize: 22, fontWeight: 700 }}>Case notes</h2>
+      <p style={{ margin: 0, fontSize: 13, color: "#5e5e5e" }}>{c?.title}{c?.filing_date ? ` · filing date ${c.filing_date}` : ""} · downloaded {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</p>
+      <div style={{ marginTop: 18 }}>
+        {notes.map((n: Any) => (
+          <div key={n.id} style={{ marginBottom: 16 }}>
+            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "#a35803", textTransform: "uppercase", letterSpacing: ".04em" }}>{fmtDate(n.at)}</p>
+            <p style={{ margin: "3px 0 0", fontSize: 14, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{n.text}</p>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 30, borderTop: "1px solid #e6e8ea", paddingTop: 10, fontSize: 10, color: "#9aa0a6", textAlign: "center" }}>sara@advancedassessmentandsolutions.co.uk · 07862 754980 · advancedassessmentandsolutions.co.uk</div>
+    </div>
+  );
+}
+
+const DEFAULT_PEOPLE = [{ role: "child" }, { role: "child" }, { role: "adult" }, { role: "adult" }];
+
+function PeopleEditor({ c, act }: Any) {
+  const people: Any[] = Array.isArray(c.people) ? c.people : [];
+  const [busy, setBusy] = useState(false);
+  const [noteText, setNoteText] = useState(String(c?.sections?.details ?? ""));
+  const [noteBusy, setNoteBusy] = useState(false);
+  const dirtyNote = noteText !== String(c?.sections?.details ?? "");
+  const savePeople = async (list: Any[]) => { setBusy(true); await act({ type: "caseSave", id: c.id, key: "people", content: JSON.stringify(list) }, "Details saved"); setBusy(false); };
+  const base = () => (people.length ? [...people] : DEFAULT_PEOPLE.map((x: Any) => ({ ...x, name: "", dob: "", address: "" })));
+  const setP = (i: number, patch: Any) => { const list = base(); list[i] = { ...list[i], ...patch }; savePeople(list); };
+  const addP = (role: string) => savePeople([...base(), { role, name: "", dob: "", address: "" }]);
+  const delP = (i: number) => savePeople(base().filter((_x: Any, k: number) => k !== i));
+  const shown: Any[] = people.length ? people : DEFAULT_PEOPLE;
+  let cn = 0, an = 0;
+  return (
+    <div className="pm-card p-5">
+      <h3 className="text-lg font-semibold">Basic Details &amp; Contact Info</h3>
+      <p className="mt-1 text-xs text-[#5e5e5e]">Names, ages, addresses, contact details · who's who in the family</p>
+      <div className="mt-4 space-y-3">
+        {shown.map((pp: Any, i: number) => {
+          const label = pp.role === "adult" ? `Parent/Carer ${++an}` : `Child ${++cn}`;
+          return (
+            <div key={i} className="rounded-2xl border border-[#e6e8ea] bg-[#fafbfc] p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-[#0d1c34]">{label}</p>
+                {people.length > 0 ? <IconBtn label="Remove this person" danger onClick={() => delP(i)}><Trash2 className="h-3.5 w-3.5" /></IconBtn> : null}
+              </div>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <div className="space-y-1"><Label>Name</Label><Input defaultValue={pp.name ?? ""} onBlur={(e: Any) => setP(i, { name: e.target.value })} placeholder={pp.role === "adult" ? "Parent/carer name" : "Child's name"} /></div>
+                <div className="space-y-1"><Label>Date of birth</Label><Input type="date" defaultValue={pp.dob ?? ""} onChange={(e: Any) => setP(i, { dob: e.target.value })} /><p className="text-[11px] font-semibold text-[#a35803]">{ageFromDob(pp.dob ?? "")}</p></div>
+              </div>
+              <div className="mt-2 space-y-1"><Label>Address</Label><Input defaultValue={pp.address ?? ""} onBlur={(e: Any) => setP(i, { address: e.target.value })} placeholder="Address" /></div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button type="button" className="pm-btn h-9" disabled={busy} onClick={() => addP("child")}><Plus className="h-4 w-4" /> Add New Child</Button>
+        <Button type="button" className="pm-btn h-9" disabled={busy} onClick={() => addP("adult")}><Plus className="h-4 w-4" /> Add New Parent/Carer</Button>
+      </div>
+      <div className="mt-5 border-t border-[#e6e8ea] pt-4">
+        <Label>Details / Who's who in the family</Label>
+        <Textarea value={noteText} onChange={(e: Any) => setNoteText(e.target.value)} rows={5} className="mt-2 text-sm" placeholder="Anything else · relationships, contact details, who's who…" />
+        <div className="mt-2 flex items-center justify-between">
+          <span className="text-[11px] text-[#9aa0a6]">{dirtyNote ? "Unsaved changes" : "All changes saved"}</span>
+          <Button type="button" className="pm-btn-orange h-9 px-5" disabled={noteBusy || !dirtyNote} onClick={async () => { setNoteBusy(true); await act({ type: "caseSave", id: c.id, key: "details", content: noteText }, "Saved"); setNoteBusy(false); }}>{noteBusy ? "Saving…" : "Save"}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FormKCard({ c, act }: Any) {
   const fk = c.formk ?? {};
   const rows = [
@@ -1288,7 +1435,7 @@ function FilingDateCard({ c, act }: Any) {
       </div>
       <p className="mt-1 text-xs text-[#5e5e5e]">When this assessment is due to be filed · will drive dashboard countdowns later</p>
       <Input type="date" value={date} onChange={async (e: Any) => { const v = e.target.value; setDate(v); setBusy(true); await act({ type: "caseSave", id: c.id, key: "filing_date", content: v }, "Filing date saved"); setBusy(false); }} className="mt-3 h-10 max-w-52" />
-      {date ? (() => { const t = filingTone(date); return <span className="pm-chip mt-3 inline-flex" style={{ background: t.bg, color: t.c }}>Days until filing: {daysUntil(date) < 0 ? `filed ${Math.abs(daysUntil(date))} days ago` : `${daysUntil(date)} days · ${t.label}`}</span>; })() : null}
+      {date ? (() => { const t = filingTone(date); return <span className="mt-3 inline-flex rounded-full font-bold" style={{ background: t.bg, color: t.c, fontSize: "1rem", padding: ".4rem 1rem" }}>Days until filing: {daysUntil(date) < 0 ? `filed ${Math.abs(daysUntil(date))} days ago` : `${daysUntil(date)} days · ${t.label}`}</span>; })() : null}
     </div>
   );
 }
@@ -1407,7 +1554,7 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
             </>
           )}
 
-          {sel === "details" && <SectionEditor c={c} act={act} skey="details" label="Basic Details & Contact Info" hint="Names, ages, addresses, contact details, who's who in the family" rows={12} />}
+          {sel === "details" && <PeopleEditor c={c} act={act} />}
           {sel === "dates" && <DateBoxes c={c} act={act} />}
 
           {sel === "checklists" && c.form_k && (
@@ -1435,7 +1582,12 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
 
           {sel === "notes" && (
             <div className="pm-card p-5">
-              <h3 className="text-lg font-semibold">Case notes</h3>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-semibold">Case notes</h3>
+                {notes.length > 0 ? (
+                  <Button type="button" className="pm-btn h-9" onClick={async () => { try { await downloadNotesPdf(document.querySelector(".pm-notes-sheet") as HTMLElement, `Case notes - ${c.title}.pdf`); toast.success("Notes PDF downloaded"); } catch { toast.error("Could not build the PDF · please try again."); } }}><FileDown className="h-4 w-4" /> Download notes (PDF)</Button>
+                ) : null}
+              </div>
               <p className="mt-1 text-xs text-[#5e5e5e]">Working notes for this case · only people in this portal can see them</p>
               <form className="mt-3" onSubmit={async (e: Any) => { e.preventDefault(); if (!noteText.trim() || noteBusy) return; setNoteBusy(true); const r = await act({ type: "caseNoteAdd", id: c.id, text: noteText }, "Note added"); setNoteBusy(false); if (r !== null) setNoteText(""); }}>
                 <Textarea value={noteText} onChange={(e: Any) => setNoteText(e.target.value)} rows={3} className="text-sm" placeholder="Add a note…" />
@@ -1454,6 +1606,7 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
                   ))}
                 </div>
               )}
+              <div style={{ position: "fixed", left: "-99999px", top: 0, zIndex: -1 }} aria-hidden="true"><NotesSheet c={c} /></div>
             </div>
           )}
 
@@ -1561,7 +1714,7 @@ export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
                   </div>
                   <div className="pm-case-progress mt-1"><span style={{ width: `${prog.total ? Math.round((prog.done / prog.total) * 100) : 0}%` }} /></div>
                 </div>
-                {c.filing_date ? (() => { const t = filingTone(c.filing_date); return <div className="mt-2 flex items-center justify-between text-[11px]"><span className="text-[#5e5e5e]">Days until filing</span><span className="pm-chip" style={{ background: t.bg, color: t.c }}>{daysUntil(c.filing_date) < 0 ? `Filed ${Math.abs(daysUntil(c.filing_date))}d ago` : `${daysUntil(c.filing_date)} · ${t.label}`}</span></div>; })() : null}
+                {c.filing_date ? (() => { const t = filingTone(c.filing_date); return <div className="mt-2.5 flex items-center justify-between text-xs"><span className="text-[#5e5e5e]">Days until filing</span><span className="rounded-full font-bold" style={{ background: t.bg, color: t.c, fontSize: ".92rem", padding: ".32rem .85rem" }}>{daysUntil(c.filing_date) < 0 ? `Filed ${Math.abs(daysUntil(c.filing_date))}d ago` : `${daysUntil(c.filing_date)} · ${t.label}`}</span></div>; })() : null}
                 {expandAll && notes.length > 0 ? (
                   <div className="mt-3 border-t border-[#e6e8ea] pt-3">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-[#5e5e5e]">Latest note</p>
@@ -1889,8 +2042,10 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone, autoAddUrgen
     await act({ type: "cardEdit", id: card.id, status: next, actor: viewer }, `Moved to ${COLUMNS.find((c) => c.key === next)?.label}`);
   }
 
+  const isNatB = viewer === "Natalie";
+  const doneCards = colCards("done");
   return (
-    <div className="space-y-4">
+    <div className={isNatB ? "pm-navy-board space-y-4" : "space-y-4"}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold">Task board</h2>
@@ -1903,8 +2058,8 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone, autoAddUrgen
         </div>
       </div>
 
-      <div className="pm-boardwrap grid gap-4 md:grid-cols-3">
-        {COLUMNS.map((col) => {
+      <div className={`pm-boardwrap grid gap-4 ${isNatB ? "md:grid-cols-2 xl:gap-5" : "md:grid-cols-3"}`}>
+        {COLUMNS.filter((col) => !(isNatB && col.key === "done")).map((col) => {
           const list = colCards(col.key);
           const isOver = overCol === col.key;
           return (
@@ -2000,6 +2155,27 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone, autoAddUrgen
                 ))}
               </div>
               )}
+              {isNatB && col.key === "doing" && doneCards.length > 0 && (doneOpen ? (
+                <div className="mt-3 space-y-2.5">
+                  <button type="button" onClick={() => setDoneOpen(false)} className="flex w-full items-center justify-between rounded-xl border border-dashed border-white/40 px-3 py-2.5 text-xs font-medium text-white/80 hover:border-white/70 hover:text-white"><span>Hide completed ({doneCards.length})</span><ChevronRight className="h-3.5 w-3.5 rotate-90" /></button>
+                  {doneCards.map((dc: Any) => (
+                    <div key={dc.id} className="p-3" style={{ background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)", borderRadius: 14, backdropFilter: "blur(8px)" }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="min-w-0 flex-1 text-sm font-medium leading-snug text-white/85 line-through">{dc.title}</p>
+                        <AssignChip who={splitAssign(dc.notes).who} />
+                      </div>
+                      <div className="mt-2 flex items-center">
+                        <span className="text-[10px] text-white/50">{dc.updated_at ? relDay(dc.updated_at) : ""}</span>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); act({ type: "cardEdit", id: dc.id, status: "doing", actor: viewer }, "Moved back to In-Progress"); }} className="ml-auto flex h-7 items-center gap-1 rounded-full bg-white/15 px-2.5 text-[11px] font-medium text-white hover:bg-white/25"><ArrowLeft className="h-3 w-3" /> Move back</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <button type="button" onClick={() => setDoneOpen(true)} className="mt-3 w-full rounded-xl border border-dashed border-white/40 px-3 py-4 text-center text-xs font-medium text-white/80 transition-colors hover:border-white/70 hover:text-white">
+                  {doneCards.length} completed {doneCards.length === 1 ? "task" : "tasks"} · tap to show
+                </button>
+              ))}
             </div>
           );
         })}
