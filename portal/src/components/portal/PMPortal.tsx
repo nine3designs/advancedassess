@@ -186,8 +186,9 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
 
   const tabs = viewer === "Natalie" ? [
     { v: "dashboard", l: "Dashboard" },
-    { v: "board", l: "To-Do Board" },
     { v: "tasks", l: "Tasks" },
+    { v: "cases", l: "Cases" },
+    { v: "board", l: "To-Do Board" },
     { v: "time", l: "Time & Invoices" },
   ] : [
     { v: "dashboard", l: "Dashboard" },
@@ -258,7 +259,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
         {tab === "mileage" && <MileageTab act={act} entries={((p.client?.portal_prefs?.mileage ?? []) as Any[])} files={((p.deliverables ?? []) as Any[])} />}
         {tab === "notes" && viewer !== "Natalie" && <NotesTab act={act} notes={((p.client?.portal_prefs?.sara_notes ?? []) as Any[])} />}
         {tab === "mytodo" && viewer !== "Natalie" && <MyTodoTab p={p} viewer={viewer} act={act} />}
-        {tab === "cases" && viewer !== "Natalie" && <CasesTab p={p} viewer={viewer} act={act} />}
+        {tab === "cases" && <CasesTab p={p} viewer={viewer} act={act} />}
       </main>
 
         <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Portal - Crafted by <a href="https://nine3designs.co.uk" target="_blank" rel="noreferrer">Nine3 Designs</a></footer>
@@ -395,7 +396,12 @@ export const PM_STYLES = `
   .pm .pm-tickbtn svg { width: 1.1rem; height: 1.1rem; }
   .pm .pm-task { padding: 1rem !important; border-radius: 1rem; }
   .pm .pm-task > div:first-child > p { font-size: .95rem; }
-  .pm .pm-taskactions { gap: .35rem; }
+  .pm .pm-task-more { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .34s cubic-bezier(.4,0,.2,1), opacity .26s ease; }
+.pm .pm-task-more > div { overflow: hidden; min-height: 0; }
+.pm .pm-task-more.open { grid-template-rows: 1fr; opacity: 1; }
+.pm .pm-task { cursor: pointer; }
+.pm .pm-task:has(.pm-task-more.open) { cursor: default; }
+.pm .pm-taskactions { gap: .35rem; }
   .pm .pm-taskactions button { width: 2.5rem !important; height: 2.5rem !important; }
   .pm .pm-taskactions button svg { width: 1.15rem; height: 1.15rem; }
   .pm .pm-taskactions .ml-auto { display: none; }
@@ -469,7 +475,8 @@ function withAssign(who: string, rest: string) {
 }
 function AssignChip({ who }: { who: string }) {
   if (!who) return null;
-  return <span className="pm-chip flex-none" style={{ background: "#e8eef7", color: "#1f3a5f" }}>{"\u2192"} {who}</span>;
+  const pink = who.toLowerCase().startsWith("sara");
+  return <span className="pm-chip flex-none" style={{ background: pink ? "#fbe3ef" : "#e2edfa", color: pink ? "#b23a74" : "#28598f" }}>{who}</span>;
 }
 const COL_ACCENT: Record<string, string> = { todo: "#e5484d", doing: "#f59a2b", done: "#2e9e5b" };
 
@@ -1321,7 +1328,7 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
   );
 }
 
-function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
+export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
   const cases: Any[] = ((p.client?.portal_prefs?.cases ?? []) as Any[]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [expandAll, setExpandAll] = useState(false);
@@ -1667,6 +1674,7 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone, autoAddUrgen
   const [doneOpen, setDoneOpen] = useState(false);
 
   const [urgentStart, setUrgentStart] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
   useEffect(() => {
     if (autoAdd) { setComposer("todo"); setUrgentStart(false); if (onAutoAddDone) onAutoAddDone(); }
   }, [autoAdd]);
@@ -1701,7 +1709,10 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone, autoAddUrgen
           <p className="pm-drag-hint mt-0.5 text-xs text-[#5e5e5e]">Drag cards between columns · or use the arrows on each card</p>
           <p className="pm-drag-hide mt-0.5 text-xs text-[#5e5e5e]">Use the arrows on each card to move tasks</p>
         </div>
-        <Button className="pm-btn" onClick={() => setComposer("todo")}><Plus className="h-4 w-4" /> Add task</Button>
+        <div className="flex flex-col items-stretch gap-2 sm:items-end">
+          <Button className="pm-btn" onClick={() => { setUrgentStart(false); setComposer("todo"); }}><Plus className="h-4 w-4" /> Add task</Button>
+          <Button className="pm-btn-orange" onClick={() => { setUrgentStart(true); setComposer("todo"); }}><Flag className="h-4 w-4" /> Add urgent task</Button>
+        </div>
       </div>
 
       <div className="pm-boardwrap grid gap-4 md:grid-cols-3">
@@ -1751,11 +1762,11 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone, autoAddUrgen
                     onDragEnd={() => { setDragId(null); setOverCol(null); }}
                     onDragOver={(e) => { if (dragId && dragId !== c.id) e.preventDefault(); }}
                     onDrop={(e) => { e.preventDefault(); e.stopPropagation(); dropInto(col.key, c.id); }}
-                    className={`pm-task cursor-grab p-3.5 active:cursor-grabbing ${dragId === c.id ? "opacity-50" : ""} ${c.important ? "important" : ""}`} style={{ borderLeft: `4px solid ${c.important || (c.status !== "done" && c.due_date && dueState(c.due_date) === "over") ? "#e5484d" : c.status === "done" ? "#2e9e5b" : c.status === "doing" ? "#8fb8d8" : "#f59a2b"}` }}>
-                    <div className="flex items-start justify-between gap-2">
+                    onClick={() => setOpenId((o) => (o === c.id ? null : c.id))}
+                    className={`pm-task cursor-grab p-3.5 active:cursor-grabbing ${openId === c.id ? "open" : ""} ${dragId === c.id ? "opacity-50" : ""} ${c.important ? "important" : ""}`} style={{ borderLeft: `4px solid ${c.important || (c.status !== "done" && c.due_date && dueState(c.due_date) === "over") ? "#e5484d" : c.status === "done" ? "#2e9e5b" : c.status === "doing" ? "#8fb8d8" : "#f59a2b"}` }}>
+                    <div className={`flex items-start justify-between gap-2 ${openId === c.id ? "" : ""}`}>
                       <p className={`text-sm font-medium leading-snug ${c.status === "done" ? "text-[#5e5e5e] line-through" : ""}`}>{c.title}</p>
                       <AssignChip who={splitAssign(c.notes).who} />
-                      <span className={`pm-chip flex-none bg-white ${c.status === "doing" ? "orange" : ""}`}>{c.created_by === "Natalie" ? "Nat" : c.created_by?.split(" ")[0] ?? "·"}</span>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
                       <span className={`pm-chip ${c.important ? "orange" : ""} flex-none`} style={c.important ? { background: "rgba(229,72,77,.12)", color: "#c53030" } : { background: "rgba(13,28,52,.07)", color: "#0d1c34" }}>
@@ -1766,30 +1777,37 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone, autoAddUrgen
                     <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/80">
                       <span className="block h-full rounded-full transition-all" style={{ width: c.status === "done" ? "100%" : c.status === "doing" ? "50%" : "8%", background: c.status === "done" ? "#2e9e5b" : c.status === "doing" ? "#f59a2b" : "#c9ced6" }} />
                     </div>
-                    {c.important ? <span className="pm-urgent-chip mt-1.5"><Flag className="h-3 w-3" /> Important</span> : null}
-                    {c.status !== "done" && c.due_date && dueState(c.due_date) === "over" ? <span className="pm-urgent-chip mt-1.5" style={{ background: "#fdecec", color: "#c53030" }}><CalendarDays className="h-3 w-3" /> Overdue</span> : null}
-                    {splitAssign(c.notes).rest ? <p className="clamp2 mt-1.5 text-xs text-[#5e5e5e]">{splitAssign(c.notes).rest}</p> : null}
-                    <div className="pm-taskactions mt-3 flex items-center gap-1 border-t border-[#e6e8ea] pt-2.5">
-                      {c.status !== "done" && (
-                        <button type="button" aria-label="Tick off · mark completed" title="Tick off · mark completed" className="pm-tickbtn" onClick={() => act({ type: "cardEdit", id: c.id, status: "done", actor: viewer }, "Ticked off · moved to Completed")}><Check className="h-3.5 w-3.5" /></button>
-                      )}
-                      <IconBtn label="Move left" onClick={() => nudge(c, -1)} disabled={c.status === "todo"}><ArrowLeft className="h-3.5 w-3.5" /></IconBtn>
-                      <IconBtn label="Move right" onClick={() => nudge(c, 1)} disabled={c.status === "done"}><ArrowRight className="h-3.5 w-3.5" /></IconBtn>
-                      <IconBtn label={c.important ? "Remove important flag" : "Mark as important"} onClick={() => act({ type: "cardEdit", id: c.id, important: !c.important, actor: viewer }, c.important ? "Important flag removed" : "Marked as important")}><Flag className={`h-3.5 w-3.5 ${c.important ? "pm-flag-on" : ""}`} /></IconBtn>
-                      <IconBtn label="Edit task" onClick={() => setEditing(c)}><Pencil className="h-3.5 w-3.5" /></IconBtn>
-                      <span className="ml-auto text-[10px] text-[#9aa0a6]">{c.updated_at ? relDay(c.updated_at) : ""}</span>
-                      <IconBtn label="Delete task" danger={confirmDel === c.id} onClick={() => {
-                        if (confirmDel === c.id) { act({ type: "cardDelete", id: c.id, actor: viewer }, "Task removed"); setConfirmDel(null); }
-                        else { setConfirmDel(c.id); setTimeout(() => setConfirmDel((k) => (k === c.id ? null : k)), 2600); }
-                      }}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
-                    </div>
-                    {Array.isArray(c.files) && c.files.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {(c.files as Any[]).map((f: Any, k: number) => (
-                          <button key={k} type="button" className="pm-filechip" title={`Download ${f.name}`} onClick={async () => { const r = await act({ type: "cardFilesGet", id: c.id }); const m = (r?.files ?? []).find((x: Any) => x?.name === f.name); if (m?.dataUri) openFileHref(m.dataUri, m.name); }}><Paperclip className="h-3 w-3 flex-none" /><span className="max-w-36 truncate">{f.name}</span></button>
-                        ))}
+                    <div className={`pm-task-more ${openId === c.id ? "open" : ""}`} onClick={(e) => e.stopPropagation()}>
+                      <div>
+                        <div className="pt-2.5">
+                          {c.important ? <span className="pm-urgent-chip"><Flag className="h-3 w-3" /> Important</span> : null}
+                          {c.status !== "done" && c.due_date && dueState(c.due_date) === "over" ? <span className="pm-urgent-chip" style={{ background: "#fdecec", color: "#c53030" }}><CalendarDays className="h-3 w-3" /> Overdue</span> : null}
+                          {c.status !== "done" && c.due_date && dueState(c.due_date) !== "over" ? <span className="pm-chip"><CalendarDays className="h-3 w-3" /> Due {fmtDue(c.due_date)}</span> : null}
+                          {splitAssign(c.notes).rest ? <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-[#5e5e5e]">{splitAssign(c.notes).rest}</p> : null}
+                          {Array.isArray(c.files) && c.files.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {(c.files as Any[]).map((f: Any, kk: number) => (
+                                <button key={kk} type="button" className="pm-filechip" title={`Download ${f.name}`} onClick={async () => { const r = await act({ type: "cardFilesGet", id: c.id }); const m = (r?.files ?? []).find((x: Any) => x?.name === f.name); if (m?.dataUri) openFileHref(m.dataUri, m.name); }}><Paperclip className="h-3 w-3 flex-none" /><span className="max-w-36 truncate">{f.name}</span></button>
+                              ))}
+                            </div>
+                          )}
+                          <div className="pm-taskactions mt-3 flex items-center gap-1 border-t border-[#e6e8ea] pt-2.5">
+                            {c.status !== "done" && (
+                              <button type="button" aria-label="Tick off · mark completed" title="Tick off · mark completed" className="pm-tickbtn" onClick={() => act({ type: "cardEdit", id: c.id, status: "done", actor: viewer }, "Ticked off · moved to Completed")}><Check className="h-3.5 w-3.5" /></button>
+                            )}
+                            <IconBtn label="Move left" onClick={() => nudge(c, -1)} disabled={c.status === "todo"}><ArrowLeft className="h-3.5 w-3.5" /></IconBtn>
+                            <IconBtn label="Move right" onClick={() => nudge(c, 1)} disabled={c.status === "done"}><ArrowRight className="h-3.5 w-3.5" /></IconBtn>
+                            <IconBtn label={c.important ? "Remove important flag" : "Mark as important"} onClick={() => act({ type: "cardEdit", id: c.id, important: !c.important, actor: viewer }, c.important ? "Important flag removed" : "Marked as important")}><Flag className={`h-3.5 w-3.5 ${c.important ? "pm-flag-on" : ""}`} /></IconBtn>
+                            <IconBtn label="Edit task" onClick={() => setEditing(c)}><Pencil className="h-3.5 w-3.5" /></IconBtn>
+                            <span className="ml-auto text-[10px] text-[#9aa0a6]">{c.updated_at ? relDay(c.updated_at) : ""}</span>
+                            <IconBtn label="Delete task" danger={confirmDel === c.id} onClick={() => {
+                              if (confirmDel === c.id) { act({ type: "cardDelete", id: c.id, actor: viewer }, "Task removed"); setConfirmDel(null); }
+                              else { setConfirmDel(c.id); setTimeout(() => setConfirmDel((k2) => (k2 === c.id ? null : k2)), 2600); }
+                            }}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+                          </div>
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 ))}
               </div>

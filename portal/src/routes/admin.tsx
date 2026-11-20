@@ -16,7 +16,7 @@ import { StatusBadge } from "@/components/common";
 import { supabase } from "@/integrations/supabase/client";
 import { portalAction, getPortal } from "@/lib/portal.functions";
 import { downloadInvoicePdf } from "@/lib/invoice-pdf";
-import { Dashboard, Board, TasksTab, InvoiceSheet, PM_STYLES, TAB_ICONS } from "@/components/portal/PMPortal";
+import { Dashboard, Board, TasksTab, CasesTab, InvoiceSheet, PM_STYLES, TAB_ICONS } from "@/components/portal/PMPortal";
 import { InvoiceDocument } from "@/components/portal/InvoiceDocument";
 import { effectiveStatus, fmtDate, invoiceTotals, money, type LineItem } from "@/lib/format";
 import { fmtMinsLabel, londonDayKey } from "@/lib/admin-utils";
@@ -153,8 +153,9 @@ function AdminShell({ act, data, onSignOut }: Any) {
   const maxWeek = Math.max(60, ...weeks.map((w) => w.mins));
   const tabs = [
     { v: "dashboard", l: "Dashboard" },
-    { v: "board", l: "To-Do Board" },
     { v: "tasks", l: "Tasks" },
+    { v: "cases", l: "Cases" },
+    { v: "board", l: "To-Do Board" },
     { v: "time", l: "Time Tracking" },
     { v: "finance", l: "Finance" },
     { v: "availability", l: "Availability" },
@@ -210,6 +211,7 @@ function AdminShell({ act, data, onSignOut }: Any) {
         {tab === "dashboard" && <Dashboard p={data} stats={stats} weeks={weeks} maxWeek={maxWeek} rate={rate} unbilledMins={unbilledMins} running={running} viewer="Natalie" go={setTab as Any} act={act} onQuickAdd={() => { setAutoAdd(true); setTab("board"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />}
         {tab === "board" && <Board p={data} viewer="Natalie" act={act} go={(t: string) => setTab((t === "board" ? "board" : "time") as Any)} autoAdd={autoAdd} onAutoAddDone={() => setAutoAdd(false)} />}
         {tab === "tasks" && <TasksTab p={data} viewer="Natalie" act={act} />}
+        {tab === "cases" && <CasesTab p={data} viewer="Natalie" act={act} />}
         {tab === "time" && <AdminTime act={act} entries={entries} running={running} cards={cards} unbilledMins={unbilledMins} rate={rate} />}
         {tab === "finance" && <Finance act={act} invoices={invoices} entries={doneEntries} unbilledMins={unbilledMins} rate={rate} client={data.client} board={cards} />}
         {tab === "availability" && <Availability act={act} />}
