@@ -283,6 +283,7 @@ const PM_STYLES = `
 .pm .pm-btn:hover { background: var(--pm-navy2) !important; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(13,28,52,.25); }
 .pm .pm-btn-orange { background: var(--pm-orange) !important; color: #3d2400 !important; border-radius: 999px !important; font-weight: 500 !important; font-size: .875rem !important; transition: background .15s ease, transform .15s ease, box-shadow .15s ease !important; }
 .pm .pm-btn-orange:hover { background: var(--pm-orange-deep) !important; color: #fff !important; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(217,116,6,.30); }
+.pm .pm-btn-sm { font-size: .76rem !important; padding-left: .7rem !important; padding-right: .7rem !important; gap: .3rem; }
 .pm .pm-filebtn { display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; border: 1px solid var(--pm-line); background: #fff; color: var(--pm-ink); font-size: .74rem; font-weight: 600; padding: .35rem .85rem; transition: border-color .15s ease, box-shadow .15s ease, color .15s ease; cursor: pointer; }
 .pm .pm-filebtn:hover { border-color: var(--pm-orange); color: var(--pm-orange-deep); box-shadow: 0 4px 14px rgba(217,116,6,.16); }
 .pm .pm-trow { transition: background .15s ease; }
@@ -663,9 +664,9 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
               <Square className="h-4 w-4" /> Stop timer
             </Button>
           )}
-          <div className="mt-4 grid w-full grid-cols-2 gap-2">
-            <Button type="button" className="pm-btn h-9" onClick={() => setQtOpen(true)}><Plus className="h-4 w-4" /> Quick Add Time</Button>
-            <Button type="button" className="pm-btn-orange h-9" onClick={() => (onQuickAdd ? onQuickAdd() : go("board"))}><ClipboardList className="h-4 w-4" /> Log Task</Button>
+          <div className="mt-4 grid w-full grid-cols-2 gap-1.5">
+            <Button type="button" className="pm-btn pm-btn-sm h-9" onClick={() => setQtOpen(true)}><Plus className="h-3.5 w-3.5" /> Quick Add Time</Button>
+            <Button type="button" className="pm-btn-orange pm-btn-sm h-9" onClick={() => (onQuickAdd ? onQuickAdd() : go("board"))}><ClipboardList className="h-3.5 w-3.5" /> Log Task</Button>
           </div>
           <Dialog open={qtOpen} onOpenChange={setQtOpen}>
             <DialogContent className="max-w-sm">
