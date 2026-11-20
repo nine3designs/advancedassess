@@ -134,6 +134,7 @@ type Action =
   | { type: "caseDelete"; id: string }
   | { type: "caseSave"; id: string; key: string; content: string }
   | { type: "caseCheck"; id: string; key: string; done: boolean }
+  | { type: "caseMald"; id: string; item: number; who: string; colour?: string; notes?: string }
   | { type: "caseNoteAdd"; id: string; text: string }
   | { type: "caseNoteDelete"; id: string; noteId: string }
   | { type: "caseLogAdd"; id: string; date: string; hours: number; note?: string }
@@ -607,6 +608,17 @@ export const portalAction = createServerFn({ method: "POST" })
       if (a.type === "caseCheck") return await mutate(String(a.id), (c: Any) => {
         c.checks = c.checks ?? {};
         c.checks[String(a.key).slice(0, 60)] = !!a.done;
+        return c;
+      });
+      if (a.type === "caseMald") return await mutate(String(a.id), (c: Any) => {
+        c.mald = c.mald ?? {};
+        const i = String(Math.max(0, Math.min(200, Number(a.item) || 0)));
+        const e = c.mald[i] ?? {};
+        const who = a.who === "dad" ? "dad" : a.who === "all" ? "all" : "mum";
+        const slot = (e[who] = e[who] ?? {});
+        if (a.colour != null) slot.colour = ["green", "amber", "red", ""].includes(String(a.colour)) ? String(a.colour) : "";
+        if (a.notes != null) slot.notes = String(a.notes).slice(0, 5000);
+        c.mald[i] = e;
         return c;
       });
       if (a.type === "caseNoteAdd") {

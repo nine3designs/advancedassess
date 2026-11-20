@@ -192,13 +192,13 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     { v: "time", l: "Time & Invoices" },
   ] : [
     { v: "dashboard", l: "Dashboard" },
-    { v: "board", l: "Tasks Board" },
     { v: "mytodo", l: "My To Do" },
+    { v: "cases", l: "Cases" },
+    { v: "board", l: "Tasks Board" },
     { v: "cal", l: "Calendar" },
     { v: "time", l: "Invoices" },
     { v: "mileage", l: "Mileage" },
     { v: "notes", l: "Notes" },
-    { v: "cases", l: "Cases" },
   ];
 
   const first = (p.client.name ?? "").split(" ")[0] || "there";
@@ -277,8 +277,8 @@ export const PM_STYLES = `
 .pm { display: flex; min-height: 100vh; }
 .pm .pm-side { position: fixed; top: 0; bottom: 0; left: 0; z-index: 60; width: 15.5rem; display: flex; flex-direction: column; background: linear-gradient(180deg, #0d1c34 0%, #101f3b 100%); border-right: 1px solid rgba(255,255,255,.08); box-shadow: 20px 0 60px rgba(13,28,52,.18); transform: translateX(-105%); transition: transform .28s cubic-bezier(.4,0,.2,1); }
 .pm .pm-side.open { transform: none; box-shadow: 30px 0 80px rgba(13,28,52,.45); }
-.pm .pm-side-head { display: flex; align-items: center; height: 4.4rem; padding: 0 1.4rem; border-bottom: 1px solid rgba(255,255,255,.08); flex: none; }
-.pm .pm-side-head img { height: 1.5rem; width: auto; max-width: 11rem; }
+.pm .pm-side-head { display: flex; align-items: center; height: auto; min-height: 4.4rem; padding: 1rem 1.1rem; border-bottom: 1px solid rgba(255,255,255,.08); flex: none; }
+.pm .pm-side-head img { height: 4.5rem; width: auto; max-width: 13.4rem; }
 .pm .pm-brand-fallback { color: #fff; font-size: .8rem; font-weight: 600; letter-spacing: .08em; }
 .pm .pm-side-nav { flex: 1; overflow-y: auto; padding: 1rem .8rem; display: flex; flex-direction: column; gap: .2rem; }
 .pm .pm-side-item { position: relative; display: flex; align-items: center; gap: .7rem; border-radius: .8rem; padding: .68rem .9rem; font-size: .875rem; font-weight: 500; color: rgba(255,255,255,.72); transition: background .15s ease, color .15s ease; text-align: left; }
@@ -291,8 +291,8 @@ export const PM_STYLES = `
 .pm .pm-content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .pm .pm-topbar { display: flex; align-items: center; gap: .8rem; position: sticky; top: 0; z-index: 40; background: rgba(255,255,255,.86); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: .7rem 1rem; border-bottom: 1px solid var(--pm-line); }
 .pm .pm-topbar-title { font-size: .95rem; font-weight: 600; color: var(--pm-navy); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pm .pm-topbar-badge { display: inline-flex; align-items: center; background: var(--pm-navy); border-radius: 999px; height: 2.2rem; padding: 0 .9rem; flex: none; }
-.pm .pm-topbar-badge img { height: 1.1rem; width: auto; max-width: 130px; }
+.pm .pm-topbar-badge { display: inline-flex; align-items: center; background: var(--pm-navy); border-radius: 999px; height: auto; padding: .5rem .9rem; flex: none; }
+.pm .pm-topbar-badge img { height: 3.3rem; width: auto; max-width: 360px; }
 .pm .pm-burger { display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: .9rem; background: var(--pm-navy); color: #fff; border: none; flex: none; cursor: pointer; }
 .pm .pm-scrim { position: fixed; inset: 0; z-index: 55; background: rgba(13,28,52,.45); border: none; cursor: pointer; }
 @media (min-width: 1024px) {
@@ -303,12 +303,12 @@ export const PM_STYLES = `
 }
 .pm .pm-dark h2 { color: var(--pm-orange); }
 .pm .pm-col { background: linear-gradient(180deg, #ffffff 0%, #f4f6f8 100%); border: 1px solid var(--pm-line); border-top-width: 4px; box-shadow: 0 2px 6px rgba(13,28,52,.05), 0 14px 30px rgba(13,28,52,.07); }
-.pm .pm-col:nth-child(1) { border-top-color: var(--pm-navy); }
+.pm .pm-col:nth-child(1) { border-top-color: #2e9e5b; }
 .pm .pm-col:nth-child(2) { border-top-color: var(--pm-orange); }
-.pm .pm-col:nth-child(3) { border-top-color: #3f7d4e; }
-.pm .pm-col:nth-child(1) .pm-chip { background: rgba(13,28,52,.10); color: var(--pm-navy); }
+.pm .pm-col:nth-child(3) { border-top-color: #e5484d; }
+.pm .pm-col:nth-child(1) .pm-chip { background: rgba(46,158,91,.14); color: #1d6b3a; }
 .pm .pm-col:nth-child(2) .pm-chip { background: rgba(245,154,43,.18); color: #a35803; }
-.pm .pm-col:nth-child(3) .pm-chip { background: rgba(63,125,78,.14); color: #2c5e39; }
+.pm .pm-col:nth-child(3) .pm-chip { background: rgba(229,72,77,.14); color: #a3262b; }
 .pm .pm-col .pm-task { box-shadow: 0 1px 2px rgba(13,28,52,.08); }
 .pm .pm-main { width: 100%; max-width: 68rem; margin: 0 auto; padding: 1.6rem 1.4rem 0; }
 .pm .pm-foot { max-width: 64rem; margin: 0 auto; padding: 2.2rem 1rem 2rem; text-align: center; font-size: .72rem; color: #9aa1a9; }
@@ -377,9 +377,9 @@ export const PM_STYLES = `
 .pm .pm-boardwrap { background: linear-gradient(135deg, #dce4ec 0%, #edf0f3 52%, #e9e2d6 100%); border-radius: 1.6rem; padding: 1rem; }
 @media (min-width: 768px) { .pm .pm-boardwrap { padding: 1.25rem; } }
 .pm .pm-col { background: rgba(255,255,255,.55) !important; backdrop-filter: blur(14px) saturate(1.15); -webkit-backdrop-filter: blur(14px) saturate(1.15); border: 1px solid rgba(255,255,255,.78) !important; border-top-width: 4px !important; box-shadow: 0 10px 34px rgba(13,28,52,.10), inset 0 1px 0 rgba(255,255,255,.65) !important; }
-.pm .pm-col:nth-child(1) { border-top-color: var(--pm-navy) !important; }
+.pm .pm-col:nth-child(1) { border-top-color: #2e9e5b !important; }
 .pm .pm-col:nth-child(2) { border-top-color: var(--pm-orange) !important; }
-.pm .pm-col:nth-child(3) { border-top-color: #3f7d4e !important; }
+.pm .pm-col:nth-child(3) { border-top-color: #e5484d !important; }
 .pm .pm-tickbtn { display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; border-radius: .55rem; border: 1.5px solid #cfd5db; background: #fff; color: #9aa0a6; transition: all .15s ease; }
 .pm .pm-tickbtn:hover { background: #3f7d4e; border-color: #3f7d4e; color: #fff; box-shadow: 0 3px 10px rgba(63,125,78,.3); }
 .pm .pm-task.important { background: #fff7ed; box-shadow: 0 1px 2px rgba(217,116,6,.10), 0 4px 14px rgba(217,116,6,.10); border-left: 4px solid var(--pm-orange); border-top-left-radius: .4rem; border-bottom-left-radius: .4rem; }
@@ -1045,6 +1045,79 @@ function caseProgress(c: Any) {
   return { done, total: CASE_CHECKLIST.length };
 }
 
+function daysUntil(d: string) {
+  if (!d) return 0;
+  const f = new Date(d + "T00:00:00");
+  const t = new Date();
+  const today = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  return Math.round((f.getTime() - today.getTime()) / 86400000);
+}
+
+const MALD_COLOURS = [
+  { k: "green", bg: "#e7f5ec", solid: "#2e9e5b", text: "#1d6b3a" },
+  { k: "amber", bg: "#fdf3e0", solid: "#f59a2b", text: "#a35803" },
+  { k: "red", bg: "#fdeaea", solid: "#e5484d", text: "#a3262b" },
+];
+
+function ColourDot({ k }: Any) {
+  const c = MALD_COLOURS.find((x) => x.k === k);
+  if (!c) return null;
+  return <span className="pm-dot" style={{ background: c.solid }} />;
+}
+
+function NotesBox({ initial, onSave }: Any) {
+  const [v, setV] = useState(initial ?? "");
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="mt-2">
+      <textarea value={v} onChange={(e: Any) => setV(e.target.value)} rows={3} placeholder="Summary of what was said…" className="w-full rounded-xl border border-[#d5dade] bg-white p-3 text-sm text-[#0d1c34] outline-none focus:border-[#f59a2b]" />
+      <button type="button" disabled={busy} onClick={async () => { setBusy(true); await onSave(v); setBusy(false); }} className="pm-btn mt-2 h-8 px-3 text-xs">{busy ? "Saving…" : "Save summary"}</button>
+    </div>
+  );
+}
+
+function ChecklistItem({ item, i, c, act }: Any) {
+  const [open, setOpen] = useState(false);
+  const [who, setWho] = useState("mum");
+  const on = !!c.checks?.[`check:${i}`];
+  const isParentItem = i >= 9 && i <= 30;
+  const mald = c.mald?.[String(i)] ?? {};
+  const slotKey = isParentItem ? who : "all";
+  const slot = mald[slotKey] ?? {};
+  const save = async (patch: Any) => { await act({ type: "caseMald", id: c.id, item: i, who: slotKey, ...patch }); };
+  return (
+    <li className="rounded-xl border border-transparent transition-colors hover:border-[#e6e8ea]">
+      <div className="flex items-center gap-1">
+        <button type="button" aria-pressed={on} onClick={async () => { await act({ type: "caseCheck", id: c.id, key: `check:${i}`, done: !on }); }} className="pm-check-row w-full">
+          <span className={`box ${on ? "on" : ""}`}><Check className="h-3.5 w-3.5" /></span>
+          <span className={`min-w-0 flex-1 text-left text-sm ${on ? "text-[#9aa0a6] line-through" : "font-medium"}`}>{item}</span>
+          {mald.all?.colour ? <ColourDot k={mald.all.colour} /> : null}
+          {mald.mum?.colour ? <ColourDot k={mald.mum.colour} /> : null}
+          {mald.dad?.colour ? <ColourDot k={mald.dad.colour} /> : null}
+        </button>
+        <button type="button" onClick={() => setOpen((o: boolean) => !o)} aria-expanded={open} className="flex-none rounded-full bg-[#eef0f2] px-2.5 py-1.5 text-[11px] font-semibold text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]">{open ? "Close" : "Colours & notes"}</button>
+      </div>
+      {open && (
+        <div className="border-t border-[#eef0f2] px-1 pb-3 pt-3">
+          {isParentItem && (
+            <div className="mb-2 flex gap-1.5">
+              {[{ k: "mum", l: "Mum" }, { k: "dad", l: "Dad" }].map((w) => (
+                <button key={w.k} type="button" onClick={() => setWho(w.k)} className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${who === w.k ? "bg-[#0d1c34] text-white" : "bg-[#eef0f2] text-[#0d1c34] hover:bg-[#e2e5e9]"}`}>{w.l}</button>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            {MALD_COLOURS.map((col) => (
+              <button key={col.k} type="button" onClick={() => save({ colour: col.k })} aria-pressed={slot.colour === col.k} className="rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all" style={slot.colour === col.k ? { background: col.solid, color: "#fff" } : { background: col.bg, color: col.text }}>{col.k.charAt(0).toUpperCase() + col.k.slice(1)}</button>
+            ))}
+          </div>
+          <NotesBox key={slotKey} initial={slot.notes} onSave={save} />
+        </div>
+      )}
+    </li>
+  );
+}
+
 function QaSection({ c, act, slot, label, hint }: Any) {
   const [date, setDate] = useState(String(c?.qa?.[`${slot}:date`] ?? ""));
   const [dateBusy, setDateBusy] = useState(false);
@@ -1114,6 +1187,7 @@ function FilingDateCard({ c, act }: Any) {
       </div>
       <p className="mt-1 text-xs text-[#5e5e5e]">When this assessment is due to be filed · will drive dashboard countdowns later</p>
       <Input type="date" value={date} onChange={async (e: Any) => { const v = e.target.value; setDate(v); setBusy(true); await act({ type: "caseSave", id: c.id, key: "filing_date", content: v }, "Filing date saved"); setBusy(false); }} className="mt-3 h-10 max-w-52" />
+      {date ? <p className="mt-2 text-xs font-semibold" style={{ color: daysUntil(date) < 0 ? "#a3262b" : "#0d1c34" }}>Days until filing: {daysUntil(date) < 0 ? `filed ${Math.abs(daysUntil(date))} days ago` : daysUntil(date)}</p> : null}
     </div>
   );
 }
@@ -1241,18 +1315,11 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
                 <span className="pm-chip">{prog.done}/{prog.total} complete</span>
               </div>
               <div className="pm-case-progress mt-3"><span style={{ width: `${prog.total ? Math.round((prog.done / prog.total) * 100) : 0}%` }} /></div>
-              <ul className="mt-4 space-y-1">
-                {CASE_CHECKLIST.map((item: string, i: number) => {
-                  const on = !!c.checks?.[`check:${i}`];
-                  return (
-                    <li key={i}>
-                      <button type="button" aria-pressed={on} onClick={async () => { await act({ type: "caseCheck", id: c.id, key: `check:${i}`, done: !on }); }} className="pm-check-row w-full">
-                        <span className={`box ${on ? "on" : ""}`}><Check className="h-3.5 w-3.5" /></span>
-                        <span className={`min-w-0 flex-1 text-left text-sm ${on ? "text-[#9aa0a6] line-through" : "font-medium"}`}>{item}</span>
-                      </button>
-                    </li>
-                  );
-                })}
+              <p className="mt-3 rounded-xl bg-[#eef0f2] px-3 py-2 text-[11px] text-[#5e5e5e]">Tap "Colours &amp; notes" on a section to record Green / Amber / Red and a summary of what was said — parent sections have Mum and Dad tabs.</p>
+              <ul className="mt-3 space-y-1">
+                {CASE_CHECKLIST.map((item: string, i: number) => (
+                  <ChecklistItem key={i} item={item} i={i} c={c} act={act} />
+                ))}
               </ul>
             </div>
           )}
@@ -1381,6 +1448,7 @@ export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
                   </div>
                   <div className="pm-case-progress mt-1"><span style={{ width: `${prog.total ? Math.round((prog.done / prog.total) * 100) : 0}%` }} /></div>
                 </div>
+                {c.filing_date ? <div className="mt-2 flex items-center justify-between text-[11px] text-[#5e5e5e]"><span>Days until filing</span><span className="font-semibold" style={{ color: daysUntil(c.filing_date) < 0 ? "#a3262b" : "#0d1c34" }}>{daysUntil(c.filing_date) < 0 ? `Filed ${Math.abs(daysUntil(c.filing_date))}d ago` : daysUntil(c.filing_date)}</span></div> : null}
                 {expandAll && notes.length > 0 ? (
                   <div className="mt-3 border-t border-[#e6e8ea] pt-3">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-[#5e5e5e]">Latest note</p>
