@@ -185,6 +185,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     { v: "time", l: "Invoices" },
     { v: "mileage", l: "Mileage" },
     { v: "notes", l: "Notes" },
+    { v: "cases", l: "Cases" },
   ];
 
   const first = (p.client.name ?? "").split(" ")[0] || "there";
