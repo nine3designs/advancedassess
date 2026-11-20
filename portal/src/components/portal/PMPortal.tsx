@@ -1097,6 +1097,7 @@ const CASE_CHECKLIST = [
   "Working with professionals", "Health", "Emotional and Behavioural Development", "Identity Family and Social Relationships",
   "Social presentation and self care skills", "Parenting Capacity - basic care", "Ensuring safety and managing risk",
   "Emotional Warmth", "Stimulation", "Guidance and Boundaries", "Stability", "Answers to questions from instruction", "Declaration",
+  "Photos taken in family time and attached to report",
 ];
 
 function caseProgress(c: Any) {
@@ -1110,6 +1111,13 @@ function daysUntil(d: string) {
   const t = new Date();
   const today = new Date(t.getFullYear(), t.getMonth(), t.getDate());
   return Math.round((f.getTime() - today.getTime()) / 86400000);
+}
+
+function filingTone(d: string) {
+  const n = daysUntil(d);
+  if (n <= 20) return { c: "#a3262b", bg: "rgba(229,72,77,.16)", label: "Red" };
+  if (n <= 35) return { c: "#a35803", bg: "rgba(245,154,43,.2)", label: "Amber" };
+  return { c: "#1d6b3a", bg: "rgba(46,158,91,.16)", label: "Green" };
 }
 
 const MALD_COLOURS = [
@@ -1245,8 +1253,11 @@ function FormKCard({ c, act }: Any) {
   return (
     <div className="pm-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-lg font-semibold">Form K</h3>
-        <button type="button" aria-pressed={!!c.form_k} onClick={async () => { await act({ type: "caseSave", id: c.id, key: "form_k", content: c.form_k ? "" : "1" }, c.form_k ? "Form K removed from case" : "Marked as Form K assessment"); }} className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${c.form_k ? "bg-[#0d1c34] text-white" : "bg-[#eef0f2] text-[#0d1c34] hover:bg-[#e2e5e9]"}`}>{c.form_k ? "Form K assessment ✓" : "Mark as Form K"}</button>
+        <h3 className="text-lg font-semibold">Assessment type</h3>
+        <select value={c.form_k ? "formk" : "mald"} onChange={async (e: Any) => { await act({ type: "caseSave", id: c.id, key: "form_k", content: e.target.value === "formk" ? "1" : "" }, e.target.value === "formk" ? "Switched to Form K assessment" : "Switched to MALD assessment"); }} className="h-10 rounded-md border border-input bg-transparent px-3 text-sm font-medium">
+          <option value="mald">MALD assessment</option>
+          <option value="formk">Form K assessment</option>
+        </select>
       </div>
       {c.form_k ? (
         <ul className="mt-3 space-y-2">
@@ -1261,7 +1272,7 @@ function FormKCard({ c, act }: Any) {
             );
           })}
         </ul>
-      ) : <p className="mt-2 text-xs italic text-[#9aa0a6]">Not a Form K assessment · tap "Mark as Form K" to switch on the checks.</p>}
+      ) : <p className="mt-2 text-xs italic text-[#9aa0a6]">MALD assessment · the full framework checklist lives under Checklists.</p>}
     </div>
   );
 }
@@ -1277,7 +1288,7 @@ function FilingDateCard({ c, act }: Any) {
       </div>
       <p className="mt-1 text-xs text-[#5e5e5e]">When this assessment is due to be filed · will drive dashboard countdowns later</p>
       <Input type="date" value={date} onChange={async (e: Any) => { const v = e.target.value; setDate(v); setBusy(true); await act({ type: "caseSave", id: c.id, key: "filing_date", content: v }, "Filing date saved"); setBusy(false); }} className="mt-3 h-10 max-w-52" />
-      {date ? <p className="mt-2 text-xs font-semibold" style={{ color: daysUntil(date) < 0 ? "#a3262b" : "#0d1c34" }}>Days until filing: {daysUntil(date) < 0 ? `filed ${Math.abs(daysUntil(date))} days ago` : daysUntil(date)}</p> : null}
+      {date ? (() => { const t = filingTone(date); return <span className="pm-chip mt-3 inline-flex" style={{ background: t.bg, color: t.c }}>Days until filing: {daysUntil(date) < 0 ? `filed ${Math.abs(daysUntil(date))} days ago` : `${daysUntil(date)} days · ${t.label}`}</span>; })() : null}
     </div>
   );
 }
@@ -1399,10 +1410,17 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
           {sel === "details" && <SectionEditor c={c} act={act} skey="details" label="Basic Details & Contact Info" hint="Names, ages, addresses, contact details, who's who in the family" rows={12} />}
           {sel === "dates" && <DateBoxes c={c} act={act} />}
 
-          {sel === "checklists" && (
+          {sel === "checklists" && c.form_k && (
+            <div className="pm-card p-5">
+              <h3 className="text-lg font-semibold">Form K assessment</h3>
+              <p className="mt-2 rounded-xl bg-[#eef0f2] px-3 py-2 text-[11px] text-[#5e5e5e]">This is a Form K case · the DBS / Medical / References checks live on Case Home, so the MALD framework checklist is hidden here.</p>
+            </div>
+          )}
+
+          {sel === "checklists" && !c.form_k && (
             <div className="pm-card p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-lg font-semibold">Assessment checklist</h3>
+                <h3 className="text-lg font-semibold">MALD checklist</h3>
                 <span className="pm-chip">{prog.done}/{prog.total} complete</span>
               </div>
               <div className="pm-case-progress mt-3"><span style={{ width: `${prog.total ? Math.round((prog.done / prog.total) * 100) : 0}%` }} /></div>
@@ -1530,7 +1548,10 @@ export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
               <div key={c.id} className="pm-card p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-base font-semibold">{c.title}</h3>
-                  <span className={`pm-chip ${c.assigned === "Jermaine" ? "navy" : "orange"}`}>{c.assigned === "Jermaine" ? "Jermaine" : "Sara"}</span>
+                  <span className="flex flex-none flex-wrap gap-1.5">
+                    <span className="pm-chip line">{c.form_k ? "Form K" : "MALD"}</span>
+                    <span className={`pm-chip ${c.assigned === "Jermaine" ? "navy" : "orange"}`}>{c.assigned === "Jermaine" ? "Jermaine" : "Sara"}</span>
+                  </span>
                 </div>
                 {(expandAll || !c.info) ? null : <p className="clamp2 mt-1.5 text-xs text-[#5e5e5e]">{c.info}</p>}
                 {expandAll && c.info ? <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[#4b5563]">{c.info}</p> : null}
@@ -1540,7 +1561,7 @@ export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
                   </div>
                   <div className="pm-case-progress mt-1"><span style={{ width: `${prog.total ? Math.round((prog.done / prog.total) * 100) : 0}%` }} /></div>
                 </div>
-                {c.filing_date ? <div className="mt-2 flex items-center justify-between text-[11px] text-[#5e5e5e]"><span>Days until filing</span><span className="font-semibold" style={{ color: daysUntil(c.filing_date) < 0 ? "#a3262b" : "#0d1c34" }}>{daysUntil(c.filing_date) < 0 ? `Filed ${Math.abs(daysUntil(c.filing_date))}d ago` : daysUntil(c.filing_date)}</span></div> : null}
+                {c.filing_date ? (() => { const t = filingTone(c.filing_date); return <div className="mt-2 flex items-center justify-between text-[11px]"><span className="text-[#5e5e5e]">Days until filing</span><span className="pm-chip" style={{ background: t.bg, color: t.c }}>{daysUntil(c.filing_date) < 0 ? `Filed ${Math.abs(daysUntil(c.filing_date))}d ago` : `${daysUntil(c.filing_date)} · ${t.label}`}</span></div>; })() : null}
                 {expandAll && notes.length > 0 ? (
                   <div className="mt-3 border-t border-[#e6e8ea] pt-3">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-[#5e5e5e]">Latest note</p>
@@ -1574,10 +1595,10 @@ export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label>Assessment type</Label>
+              <Label>Assessment type · sections below change to match</Label>
               <select value={aType} onChange={(e: Any) => setAType(e.target.value)} className="h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm">
-                <option value="standard">Standard assessment</option>
-                <option value="formk">Form K</option>
+                <option value="standard">MALD assessment</option>
+                <option value="formk">Form K assessment</option>
               </select>
             </div>
             <Button type="button" className="pm-btn-orange h-10 w-full" disabled={busy} onClick={addCase}>{busy ? "Creating…" : "Create case"}</Button>
