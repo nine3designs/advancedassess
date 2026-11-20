@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Wordmark } from "@/components/portal/Wordmark";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -166,7 +165,7 @@ function AdminShell({ act, data, onSignOut }: Any) {
       <style>{PM_STYLES}</style>
       <aside className={`pm-side ${menuOpen ? "open" : ""}`} aria-label="Workspace sections">
         <div className="pm-side-head">
-          <Wordmark variant="inline" />
+          <img src="/branding/sara-logo.png" alt="Advanced Assessment & Solutions" />
         </div>
         <nav className="pm-side-nav">
           {tabs.map((t) => {
@@ -194,7 +193,7 @@ function AdminShell({ act, data, onSignOut }: Any) {
             <Menu className="h-5 w-5" />
           </button>
           <span className="pm-topbar-title">{tabs.find((t) => t.v === tab)?.l ?? "Dashboard"}</span>
-          <span className="pm-topbar-badge"><Wordmark variant="inline" /></span>
+          <span className="pm-topbar-badge"><img src="/branding/sara-logo.png" alt="" /></span>
         </div>
 
       <main className="pm-main">
