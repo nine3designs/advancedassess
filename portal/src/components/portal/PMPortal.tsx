@@ -710,8 +710,6 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
           : <Tile icon={<FileText className="h-5 w-5" />} label="Invoices" value={String(invNew.length)} sub={invNew.length ? "new to view" : "all caught up"} onClick={() => go("time")} />}
       </div>
 
-      {tasksDueBlock}
-
       {!isNat && (
         <div className="pm-card self-start p-6">
           <div>
@@ -742,6 +740,9 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
           </div>
         </div>
       )}
+
+      {tasksDueBlock}
+
 
       {isNat && (
       <div className="grid gap-5 lg:grid-cols-3">
@@ -1573,11 +1574,11 @@ function TravelTab({ c, act }: Any) {
           <span className="pm-circle orange"><Car className="h-4 w-4" /></span>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-12">
-          <div className="sm:col-span-4">
+          <div className="sm:col-span-6">
             <Label className="text-xs font-medium">What was done</Label>
             <Input placeholder="e.g. assessment session at Vernon's home - joint" value={activity} onChange={(e: Any) => setActivity(e.target.value)} className="mt-1.5 h-9 text-sm" />
           </div>
-          <div className="sm:col-span-2">
+          <div className="sm:col-span-3">
             <Label className="text-xs font-medium">Date</Label>
             <Input type="date" value={date} onChange={(e: Any) => setDate(e.target.value)} className="mt-1.5 h-9 text-sm" />
           </div>
@@ -1595,11 +1596,11 @@ function TravelTab({ c, act }: Any) {
               <Input type="number" min="0" max="59" placeholder="min" value={travM} onChange={(e: Any) => setTravM(e.target.value)} className="h-9 text-sm" />
             </div>
           </div>
-          <div className="sm:col-span-2">
+          <div className="sm:col-span-3">
             <Label className="text-xs font-medium">Miles by</Label>
-            <div className="mt-1.5 grid grid-cols-2 gap-1.5 rounded-xl bg-[#eef0f2] p-1">
-              <button type="button" onClick={() => setMode("manual")} className={`h-7 rounded-lg text-xs font-semibold transition-colors ${mode === "manual" ? "bg-[var(--pm-navy)] text-white" : "text-[#5e5e5e]"}`}>Manual</button>
-              <button type="button" onClick={() => setMode("route")} className={`h-7 rounded-lg text-xs font-semibold transition-colors ${mode === "route" ? "bg-[var(--pm-navy)] text-white" : "text-[#5e5e5e]"}`}>Postcodes</button>
+            <div className="mt-1.5 grid grid-cols-2 gap-1 rounded-xl bg-[#eef0f2] p-1">
+              <button type="button" onClick={() => setMode("manual")} className={`h-8 rounded-lg px-2 text-xs font-semibold transition-colors ${mode === "manual" ? "bg-[var(--pm-navy)] text-white shadow-sm" : "text-[#5e5e5e] hover:text-[#0d1c34]"}`}>Manual</button>
+              <button type="button" onClick={() => setMode("route")} className={`h-8 rounded-lg px-2 text-xs font-semibold transition-colors ${mode === "route" ? "bg-[var(--pm-navy)] text-white shadow-sm" : "text-[#5e5e5e] hover:text-[#0d1c34]"}`}>Postcodes</button>
             </div>
           </div>
           {mode === "manual" ? (
@@ -1633,11 +1634,10 @@ function TravelTab({ c, act }: Any) {
               </div>
             </>
           )}
-          <div className="flex items-end gap-2 sm:col-span-4">
+          <div className="flex items-end gap-2 sm:col-span-2">
             {mode === "route" ? <Button type="button" className="pm-btn h-9 px-3" disabled={calcBusy || busy} onClick={calcRoute}>{calcBusy ? "Working it out…" : calc ? "Recalculate" : "Work out miles"}</Button> : null}
             <div className="flex-1">
-              <Label className="text-xs font-medium opacity-0">.</Label>
-              <Button type="button" className="pm-btn-orange h-9 w-full px-3" disabled={busy} onClick={addRow}>{busy ? "Saving…" : "Add entry"}</Button>
+              <Button type="button" className="pm-btn-orange h-9 w-full whitespace-nowrap px-3" disabled={busy} onClick={addRow}>{busy ? "Saving…" : "Add entry"}</Button>
             </div>
           </div>
           {mode === "route" && calc ? <p className="sm:col-span-12 rounded-full bg-[rgba(245,154,43,.14)] px-3 py-1.5 text-xs font-semibold text-[#a35803]">{calc.miles} miles · {calc.from} to {calc.to} · {trip === "return" ? "return journey (distance is one-way · double the miles if there and back)" : "single journey"}</p> : null}
