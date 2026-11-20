@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpRight, ArrowLeft, ArrowRight, Bell, CalendarDays, Car, Check, ChevronLeft, ChevronRight, Circle, ClipboardList, Clock, FileDown, FileText, Flag, FolderOpen, LayoutDashboard, ListTodo, Menu, Paperclip, Pencil, Play, Plus, Square, StickyNote, Trash2, Upload, X } from "lucide-react";
+import { ArrowUpRight, ArrowLeft, ArrowRight, Bell, CalendarDays, Car, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, ClipboardList, Clock, FileDown, FileText, Flag, FolderOpen, LayoutDashboard, ListTodo, Menu, Paperclip, Pencil, Play, Plus, Square, StickyNote, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { downloadInvoicePdf, downloadNotesPdf } from "@/lib/invoice-pdf";
 import { Button } from "@/components/ui/button";
@@ -1118,6 +1118,12 @@ const CASE_CHECKLIST = [
   "Photos taken in family time and attached to report",
 ];
 
+const ENQ_GROUPS: { label: string; items: string[] }[] = [
+  { label: "READING", items: ["Health / medical documents", "Police records / disclosure", "Previous Court bundle/s", "Private law documents", "Social Care case files (if necessary)", "Read contact / Family Time records"] },
+  { label: "INTERVIEW - PROFESSIONALS", items: ["Social worker", "Health visitor", "Foster carers", "Family time supervisors", "School staff", "Nursery staff", "Family support worker"] },
+  { label: "SUPPORT NETWORK", items: ["Adult children", "Family members", "Friends"] },
+];
+
 const FORMK_CHECKLIST: { t: string; na?: boolean }[] = [
   { t: "Details about the child/ren" },
   { t: "Details about siblings", na: true },
@@ -1216,8 +1222,9 @@ function NotesBox({ initial, onSave }: Any) {
   );
 }
 
-function ChecklistItem({ item, i, c, act, na }: Any) {
+function ChecklistItem({ item, i, c, act, na, plain, enquiries }: Any) {
   const [open, setOpen] = useState(false);
+  const [enqOpen, setEnqOpen] = useState(false);
   const [who, setWho] = useState("mum");
   const val = c.checks?.[`check:${i}`];
   const on = val === true;
@@ -1239,8 +1246,42 @@ function ChecklistItem({ item, i, c, act, na }: Any) {
           {mald.dad?.colour ? <ColourDot k={mald.dad.colour} /> : null}
         </button>
         {na ? <button type="button" aria-pressed={naOn} onClick={() => act({ type: "caseCheck", id: c.id, key: `check:${i}`, done: false, na: !naOn })} className={`flex-none rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${naOn ? "bg-[#a35803] text-white" : "bg-[#eef0f2] text-[#0d1c34] hover:bg-[#f59a2b] hover:text-[#3d2400]"}`}>N/A</button> : null}
-        <button type="button" onClick={() => setOpen((o: boolean) => !o)} aria-expanded={open} className="flex-none rounded-full bg-[#eef0f2] px-2.5 py-1.5 text-[11px] font-semibold text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]">{open ? "Close" : "Colours & notes"}</button>
+        {enquiries ? (
+          <button type="button" onClick={() => setEnqOpen((o: boolean) => !o)} aria-expanded={enqOpen} className="flex-none rounded-full bg-[#eef0f2] px-2.5 py-1.5 text-[11px] font-semibold text-[#0d1c34] transition-colors hover:bg-[#e2e5e9]">{enqOpen ? "Hide list" : "Enquiries & interviews"}</button>
+        ) : null}
+        {!plain && !enquiries ? (
+          <button type="button" onClick={() => setOpen((o: boolean) => !o)} aria-expanded={open} className="flex-none rounded-full bg-[#eef0f2] px-2.5 py-1.5 text-[11px] font-semibold text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]">{open ? "Close" : "Colours & notes"}</button>
+        ) : null}
       </div>
+      {enquiries && enqOpen && (
+        <div className="border-t border-[#eef0f2] px-1 pb-3 pt-3">
+          <p className="px-1 pb-1 text-[11px] text-[#9aa0a6]">Tick each one off when it's complete · no colours here, just done or not done</p>
+          {ENQ_GROUPS.map((g: Any, gi: number) => {
+            const gDone = g.items.filter((_x: string, ii: number) => c.checks?.[`enq:${gi}:${ii}`] === true).length;
+            return (
+              <div key={g.label} className="mt-2 rounded-xl bg-[#fafbfc] p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold tracking-wide text-[#0d1c34]">{g.label}</p>
+                  <span className="pm-chip">{gDone}/{g.items.length}</span>
+                </div>
+                <ul className="mt-1.5 space-y-0.5">
+                  {g.items.map((it: string, ii: number) => {
+                    const on = c.checks?.[`enq:${gi}:${ii}`] === true;
+                    return (
+                      <li key={it}>
+                        <button type="button" aria-pressed={on} onClick={async () => { await act({ type: "caseCheck", id: c.id, key: `enq:${gi}:${ii}`, done: !on }); }} className="pm-check-row w-full">
+                          <span className={`box ${on ? "on" : ""}`}><Check className="h-3.5 w-3.5" /></span>
+                          <span className={`min-w-0 flex-1 text-left text-sm ${on ? "text-[#9aa0a6] line-through" : "font-medium"}`}>{it}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      )}
       {open && (
         <div className="border-t border-[#eef0f2] px-1 pb-3 pt-3">
           {isParentItem && (
@@ -1751,6 +1792,7 @@ function SectionEditor({ c, act, skey, label, hint, rows }: Any) {
 
 function CaseDetail({ c, act, viewer, onBack }: Any) {
   const [sel, setSel] = useState("home");
+  const [maldOpen, setMaldOpen] = useState(true);
   const [noteText, setNoteText] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
   const [logDate, setLogDate] = useState(new Date().toISOString().slice(0, 10));
@@ -1834,17 +1876,21 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
 
           {sel === "checklists" && !c.form_k && (
             <div className="pm-card p-5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              <button type="button" onClick={() => setMaldOpen((o: boolean) => !o)} aria-expanded={maldOpen} className="flex w-full flex-wrap items-center justify-between gap-2 text-left">
                 <h3 className="text-lg font-semibold">MALD checklist</h3>
-                <span className="pm-chip">{prog.done}/{prog.total} complete</span>
-              </div>
-              <div className="pm-case-progress mt-3"><span style={{ width: `${prog.total ? Math.round((prog.done / prog.total) * 100) : 0}%` }} /></div>
-              <p className="mt-3 rounded-xl bg-[#eef0f2] px-3 py-2 text-[11px] text-[#5e5e5e]">Tap "Colours &amp; notes" on a section to record Green / Amber / Red and a summary of what was said — parent sections have Mum and Dad tabs.</p>
-              <ul className="mt-3 space-y-1">
-                {CASE_CHECKLIST.map((item: string, i: number) => (
-                  <ChecklistItem key={i} item={item} i={i} c={c} act={act} />
-                ))}
-              </ul>
+                <span className="flex items-center gap-2"><span className="pm-chip">{prog.done}/{prog.total} complete</span><ChevronDown className={`h-4 w-4 text-[#5e5e5e] transition-transform ${maldOpen ? "" : "-rotate-90"}`} /></span>
+              </button>
+              {maldOpen && (
+                <>
+                  <div className="pm-case-progress mt-3"><span style={{ width: `${prog.total ? Math.round((prog.done / prog.total) * 100) : 0}%` }} /></div>
+                  <p className="mt-3 rounded-xl bg-[#eef0f2] px-3 py-2 text-[11px] text-[#5e5e5e]">"Enquiries &amp; interviews" opens the full list of reading and interviews to tick off. Sections from Education and Employment onwards also have "Colours &amp; notes" — Green / Amber / Red and a summary, with Mum and Dad tabs.</p>
+                  <ul className="mt-3 space-y-1">
+                    {CASE_CHECKLIST.map((item: string, i: number) => (
+                      <ChecklistItem key={i} item={item} i={i} c={c} act={act} plain={i <= 9} enquiries={i === 2} />
+                    ))}
+                  </ul>
+                </>
+              )}
             </div>
           )}
 
