@@ -152,7 +152,7 @@ function AdminShell({ act, data, onSignOut }: Any) {
   const maxWeek = Math.max(60, ...weeks.map((w) => w.mins));
   const tabs = [
     { v: "dashboard", l: "Dashboard" },
-    { v: "tasks", l: "Tasks" },
+    { v: "tasks", l: "My Tasks" },
     { v: "cases", l: "Cases" },
     { v: "board", l: "To-Do Board" },
     { v: "time", l: "Time Tracking" },
@@ -196,14 +196,13 @@ function AdminShell({ act, data, onSignOut }: Any) {
           <span className="pm-topbar-badge"><img src="/branding/sara-logo.png" alt="" /></span>
         </div>
 
-      <main className="pm-main">
+      <main className="pm-main" style={tab === "board" ? { maxWidth: "90rem" } : undefined}>
         <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-[1.65rem] font-semibold tracking-tight md:text-4xl">HQ Projects Portal</h1>
             <p className="mt-1 text-[1.65rem] font-semibold tracking-tight text-[var(--pm-orange)] md:text-4xl">Welcome back, Natalie</p>
           </div>
           <div className="flex items-center gap-2">
-            <a href="/portal/SaraDawson" className="pm-linkbtn">View Sara's portal</a>
             <button type="button" onClick={onSignOut} className="pm-linkbtn">Sign out</button>
           </div>
         </header>
