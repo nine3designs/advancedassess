@@ -25,7 +25,7 @@ const COLUMNS = [
 ] as const;
 type ColKey = (typeof COLUMNS)[number]["key"];
 
-const TAB_ICONS: Record<string, Any> = {
+export const TAB_ICONS: Record<string, Any> = {
   dashboard: LayoutDashboard,
   board: ClipboardList,
   tasks: ListTodo,
@@ -269,7 +269,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
 
 /* ---------------- styles ---------------- */
 
-const PM_STYLES = `
+export const PM_STYLES = `
 .pm { --pm-navy:#0d1c34; --pm-navy2:#16294a; --pm-orange:#f59a2b; --pm-orange-deep:#d97406; --pm-soft:#eef0f2; --pm-soft2:#e7eaee; --pm-ink:#1f2630; --pm-muted:#5e5e5e; --pm-line:#e6e8ea; }
 .pm { color: var(--pm-ink); font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif; }
 .pm h1, .pm h2, .pm h3 { font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif; color: var(--pm-ink); font-weight: 600; }

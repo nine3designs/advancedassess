@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, FileDown, FileText, Play, Square, Upload, Send, MailCheck, Plus, Trash2, ArrowLeft, ClipboardList, Clock, CalendarDays, Menu, X, ChevronRight } from "lucide-react";
+import { Check, FileDown, FileText, Play, Square, Upload, Send, MailCheck, Plus, Trash2, ArrowLeft, ClipboardList, Clock, CalendarDays, Menu, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,12 +16,14 @@ import { StatusBadge } from "@/components/common";
 import { supabase } from "@/integrations/supabase/client";
 import { portalAction, getPortal } from "@/lib/portal.functions";
 import { downloadInvoicePdf } from "@/lib/invoice-pdf";
-import { Dashboard, Board, TasksTab, InvoiceSheet } from "@/components/portal/PMPortal";
+import { Dashboard, Board, TasksTab, InvoiceSheet, PM_STYLES, TAB_ICONS } from "@/components/portal/PMPortal";
 import { InvoiceDocument } from "@/components/portal/InvoiceDocument";
 import { effectiveStatus, fmtDate, invoiceTotals, money, type LineItem } from "@/lib/format";
 import { fmtMinsLabel, londonDayKey } from "@/lib/admin-utils";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
+
+const TAB_ICONS_A: Record<string, Any> = { ...TAB_ICONS, finance: FileText, availability: CalendarDays };
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "HQ Projects Portal · Advanced Assessment & Solutions" }] }),
@@ -152,6 +154,7 @@ function AdminShell({ act, data, onSignOut }: Any) {
   const tabs = [
     { v: "dashboard", l: "Dashboard" },
     { v: "board", l: "To-Do Board" },
+    { v: "tasks", l: "Tasks" },
     { v: "time", l: "Time Tracking" },
     { v: "finance", l: "Finance" },
     { v: "availability", l: "Availability" },
@@ -159,32 +162,40 @@ function AdminShell({ act, data, onSignOut }: Any) {
   return (
     <div className="pm min-h-screen bg-[#eef0f2]">
       <style>{ADMIN_STYLES}</style>
-      <div className="pm-navwrap">
-        <nav className="pm-navbar" aria-label="Workspace sections">
-          <span className="pm-brand">
-            <Wordmark variant="inline" />
-          </span>
-          <div className="pm-tabs">
-            {tabs.map((t) => (
-              <button key={t.v} type="button" onClick={() => { setTab(t.v as Any); window.scrollTo({ top: 0, behavior: "smooth" }); }} className={`pm-tab ${t.v === tab ? "active" : ""}`}>{t.l}</button>
-            ))}
-          </div>
-          <button type="button" className="pm-burger" aria-label="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
-            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+      <style>{PM_STYLES}</style>
+      <aside className={`pm-side ${menuOpen ? "open" : ""}`} aria-label="Workspace sections">
+        <div className="pm-side-head">
+          <Wordmark variant="inline" />
+        </div>
+        <nav className="pm-side-nav">
+          {tabs.map((t) => {
+            const Ic = TAB_ICONS_A[t.v];
+            return (
+              <button key={t.v} type="button" onClick={() => { setMenuOpen(false); setTab(t.v as Any); window.scrollTo({ top: 0, behavior: "smooth" }); }} className={`pm-side-item ${t.v === tab ? "active" : ""}`}>
+                {Ic ? <Ic className="h-4 w-4 flex-none" /> : null}
+                <span>{t.l}</span>
+              </button>
+            );
+          })}
         </nav>
-        <div className={`pm-menu ${menuOpen ? "open" : ""}`}>
-          {tabs.map((t) => (
-            <button key={t.v} type="button" className={t.v === tab ? "active" : ""} onClick={() => { setMenuOpen(false); setTab(t.v as Any); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
-              {t.l}
-            </button>
-          ))}
-          <div className="pm-menu-foot">
-            <a href="/portal/SaraDawson">View Sara's portal</a>
-            <button type="button" onClick={onSignOut}>Sign out</button>
+        <div className="pm-side-foot">
+          <span className="pm-side-avatar">N</span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-white">Natalie</p>
+            <p className="text-[11px] text-white/50">Admin</p>
           </div>
         </div>
-      </div>
+      </aside>
+      {menuOpen && <button type="button" className="pm-scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
+      <div className="pm-content">
+        <div className="pm-topbar">
+          <button type="button" className="pm-burger" aria-label="Open menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
+            <Menu className="h-5 w-5" />
+          </button>
+          <span className="pm-topbar-title">{tabs.find((t) => t.v === tab)?.l ?? "Dashboard"}</span>
+          <span className="pm-topbar-badge"><Wordmark variant="inline" /></span>
+        </div>
+
       <main className="pm-main">
         <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -198,17 +209,13 @@ function AdminShell({ act, data, onSignOut }: Any) {
         </header>
         {tab === "dashboard" && <Dashboard p={data} stats={stats} weeks={weeks} maxWeek={maxWeek} rate={rate} unbilledMins={unbilledMins} running={running} viewer="Natalie" go={setTab as Any} act={act} onQuickAdd={() => { setAutoAdd(true); setTab("board"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />}
         {tab === "board" && <Board p={data} viewer="Natalie" act={act} go={(t: string) => setTab((t === "board" ? "board" : "time") as Any)} autoAdd={autoAdd} onAutoAddDone={() => setAutoAdd(false)} />}
+        {tab === "tasks" && <TasksTab p={data} viewer="Natalie" act={act} />}
         {tab === "time" && <AdminTime act={act} entries={entries} running={running} cards={cards} unbilledMins={unbilledMins} rate={rate} />}
         {tab === "finance" && <Finance act={act} invoices={invoices} entries={doneEntries} unbilledMins={unbilledMins} rate={rate} client={data.client} board={cards} />}
         {tab === "availability" && <Availability act={act} />}
       </main>
-        <div className="pm-mobbar">
-          <button type="button" onClick={() => setTab("dashboard")}><ClipboardList className="h-5 w-5" />Home</button>
-          <button type="button" onClick={() => { setAutoAdd(true); setTab("board"); }}><Plus className="h-5 w-5" />Add task</button>
-          <button type="button" onClick={() => setTab("time")}><Clock className="h-5 w-5" />Time</button>
-          <button type="button" onClick={() => setTab("finance")}><FileText className="h-5 w-5" />Finance</button>
-        </div>
         <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Projects Portal - Crafted by <a href="https://nine3designs.co.uk" target="_blank" rel="noreferrer">Nine3 Designs</a></footer>
+      </div>
     </div>
   );
 }
