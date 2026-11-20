@@ -454,7 +454,7 @@ function AssignChip({ who }: { who: string }) {
 }
 const COL_ACCENT: Record<string, string> = { todo: "#f59a2b", doing: "#8fb8d8", done: "#2e9e5b" };
 
-export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, running, viewer, go, act, onQuickAdd }: Any) {
+export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, running, viewer, go, act, onQuickAdd, onQuickUrgent }: Any) {
   const cards: Any[] = p.board ?? [];
   const open_ = cards.filter((c: Any) => c.status !== "done");
   const urg = open_.filter((c: Any) => c.important);
