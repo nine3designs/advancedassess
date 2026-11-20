@@ -296,6 +296,7 @@ const PM_STYLES = `
 .pm .pm-scrim { position: fixed; inset: 0; z-index: 55; background: rgba(13,28,52,.45); border: none; cursor: pointer; }
 @media (min-width: 1024px) {
   .pm .pm-side { transform: none; width: 16rem; }
+  .pm .pm-content { padding-left: 16rem; }
   .pm .pm-topbar { display: none; }
   .pm .pm-scrim { display: none; }
 }
