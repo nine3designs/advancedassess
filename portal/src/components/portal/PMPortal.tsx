@@ -1562,7 +1562,7 @@ function TravelTab({ c, act }: Any) {
         <div className="pm-card p-5"><p className="text-xs font-medium text-[#5e5e5e]">Hours done</p><p className="mt-1.5 text-2xl font-semibold tracking-tight">{fmtHrs(totProf) || "0"}</p><p className="mt-1 text-[11px] text-[#9aa0a6]">prof hours charged</p></div>
         <div className="pm-card p-5"><p className="text-xs font-medium text-[#5e5e5e]">Time on road</p><p className="mt-1.5 text-2xl font-semibold tracking-tight">{fmtHrs(totTrav) || "0"}</p><p className="mt-1 text-[11px] text-[#9aa0a6]">travel hours charged</p></div>
         <div className="pm-card p-5"><p className="text-xs font-medium text-[#5e5e5e]">Miles</p><p className="mt-1.5 text-2xl font-semibold tracking-tight">{totMiles.toLocaleString()}</p><p className="mt-1 text-[11px] text-[#9aa0a6]">total for this case</p></div>
-        <div className="pm-card p-5"><p className="text-xs font-medium text-[#5e5e5e]">Mileage charge</p><p className="mt-1.5 text-2xl font-semibold tracking-tight">£{charge.toFixed(2)}</p><p className="mt-1 text-[11px] text-[#9aa0a6]">{TRAVEL_RATE * 100}p a mile</p></div>
+        <div className="pm-card p-5"><p className="text-xs font-medium text-[#5e5e5e]">Mileage charge</p><p className="mt-1.5 text-2xl font-semibold tracking-tight">£{charge.toFixed(2)}</p><p className="mt-1 text-[11px] text-[#9aa0a6]">{Math.round(TRAVEL_RATE * 100)}p a mile</p></div>
       </div>
 
       <div className="pm-card p-6">
@@ -1648,7 +1648,7 @@ function TravelTab({ c, act }: Any) {
         <div className="flex flex-wrap items-center justify-between gap-2 px-6 pb-1 pt-5">
           <div>
             <h3 className="text-lg font-semibold">Travel &amp; Mileage sheet</h3>
-            <p className="mt-0.5 text-xs text-[#5e5e5e]">{rows.length} {rows.length === 1 ? "entry" : "entries"} · mileage at {TRAVEL_RATE * 100}p a mile</p>
+            <p className="mt-0.5 text-xs text-[#5e5e5e]">{rows.length} {rows.length === 1 ? "entry" : "entries"} · mileage at {Math.round(TRAVEL_RATE * 100)}p a mile</p>
           </div>
           {rows.length > 0 ? <Button type="button" className="pm-btn h-9" onClick={downloadCsv}><FileDown className="h-4 w-4" /> Download sheet</Button> : null}
         </div>
@@ -1686,7 +1686,7 @@ function TravelTab({ c, act }: Any) {
                   <td className="px-3 py-2.5">{fmtHrs(totProf) || "0"}</td>
                   <td className="px-3 py-2.5">{fmtHrs(totTrav) || "0"}</td>
                   <td className="px-3 py-2.5">{totMiles} miles</td>
-                  <td className="px-3 py-2.5">£{charge.toFixed(2)} @ {TRAVEL_RATE * 100}p</td>
+                  <td className="px-3 py-2.5">£{charge.toFixed(2)} @ {Math.round(TRAVEL_RATE * 100)}p</td>
                   <td className="px-3 py-2.5"></td><td className="px-3 py-2.5"></td>
                 </tr>
               </tbody>
