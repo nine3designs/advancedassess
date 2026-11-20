@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Car, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileDown, FileText, Flag, FolderOpen, LayoutDashboard, ListTodo, Menu, Paperclip, Pencil, Play, Plus, Square, StickyNote, Trash2, Upload, X } from "lucide-react";
+import { ArrowUpRight, ArrowLeft, ArrowRight, CalendarDays, Car, Check, ChevronLeft, ChevronRight, Circle, ClipboardList, Clock, FileDown, FileText, Flag, FolderOpen, LayoutDashboard, ListTodo, Menu, Paperclip, Pencil, Play, Plus, Square, StickyNote, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { downloadInvoicePdf } from "@/lib/invoice-pdf";
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,9 @@ import { effectiveStatus, fmtDate, invoiceTotals, money, type LineItem } from "@
 type Any = any;
 
 const COLUMNS = [
-  { key: "todo", label: "To Do" },
-  { key: "doing", label: "In Progress" },
-  { key: "done", label: "Done" },
+  { key: "done", label: "Finished" },
+  { key: "doing", label: "In-Progress" },
+  { key: "todo", label: "Overdue" },
 ] as const;
 type ColKey = (typeof COLUMNS)[number]["key"];
 
@@ -470,7 +470,7 @@ function AssignChip({ who }: { who: string }) {
   if (!who) return null;
   return <span className="pm-chip flex-none" style={{ background: "#e8eef7", color: "#1f3a5f" }}>{"\u2192"} {who}</span>;
 }
-const COL_ACCENT: Record<string, string> = { todo: "#f59a2b", doing: "#8fb8d8", done: "#2e9e5b" };
+const COL_ACCENT: Record<string, string> = { todo: "#e5484d", doing: "#f59a2b", done: "#2e9e5b" };
 
 export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, running, viewer, go, act, onQuickAdd, onQuickUrgent }: Any) {
   const cards: Any[] = p.board ?? [];
@@ -894,22 +894,39 @@ function MyTodoTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
   const cards: Any[] = p.board ?? [];
   const mine = cards.filter((c: Any) => { const w = splitAssign(c.notes).who; return w === "Sara" || w === ""; });
   const [showDone, setShowDone] = useState(false);
+  const [noteText, setNoteText] = useState("");
+  const [noteBusy, setNoteBusy] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const sort = (list: Any[]) => [...list].sort((a: Any, b: Any) => ((b.important ? 1 : 0) - (a.important ? 1 : 0)) || Number(a.position) - Number(b.position));
-  const flagged = sort(mine.filter((c: Any) => c.important && c.status !== "done"));
-  const fresh = sort(mine.filter((c: Any) => !c.important && c.status === "todo"));
-  const doing = sort(mine.filter((c: Any) => c.status === "doing"));
+
+  const notes: Any[] = ((p.client?.portal_prefs?.sara_notes ?? []) as Any[]);
+  const open_ = mine.filter((c: Any) => c.status !== "done");
+  const urg = open_.filter((c: Any) => c.important);
+  const doing = open_.filter((c: Any) => c.status === "doing");
   const done = mine.filter((c: Any) => c.status === "done").sort((a: Any, b: Any) => String(b.updated_at).localeCompare(String(a.updated_at)));
+  const sortDue = (list: Any[]) => [...list].sort((a: Any, b: Any) => ((b.important ? 1 : 0) - (a.important ? 1 : 0)) || String(a.due_date ?? "9999-99-99").localeCompare(String(b.due_date ?? "9999-99-99")) || Number(a.position) - Number(b.position));
+
   const toggle = async (c: Any) => {
     setBusy(c.id);
     await act({ type: "cardEdit", id: c.id, status: c.status === "done" ? "todo" : "done", actor: viewer }, c.status === "done" ? "Moved back to To do" : "Ticked off");
     setBusy(null);
   };
-  const row = (c: Any) => (
+
+  const stat = (label: string, value: number | string, tone: string, icon: Any) => (
+    <div className="pm-card flex items-center gap-3.5 p-4">
+      <span className="flex h-11 w-11 flex-none items-center justify-center rounded-2xl" style={{ background: `${tone}1a`, color: tone }}>{icon}</span>
+      <div className="min-w-0">
+        <p className="text-2xl font-semibold leading-none tracking-tight text-[#0d1c34]">{value}</p>
+        <p className="mt-1.5 truncate text-xs font-medium text-[#5e5e5e]">{label}</p>
+      </div>
+    </div>
+  );
+
+  const tickRow = (c: Any) => (
     <div key={c.id} className={`pmt-row ${c.status === "done" ? "done" : ""}`}>
       <div className="flex items-start gap-2.5">
         <button type="button" aria-label={c.status === "done" ? "Mark as not done" : "Tick off"} disabled={busy === c.id} onClick={() => toggle(c)}
-          className={`mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-md border transition-colors ${c.status === "done" ? "border-[#2e9e5b] bg-[#2e9e5b] text-white" : "border-[#c9ced6] bg-white text-transparent hover:border-[#2e9e5b]"}`}>
+          className={`pm-tickbtn mt-0.5 flex-none ${c.status === "done" ? "" : ""}`}
+          style={c.status === "done" ? { background: "#2e9e5b", borderColor: "#2e9e5b", color: "#fff" } : undefined}>
           <Check className="h-3.5 w-3.5" />
         </button>
         <div className="min-w-0 flex-1">
@@ -919,7 +936,6 @@ function MyTodoTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
             {c.due_date ? <span className={`pmt-due ${c.status !== "done" ? dueState(c.due_date) : ""}`}><CalendarDays className="h-3 w-3" /> Due {fmtDue(c.due_date)}</span> : null}
           </div>
           {splitAssign(c.notes).rest ? <p className="pmt-detail">{splitAssign(c.notes).rest}</p> : null}
-          <p className="pmt-meta">Added by {c.created_by === "Natalie" ? "Natalie" : "Sara"}{c.updated_at ? ` · updated ${relDay(c.updated_at)}` : ""}</p>
           {Array.isArray(c.files) && c.files.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {(c.files as Any[]).map((f: Any, k: number) => (
@@ -931,15 +947,18 @@ function MyTodoTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
       </div>
     </div>
   );
-  const section = (label: string, tone: string, items: Any[], empty: string) => (
+
+  const panel = (label: string, sub: string, items: Any[], empty: string, tone: string) => (
     <div className="pm-card p-5">
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><span className="pm-dot" style={{ background: tone }} /> {label}</h3>
         <span className="pm-chip">{items.length}</span>
       </div>
-      {items.length === 0 ? <p className="pmt-empty mt-3">{empty}</p> : <div className="mt-3 space-y-2">{items.map(row)}</div>}
+      <p className="mt-1 text-xs text-[#5e5e5e]">{sub}</p>
+      {items.length === 0 ? <p className="pmt-empty mt-3">{empty}</p> : <div className="mt-3 space-y-2">{items.slice(0, 8).map(tickRow)}</div>}
     </div>
   );
+
   return (
     <div className="space-y-4">
       <style>{PMT_STYLES}</style>
@@ -947,19 +966,52 @@ function MyTodoTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
         <h2 className="text-xl font-semibold">My To Do</h2>
         <p className="mt-0.5 text-xs text-[#5e5e5e]">Everything assigned to you · tick things off as you go</p>
       </div>
+
       {mine.length === 0 ? (
         <div className="pmt-empty">Nothing assigned to you yet · tasks appear here when Natalie or you add one with your name on.</div>
       ) : (
         <>
-          {section("Urgent", "#e5484d", flagged, "Nothing urgent · good news.")}
-          {section("New", "#f59a2b", fresh, "No new tasks right now.")}
-          {section("In progress", "#8fb8d8", doing, "Nothing in progress · start something new.")}
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            {stat("Urgent tasks", urg.length, "#e5484d", <Flag className="h-5 w-5" />)}
+            {stat("Outstanding tasks", open_.length, "#0d1c34", <ClipboardList className="h-5 w-5" />)}
+            {stat("In progress", doing.length, "#f59a2b", <ListTodo className="h-5 w-5" />)}
+            {stat("Completed tasks", done.length, "#2e9e5b", <Check className="h-5 w-5" />)}
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {panel("Assigned to you", "Nearest due date first", sortDue(open_), "Nothing assigned right now.", "#0d1c34")}
+            {panel("Urgent tasks", "Flagged · do these first", sortDue(urg), "Nothing urgent · good news.", "#e5484d")}
+          </div>
+
+          <div className="pm-card p-5">
+            <div className="flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><StickyNote className="h-4 w-4 text-[#d97406]" /> My notepad</h3>
+              <span className="pm-chip">{notes.length}</span>
+            </div>
+            <p className="mt-1 text-xs text-[#5e5e5e]">Quick jottings · these also appear on your Notes page</p>
+            <form className="mt-3 flex flex-col gap-2 sm:flex-row" onSubmit={async (e: Any) => { e.preventDefault(); if (!noteText.trim() || noteBusy) return; setNoteBusy(true); const r = await act({ type: "noteAdd", text: noteText }, "Noted"); setNoteBusy(false); if (r !== null) setNoteText(""); }}>
+              <Input value={noteText} onChange={(e: Any) => setNoteText(e.target.value)} placeholder="Jot something down…" className="h-10" />
+              <Button type="submit" className="pm-btn-orange h-10 px-6" disabled={noteBusy}>{noteBusy ? "…" : "Add"}</Button>
+            </form>
+            {notes.length === 0 ? <p className="pmt-empty mt-3">Your notepad is empty.</p> : (
+              <ul className="mt-3 space-y-2">
+                {notes.slice(0, 6).map((n: Any) => (
+                  <li key={n.id} className="pm-row flex items-start gap-2.5 px-3 py-2.5">
+                    <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm">{n.text}</p>
+                    <span className="flex-none text-[11px] text-[#9aa0a6]">{relDay(n.at)}</span>
+                    <IconBtn label="Delete note" onClick={async () => { await act({ type: "noteDelete", id: n.id }, "Note deleted"); }}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <div className="pm-card p-5">
             <button type="button" onClick={() => setShowDone((o: boolean) => !o)} className="flex w-full items-center justify-between">
               <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><span className="pm-dot" style={{ background: "#2e9e5b" }} /> Completed</h3>
               <span className="pm-chip">{done.length}{done.length ? (showDone ? " · hide" : " · show") : ""}</span>
             </button>
-            {showDone && (done.length === 0 ? <p className="pmt-empty mt-3">Completed tasks will collect here.</p> : <div className="mt-3 space-y-2">{done.map(row)}</div>)}
+            {showDone && (done.length === 0 ? <p className="pmt-empty mt-3">Completed tasks will collect here.</p> : <div className="mt-3 space-y-2">{done.slice(0, 12).map(tickRow)}</div>)}
           </div>
         </>
       )}
@@ -983,6 +1035,107 @@ const CASE_CHECKLIST = [
 function caseProgress(c: Any) {
   const done = CASE_CHECKLIST.filter((_x: string, i: number) => c?.checks?.[`check:${i}`]).length;
   return { done, total: CASE_CHECKLIST.length };
+}
+
+function QaSection({ c, act, slot, label, hint }: Any) {
+  const [date, setDate] = useState(String(c?.qa?.[`${slot}:date`] ?? ""));
+  const [dateBusy, setDateBusy] = useState(false);
+  const [uploading, setUploading] = useState<"" | "report" | "amend">("");
+  const saveDate = async (v: string) => {
+    setDate(v);
+    setDateBusy(true);
+    await act({ type: "caseSave", id: c.id, key: `qa:${slot}:date`, content: v }, "QA date saved");
+    setDateBusy(false);
+  };
+  const upload = async (kind: "report" | "amend", fileList: FileList | null) => {
+    if (!fileList || !fileList.length) return;
+    setUploading(kind);
+    const read = await Promise.all(Array.from(fileList).map((f: Any) => new Promise<Any>((res) => { const r = new FileReader(); r.onload = () => res({ name: f.name, dataUri: String(r.result) }); r.onerror = () => res(null); r.readAsDataURL(f); })));
+    const clean = read.filter(Boolean);
+    const total = clean.reduce((s2: number, f: Any) => s2 + (f?.dataUri?.length ?? 0), 0);
+    if (total > 6_200_000) { toast.error("Those files are too large altogether · keep uploads under about 4 MB."); setUploading(""); return; }
+    const r = await act({ type: "caseQaFiles", id: c.id, slot, kind, files: clean }, kind === "report" ? "Report uploaded" : "Amendment file uploaded");
+    setUploading("");
+  };
+  const reports: Any[] = ((c?.qa?.[`${slot}:report`] ?? []) as Any[]);
+  const amends: Any[] = ((c?.qa?.[`${slot}:amend`] ?? []) as Any[]);
+  const dl = (f: Any) => { if (f?.dataUri) openFileHref(f.dataUri, f.name); };
+  const fileRow = (f: Any, kind: "report" | "amend") => (
+    <li key={f.id} className="pm-row flex items-center gap-2.5 px-3 py-2.5">
+      <FileText className="h-4 w-4 flex-none text-[#d97406]" />
+      <button type="button" className="min-w-0 flex-1 truncate text-left text-sm font-medium hover:underline" onClick={() => dl(f)}>{f.name}</button>
+      <span className="flex-none text-[11px] text-[#9aa0a6]">{f.at ? relDay(f.at) : ""}</span>
+      <IconBtn label="Delete file" onClick={async () => { await act({ type: "caseQaFileDelete", id: c.id, slot, kind, fileId: f.id }, "File removed"); }}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+    </li>
+  );
+  return (
+    <div className="space-y-4">
+      <div className="pm-card p-5">
+        <h3 className="text-lg font-semibold">{label} · QA report</h3>
+        <p className="mt-1 text-xs text-[#5e5e5e]">{hint}</p>
+        <input type="file" multiple className="hidden" id={`qa-${slot}-report`} onChange={(e: Any) => { upload("report", e.target.files); if (e.target) e.target.value = ""; }} />
+        <label htmlFor={`qa-${slot}-report`} className="pm-filebtn mt-3 cursor-pointer"><Upload className="h-3.5 w-3.5" /> {uploading === "report" ? "Uploading…" : "Upload report"}{reports.length ? ` (${reports.length})` : ""}</label>
+        {reports.length === 0 ? <p className="pmt-empty mt-3">No report uploaded yet.</p> : <ul className="mt-3 space-y-2">{reports.map((f: Any) => fileRow(f, "report"))}</ul>}
+      </div>
+      <div className="pm-card p-5">
+        <h3 className="text-lg font-semibold">{label} · QA date</h3>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Input type="date" value={date} onChange={(e: Any) => saveDate(e.target.value)} className="h-10 max-w-52" />
+          {dateBusy ? <span className="text-xs text-[#9aa0a6]">Saving…</span> : date ? <span className="pm-chip">Saved</span> : null}
+        </div>
+      </div>
+      <div className="pm-card p-5">
+        <h3 className="text-lg font-semibold">{label} · Amendment files</h3>
+        <p className="mt-1 text-xs text-[#5e5e5e]">Any amended or corrected versions — everything here can be downloaded again.</p>
+        <input type="file" multiple className="hidden" id={`qa-${slot}-amend`} onChange={(e: Any) => { upload("amend", e.target.files); if (e.target) e.target.value = ""; }} />
+        <label htmlFor={`qa-${slot}-amend`} className="pm-filebtn mt-3 cursor-pointer"><Upload className="h-3.5 w-3.5" /> {uploading === "amend" ? "Uploading…" : "Upload amendment file"}{amends.length ? ` (${amends.length})` : ""}</label>
+        {amends.length === 0 ? <p className="pmt-empty mt-3">No amendment files yet.</p> : <ul className="mt-3 space-y-2">{amends.map((f: Any) => fileRow(f, "amend"))}</ul>}
+      </div>
+    </div>
+  );
+}
+
+function FilingDateCard({ c, act }: Any) {
+  const [date, setDate] = useState(String(c?.filing_date ?? ""));
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="pm-card p-5">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Filing date</h3>
+        {busy ? <span className="text-xs text-[#9aa0a6]">Saving…</span> : date ? <span className="pm-chip">Saved</span> : null}
+      </div>
+      <p className="mt-1 text-xs text-[#5e5e5e]">When this assessment is due to be filed · will drive dashboard countdowns later</p>
+      <Input type="date" value={date} onChange={async (e: Any) => { const v = e.target.value; setDate(v); setBusy(true); await act({ type: "caseSave", id: c.id, key: "filing_date", content: v }, "Filing date saved"); setBusy(false); }} className="mt-3 h-10 max-w-52" />
+    </div>
+  );
+}
+
+function DateBoxes({ c, act }: Any) {
+  const dates: Any[] = Array.isArray(c?.date_boxes) ? [...c.date_boxes] : [];
+  while (dates.length < 10) dates.push({});
+  const setBox = async (i: number, patch: Any) => {
+    const cur: Any[] = Array.isArray(c?.date_boxes) ? [...c.date_boxes] : [];
+    while (cur.length < 10) cur.push({});
+    cur[i] = { ...cur[i], ...patch };
+    await act({ type: "caseSave", id: c.id, key: "date_boxes", content: JSON.stringify(cur) }, "Dates saved");
+  };
+  return (
+    <div className="pm-card p-5">
+      <h3 className="text-lg font-semibold">Important Dates</h3>
+      <p className="mt-1 text-xs text-[#5e5e5e]">Hearing dates, deadlines, key appointments · each with its own note</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {dates.map((d: Any, i: number) => (
+          <div key={i} className="rounded-2xl border border-[#e6e8ea] bg-[#fafbfc] p-3.5">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-[#0d1c34] text-xs font-bold text-white">{i + 1}</span>
+              <Input type="date" value={String(d?.date ?? "")} onChange={(e: Any) => setBox(i, { date: e.target.value })} className="h-9" />
+            </div>
+            <Textarea value={String(d?.note ?? "")} onChange={(e: Any) => setBox(i, { note: e.target.value })} rows={2} placeholder="Notes / description…" className="mt-2 text-sm" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function SectionEditor({ c, act, skey, label, hint, rows }: Any) {
@@ -1061,6 +1214,7 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
                 </div>
                 <p className="mt-3 text-[11px] text-[#9aa0a6]">Created {fmtDate(c.created_at)} · updated {relDay(c.updated_at)}</p>
               </div>
+              <FilingDateCard c={c} act={act} />
               <div className="grid gap-3 sm:grid-cols-3">
                 <button type="button" onClick={() => setSel("details")} className="pm-card p-4 text-left"><p className="text-sm font-semibold">Basic details</p><p className="mt-0.5 text-[11px] text-[#5e5e5e]">Names &amp; contact info</p></button>
                 <button type="button" onClick={() => setSel("checklists")} className="pm-card p-4 text-left"><p className="text-sm font-semibold">Checklists</p><p className="mt-0.5 text-[11px] text-[#5e5e5e]">{prog.done}/{prog.total} sections done</p></button>
@@ -1070,7 +1224,7 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
           )}
 
           {sel === "details" && <SectionEditor c={c} act={act} skey="details" label="Basic Details & Contact Info" hint="Names, ages, addresses, contact details, who's who in the family" rows={12} />}
-          {sel === "dates" && <SectionEditor c={c} act={act} skey="dates" label="Important Dates" hint="Hearing dates, deadlines, key appointments, birthdays" rows={12} />}
+          {sel === "dates" && <DateBoxes c={c} act={act} />}
 
           {sel === "checklists" && (
             <div className="pm-card p-5">
@@ -1158,8 +1312,8 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
             </div>
           )}
 
-          {sel === "interim" && <SectionEditor c={c} act={act} skey="interim" label="Interim QA" hint="Mid-assessment QA notes and feedback" rows={14} />}
-          {sel === "final" && <SectionEditor c={c} act={act} skey="final" label="Final QA" hint="Final QA review before the report goes out" rows={14} />}
+          {sel === "interim" && <QaSection c={c} act={act} slot="interim" label="Interim QA" hint="Upload the report, log the QA date, and attach any amendment files." />}
+          {sel === "final" && <QaSection c={c} act={act} slot="final" label="Final QA" hint="Upload the report, log the QA date, and attach any amendment files." />}
         </div>
       </div>
     </div>
@@ -1601,6 +1755,15 @@ export function Board({ p, viewer, act, go, autoAdd, onAutoAddDone, autoAddUrgen
                       <p className={`text-sm font-medium leading-snug ${c.status === "done" ? "text-[#5e5e5e] line-through" : ""}`}>{c.title}</p>
                       <AssignChip who={splitAssign(c.notes).who} />
                       <span className={`pm-chip flex-none bg-white ${c.status === "doing" ? "orange" : ""}`}>{c.created_by === "Natalie" ? "Nat" : c.created_by?.split(" ")[0] ?? "·"}</span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className={`pm-chip ${c.important ? "orange" : ""} flex-none`} style={c.important ? { background: "rgba(229,72,77,.12)", color: "#c53030" } : { background: "rgba(13,28,52,.07)", color: "#0d1c34" }}>
+                        {c.important ? <><Flag className="h-3 w-3" /> High priority</> : <><Circle className="h-2.5 w-2.5" /> Normal</>}
+                      </span>
+                      <span className="ml-auto text-[10px] font-medium text-[#9aa0a6]">{c.status === "done" ? "100%" : c.status === "doing" ? "50%" : "0%"}</span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/80">
+                      <span className="block h-full rounded-full transition-all" style={{ width: c.status === "done" ? "100%" : c.status === "doing" ? "50%" : "8%", background: c.status === "done" ? "#2e9e5b" : c.status === "doing" ? "#f59a2b" : "#c9ced6" }} />
                     </div>
                     {c.important ? <span className="pm-urgent-chip mt-1.5"><Flag className="h-3 w-3" /> Important</span> : null}
                     {c.status !== "done" && c.due_date && dueState(c.due_date) === "over" ? <span className="pm-urgent-chip mt-1.5" style={{ background: "#fdecec", color: "#c53030" }}><CalendarDays className="h-3 w-3" /> Overdue</span> : null}
@@ -2058,6 +2221,8 @@ const PMT_STYLES = `
 
 export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
   const cards: Any[] = p.board ?? [];
+  const [addOpen, setAddOpen] = useState(false);
+  const [startUrgent, setStartUrgent] = useState(false);
   const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
   const [due, setDue] = useState("");
@@ -2066,130 +2231,191 @@ export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
   const [busy, setBusy] = useState(false);
   const [showDone, setShowDone] = useState(false);
   const [assign, setAssign] = useState("");
+  const [noteText, setNoteText] = useState("");
+  const [noteBusy, setNoteBusy] = useState(false);
 
   const readFile = (f: File) => new Promise<Any>((res) => { const r = new FileReader(); r.onload = () => res({ name: f.name, dataUri: String(r.result) }); r.onerror = () => res(null); r.readAsDataURL(f); });
 
-  const groups: { key: string; label: string; items: Any[] }[] = [
-    { key: "doing", label: "In progress", items: cards.filter((c: Any) => c.status === "doing") },
-    { key: "todo", label: "To do", items: cards.filter((c: Any) => c.status === "todo") },
-    { key: "done", label: "Completed", items: cards.filter((c: Any) => c.status === "done") },
-  ];
-  const sortCards = (list: Any[]) => [...list].sort((a: Any, b: Any) => ((b.important ? 1 : 0) - (a.important ? 1 : 0)) || Number(a.position) - Number(b.position) || String(a.created_at).localeCompare(String(b.created_at)));
+  useEffect(() => { if (addOpen) setUrgent(startUrgent); }, [addOpen, startUrgent]);
 
-  return (
-    <div className="space-y-4">
-      <style>{PMT_STYLES}</style>
-      <form
-        className="pmt-form"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!title.trim() || busy) return;
-          const total = files.reduce((s, f) => s + (f?.dataUri?.length ?? 0), 0);
-          if (total > 6_200_000) { toast.error("Those files are too large altogether · keep attachments under about 4 MB."); return; }
-          setBusy(true);
-          const read = await Promise.all(files.map(readFile));
-          const clean = read.filter(Boolean);
-          const r = await act(
-            { type: "cardAdd", title: title.trim(), notes: withAssign(assign, details.trim()), status: "todo", actor: viewer, important: urgent, due_date: due || undefined },
-            urgent ? "Urgent task added · it's on the board" : "Task added · it's on the board"
-          );
-          if (r?.id && clean.length) await act({ type: "cardFiles", id: r.id, files: clean, actor: viewer }, "Files attached to task");
-          if (r) { setTitle(""); setDetails(""); setDue(""); setUrgent(false); setFiles([]); setAssign(""); }
-          setBusy(false);
-        }}>
-        <div>
-          <h2 className="text-lg font-semibold">Add a task</h2>
-          <p className="mt-0.5 text-xs text-[#5e5e5e]">Full detail goes here · it lands straight on the shared To Do list &mdash; you and Natalie can both add, and files attach right here.</p>
-        </div>
-        <div className="mt-4 space-y-1.5">
-          <Label>Task title</Label>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Onboarding doc" className="h-10" maxLength={200} />
-        </div>
-        <button type="button" onClick={() => setUrgent(!urgent)} aria-pressed={urgent} className="pm-urgent-toggle mt-3">
-          <span className={`pm-urgent-box ${urgent ? "on" : ""}`}><Flag className="h-3 w-3" /></span>
-          <span className="text-xs font-medium">Flag as urgent · jumps to the top of the board</span>
-        </button>
-        <div className="mt-3 space-y-1.5">
-          <Label>Details</Label>
-          <Textarea value={details} onChange={(e) => setDetails(e.target.value)} placeholder="What needs doing? Add any detail the task needs." rows={4} className="text-sm" maxLength={2000} />
-        </div>
-        <div className="mt-3 space-y-1.5">
-          <Label>Due by (optional)</Label>
-          <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="h-10 max-w-52" />
-        </div>
-        <div className="mt-3 space-y-1.5">
-          <Label>Assign to</Label>
-          <select value={assign} onChange={(e) => setAssign(e.target.value)} className="h-10 w-full max-w-52 rounded-md border border-input bg-transparent px-3 text-sm">
-            <option value="">Unassigned</option>
-            <option value="Sara">Sara</option>
-            <option value="Natalie">Natalie</option>
-          </select>
-        </div>
-        <div className="mt-3">
-          <input type="file" multiple className="hidden" id="pmt-taskfile" onChange={(e) => { setFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])].slice(0, 3)); if (e.target) e.target.value = ""; }} />
-          <label htmlFor="pmt-taskfile" className="pm-filebtn cursor-pointer"><Paperclip className="h-3.5 w-3.5" /> Attach file{files.length ? ` (${files.length}/3)` : " (optional)"}</label>
-          {files.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {files.map((f: Any, k: number) => (
-                <span key={k} className="pm-filechip"><span className="max-w-36 truncate">{f.name}</span><button type="button" aria-label="Remove file" onClick={() => setFiles((prev) => prev.filter((_: Any, j: number) => j !== k))}><X className="h-3 w-3" /></button></span>
+  const notes: Any[] = ((p.client?.portal_prefs?.nat_notes ?? []) as Any[]);
+  const open_ = cards.filter((c: Any) => c.status !== "done");
+  const urg = open_.filter((c: Any) => c.important);
+  const assigned = open_.filter((c: Any) => splitAssign(c.notes).who);
+  const doneList = cards.filter((c: Any) => c.status === "done").sort((a: Any, b: Any) => String(b.updated_at).localeCompare(String(a.updated_at)));
+  const sortDue = (list: Any[]) => [...list].sort((a: Any, b: Any) => ((b.important ? 1 : 0) - (a.important ? 1 : 0)) || String(a.due_date ?? "9999-99-99").localeCompare(String(b.due_date ?? "9999-99-99")) || Number(a.position) - Number(b.position));
+
+  const submit = async (e: Any) => {
+    e.preventDefault();
+    if (!title.trim() || busy) return;
+    const total = files.reduce((s2, f) => s2 + (f?.dataUri?.length ?? 0), 0);
+    if (total > 6_200_000) { toast.error("Those files are too large altogether · keep attachments under about 4 MB."); return; }
+    setBusy(true);
+    const read = await Promise.all(files.map(readFile));
+    const clean = read.filter(Boolean);
+    const r = await act({ type: "cardAdd", title: title.trim(), notes: withAssign(assign, details.trim()), status: "todo", actor: viewer, important: urgent, due_date: due || undefined }, urgent ? "Urgent task added · it's on the board" : "Task added · it's on the board");
+    if (r?.id && clean.length) await act({ type: "cardFiles", id: r.id, files: clean, actor: viewer }, "Files attached to task");
+    if (r) { setTitle(""); setDetails(""); setDue(""); setUrgent(false); setFiles([]); setAssign(""); setAddOpen(false); }
+    setBusy(false);
+  };
+
+  const stat = (label: string, value: number | string, tone: string, icon: Any) => (
+    <div className="pm-card flex items-center gap-3.5 p-4">
+      <span className="flex h-11 w-11 flex-none items-center justify-center rounded-2xl" style={{ background: `${tone}1a`, color: tone }}>{icon}</span>
+      <div className="min-w-0">
+        <p className="text-2xl font-semibold leading-none tracking-tight text-[#0d1c34]">{value}</p>
+        <p className="mt-1.5 truncate text-xs font-medium text-[#5e5e5e]">{label}</p>
+      </div>
+    </div>
+  );
+
+  const tickRow = (c: Any) => (
+    <div key={c.id} className="pmt-row">
+      <div className="flex items-start gap-2.5">
+        <button type="button" aria-label="Tick off · mark completed" onClick={async () => { await act({ type: "cardEdit", id: c.id, status: "done", actor: viewer }, "Ticked off · moved to Completed"); }} className="pm-tickbtn mt-0.5 flex-none"><Check className="h-3.5 w-3.5" /></button>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <p className="text-sm font-semibold leading-snug text-[#0d1c34]">{c.title}</p>
+            {c.important ? <span className="pm-urgent-chip"><Flag className="h-3 w-3" /> Urgent</span> : null}
+            {splitAssign(c.notes).who ? <span className="pm-chip">{"\u2192"} {splitAssign(c.notes).who}</span> : null}
+            {c.due_date ? <span className={`pmt-due ${dueState(c.due_date)}`}><CalendarDays className="h-3 w-3" /> Due {fmtDue(c.due_date)}</span> : null}
+          </div>
+          {splitAssign(c.notes).rest ? <p className="pmt-detail">{splitAssign(c.notes).rest}</p> : null}
+          {Array.isArray(c.files) && c.files.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(c.files as Any[]).map((f: Any, k: number) => (
+                <button key={k} type="button" className="pm-filechip" title={`Download ${f.name}`} onClick={async () => { const r = await act({ type: "cardFilesGet", id: c.id }); const m = (r?.files ?? []).find((x: Any) => x?.name === f.name); if (m?.dataUri) openFileHref(m.dataUri, m.name); }}><Paperclip className="h-3 w-3 flex-none" /><span className="max-w-36 truncate">{f.name}</span></button>
               ))}
             </div>
           )}
         </div>
-        <Button type="submit" className="pm-btn-orange mt-4 h-11 px-7" disabled={busy}>
-          {busy ? "Adding…" : <><Plus className="h-4 w-4" /> Add task</>}
-        </Button>
-      </form>
-
-      <div className="space-y-4">
-        {groups.map((g) => {
-          if (g.key === "done") {
-            if (g.items.length === 0) return null;
-            return (
-              <div key={g.key} className="space-y-2.5">
-                <button type="button" onClick={() => setShowDone((o) => !o)} className="flex items-center gap-2 text-sm font-semibold text-[#0d1c34]">
-                  <ChevronRight className={`h-4 w-4 transition-transform ${showDone ? "rotate-90" : ""}`} />
-                  Completed <span className="pm-chip">{g.items.length}</span>
-                </button>
-                {showDone && sortCards(g.items).map((c: Any) => <TaskRow key={c.id} c={c} />)}
-              </div>
-            );
-          }
-          return (
-            <div key={g.key} className="space-y-2.5">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-[#0d1c34]">{g.label}</h3>
-                <span className="pm-chip">{g.items.length}</span>
-              </div>
-              {sortCards(g.items).map((c: Any) => <TaskRow key={c.id} c={c} />)}
-              {g.items.length === 0 && <p className="pmt-empty">Nothing {g.key === "todo" ? "to do" : "in progress"} right now</p>}
-            </div>
-          );
-        })}
       </div>
     </div>
   );
-}
 
-function TaskRow({ c }: { c: Any }) {
-  const who = c.created_by === "Natalie" ? "Natalie" : (String(c.created_by ?? "·").split(" ")[0] || "·");
-  return (
-    <div className={`pmt-row ${c.status === "done" ? "done" : ""}`}>
-      <div className="flex flex-wrap items-center gap-1.5">
-        <p className={`text-sm font-semibold leading-snug ${c.status === "done" ? "text-[#5e5e5e] line-through" : "text-[#0d1c34]"}`}>{c.title}</p>
-        {c.important ? <span className="pm-urgent-chip"><Flag className="h-3 w-3" /> Urgent</span> : null}
-        {splitAssign(c.notes).who ? <span className="pm-chip">{"\u2192"} {splitAssign(c.notes).who}</span> : null}
-        {c.due_date ? <span className={`pmt-due ${c.status !== "done" ? dueState(c.due_date) : ""}`}><CalendarDays className="h-3 w-3" /> Due {fmtDue(c.due_date)}</span> : null}
+  const doneRow = (c: Any) => (
+    <div key={c.id} className="pmt-row done flex items-center gap-2.5">
+      <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-[#2e9e5b] text-white"><Check className="h-3.5 w-3.5" /></span>
+      <p className="min-w-0 flex-1 truncate text-sm font-medium text-[#5e5e5e] line-through">{c.title}</p>
+      <span className="flex-none text-xs text-[#9aa0a6]">{c.updated_at ? relDay(c.updated_at) : ""}</span>
+    </div>
+  );
+
+  const panel = (label: string, sub: string, items: Any[], empty: string, tone: string) => (
+    <div className="pm-card p-5">
+      <div className="flex items-center justify-between">
+        <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><span className="pm-dot" style={{ background: tone }} /> {label}</h3>
+        <span className="pm-chip">{items.length}</span>
       </div>
-      {splitAssign(c.notes).rest ? <p className="pmt-detail">{splitAssign(c.notes).rest}</p> : <p className="pmt-detail" style={{ fontStyle: "italic", color: "#9aa0a6" }}>No extra detail added</p>}
-      <p className="pmt-meta">Added by {who}{c.updated_at ? ` · updated ${relDay(c.updated_at)}` : ""}</p>
-      {Array.isArray(c.files) && c.files.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {(c.files as Any[]).map((f: Any, k: number) => (
-            <button key={k} type="button" className="pm-filechip" title={`Download ${f.name}`} onClick={async () => { const r = await act({ type: "cardFilesGet", id: c.id }); const m = (r?.files ?? []).find((x: Any) => x?.name === f.name); if (m?.dataUri) openFileHref(m.dataUri, m.name); }}><Paperclip className="h-3 w-3 flex-none" /><span className="max-w-36 truncate">{f.name}</span></button>
-          ))}
+      <p className="mt-1 text-xs text-[#5e5e5e]">{sub}</p>
+      {items.length === 0 ? <p className="pmt-empty mt-3">{empty}</p> : <div className="mt-3 space-y-2">{items.slice(0, 8).map(tickRow)}</div>}
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <style>{PMT_STYLES}</style>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold">Task List</h2>
+          <p className="mt-0.5 text-xs text-[#5e5e5e]">Everything on the go · tick things off or drag them on the board</p>
         </div>
-      )}
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" className="pm-btn-orange h-10" onClick={() => { setStartUrgent(false); setAddOpen(true); }}><Plus className="h-4 w-4" /> New Task</Button>
+          <Button type="button" className="h-10 rounded-full bg-[#b3261e] px-4 text-sm font-medium text-white transition-colors hover:bg-[#9a1f18]" onClick={() => { setStartUrgent(true); setAddOpen(true); }}><Flag className="h-4 w-4" /> Urgent Task</Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {stat("Urgent tasks", urg.length, "#e5484d", <Flag className="h-5 w-5" />)}
+        {stat("Outstanding tasks", open_.length, "#0d1c34", <ClipboardList className="h-5 w-5" />)}
+        {stat("Assigned tasks", assigned.length, "#f59a2b", <ListTodo className="h-5 w-5" />)}
+        {stat("Completed tasks", doneList.length, "#2e9e5b", <Check className="h-5 w-5" />)}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {panel("Assigned tasks", "Nearest due date first", sortDue(assigned), "Nothing assigned yet.", "#0d1c34")}
+        {panel("Urgent tasks", "Flagged · do these first", sortDue(urg), "Nothing urgent · good news.", "#e5484d")}
+      </div>
+
+      <div className="pm-card p-5">
+        <div className="flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><StickyNote className="h-4 w-4 text-[#d97406]" /> Private notepad</h3>
+          <span className="pm-chip">{notes.length}</span>
+        </div>
+        <p className="mt-1 text-xs text-[#5e5e5e]">Only you can see this · quick jottings, reminders, links</p>
+        <form className="mt-3 flex flex-col gap-2 sm:flex-row" onSubmit={async (e: Any) => { e.preventDefault(); if (!noteText.trim() || noteBusy) return; setNoteBusy(true); const r = await act({ type: "natNoteAdd", text: noteText }, "Noted"); setNoteBusy(false); if (r !== null) setNoteText(""); }}>
+          <Input value={noteText} onChange={(e: Any) => setNoteText(e.target.value)} placeholder="Jot something down…" className="h-10" />
+          <Button type="submit" className="pm-btn-orange h-10 px-6" disabled={noteBusy}>{noteBusy ? "…" : "Add"}</Button>
+        </form>
+        {notes.length === 0 ? <p className="pmt-empty mt-3">Your notepad is empty.</p> : (
+          <ul className="mt-3 space-y-2">
+            {notes.map((n: Any) => (
+              <li key={n.id} className="pm-row flex items-start gap-2.5 px-3 py-2.5">
+                <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm">{n.text}</p>
+                <span className="flex-none text-[11px] text-[#9aa0a6]">{relDay(n.at)}</span>
+                <IconBtn label="Delete note" onClick={async () => { await act({ type: "natNoteDelete", id: n.id }, "Note deleted"); }}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="pm-card p-5">
+        <button type="button" onClick={() => setShowDone((o) => !o)} className="flex w-full items-center justify-between">
+          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><span className="pm-dot" style={{ background: "#2e9e5b" }} /> Completed</h3>
+          <span className="pm-chip">{doneList.length}{doneList.length ? (showDone ? " · hide" : " · show") : ""}</span>
+        </button>
+        {showDone && (doneList.length === 0 ? <p className="pmt-empty mt-3">Completed tasks will collect here.</p> : <div className="mt-3 space-y-2">{doneList.slice(0, 12).map(doneRow)}</div>)}
+      </div>
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{urgent ? "Add urgent task" : "Add a task"}</DialogTitle></DialogHeader>
+          <form className="mt-2 space-y-3" onSubmit={submit}>
+            <div className="space-y-1.5">
+              <Label>Task title</Label>
+              <Input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Onboarding doc" className="h-10" maxLength={200} />
+            </div>
+            <button type="button" onClick={() => setUrgent(!urgent)} aria-pressed={urgent} className="pm-urgent-toggle">
+              <span className={`pm-urgent-box ${urgent ? "on" : ""}`}><Flag className="h-3 w-3" /></span>
+              <span className="text-xs font-medium">Flag as urgent · jumps to the top of the board</span>
+            </button>
+            <div className="space-y-1.5">
+              <Label>Details</Label>
+              <Textarea value={details} onChange={(e) => setDetails(e.target.value)} placeholder="What needs doing? Add any detail the task needs." rows={4} className="text-sm" maxLength={2000} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Due by (optional)</Label>
+                <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Assign to</Label>
+                <select value={assign} onChange={(e) => setAssign(e.target.value)} className="h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm">
+                  <option value="">Unassigned</option>
+                  <option value="Sara">Sara</option>
+                  <option value="Natalie">Natalie</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <input type="file" multiple className="hidden" id="pmt-taskfile" onChange={(e) => { setFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])].slice(0, 3)); if (e.target) e.target.value = ""; }} />
+              <label htmlFor="pmt-taskfile" className="pm-filebtn cursor-pointer"><Paperclip className="h-3.5 w-3.5" /> Attach file{files.length ? ` (${files.length}/3)` : " (optional)"}</label>
+              {files.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {files.map((f: Any, k: number) => (
+                    <span key={k} className="pm-filechip"><span className="max-w-36 truncate">{f.name}</span><button type="button" aria-label="Remove file" onClick={() => setFiles((prev) => prev.filter((_: Any, j: number) => j !== k))}><X className="h-3 w-3" /></button></span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Button type="submit" className="pm-btn-orange h-11 w-full" disabled={busy}>
+              {busy ? "Adding…" : <><Plus className="h-4 w-4" /> Add task</>}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

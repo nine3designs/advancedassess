@@ -587,8 +587,21 @@ export const portalAction = createServerFn({ method: "POST" })
       });
       if (a.type === "caseDelete") return await mutate(String(a.id), () => null);
       if (a.type === "caseSave") return await mutate(String(a.id), (c: Any) => {
+        const key = String(a.key).slice(0, 60);
+        if (key === "date_boxes") {
+          try { c.date_boxes = JSON.parse(String(a.content ?? "[]")); } catch { c.date_boxes = []; }
+          if (!Array.isArray(c.date_boxes)) c.date_boxes = [];
+          c.date_boxes = c.date_boxes.slice(0, 10).map((d: Any) => ({ date: String(d?.date ?? "").slice(0, 10), note: String(d?.note ?? "").slice(0, 500) }));
+          return c;
+        }
+        if (key === "filing_date") { c.filing_date = String(a.content ?? "").slice(0, 10); return c; }
+        if (key.startsWith("qa:") && key.endsWith(":date")) {
+          c.qa = c.qa ?? {};
+          c.qa[key.slice(3)] = String(a.content ?? "").slice(0, 10);
+          return c;
+        }
         c.sections = c.sections ?? {};
-        c.sections[String(a.key).slice(0, 60)] = String(a.content ?? "").slice(0, 30000);
+        c.sections[key] = String(a.content ?? "").slice(0, 30000);
         return c;
       });
       if (a.type === "caseCheck") return await mutate(String(a.id), (c: Any) => {
