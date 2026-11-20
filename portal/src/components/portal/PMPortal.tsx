@@ -394,6 +394,10 @@ const PM_STYLES = `
 .pm .pm-case-tick { display: inline-flex; align-items: center; gap: .45rem; }
 .pm .pm-case-tick .box { width: 1.15rem; height: 1.15rem; border-radius: .35rem; border: 1.5px solid var(--pm-line); display: inline-flex; align-items: center; justify-content: center; background: #fff; flex: none; transition: all .15s ease; }
 .pm .pm-case-tick .box.on { background: #2e9e5b; border-color: #2e9e5b; color: #fff; }
+.pm .pm-check-row { display: flex; align-items: center; gap: .6rem; border-radius: .7rem; padding: .5rem .6rem; transition: background .15s ease; }
+.pm .pm-check-row:hover { background: var(--pm-soft2); }
+.pm .pm-check-row .box { width: 1.15rem; height: 1.15rem; border-radius: .35rem; border: 1.5px solid var(--pm-line); display: inline-flex; align-items: center; justify-content: center; background: #fff; flex: none; transition: all .15s ease; color: #fff; }
+.pm .pm-check-row .box.on { background: #2e9e5b; border-color: #2e9e5b; }
 `;
 
 /* ---------------- shared bits ---------------- */
@@ -602,16 +606,17 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
           : <Tile icon={<FileText className="h-5 w-5" />} label="Invoices" value={String(invNew.length)} sub={invNew.length ? "new to view" : "all caught up"} onClick={() => go("time")} />}
       </div>
 
+      {isNat ? (
       <div className="flex flex-wrap items-start gap-x-8 gap-y-3 px-1">
         <ChipStat label="To do" value={String(todoCount)} tone="navy" />
         <ChipStat label="In progress" value={String(doingCount)} tone="orange" />
         <ChipStat label="Done" value={String(doneCount)} tone="plain" />
         <ChipStat label="This week" value={fmtMins(stats.week)} tone="line" />
       </div>
+      ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        {!isNat && (
-        <div className="pm-card self-start p-6 lg:col-span-2">
+      {!isNat && (
+        <div className="pm-card self-start p-6">
           <div>
             <h2 className="text-lg font-semibold">Quick actions</h2>
             <p className="mt-1 text-xs text-[#5e5e5e]">Jump straight to what you need</p>
@@ -639,8 +644,10 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
             </button>
           </div>
         </div>
-        )}
+      )}
 
+      {isNat && (
+      <div className="grid gap-5 lg:grid-cols-3">
         {isNat ? (
         <div className="pm-card flex flex-col items-center p-6">
           <div className="flex w-full items-center justify-between">
@@ -695,19 +702,18 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
 
         {isNat ? <MonthCalCard avail={(p.client?.portal_prefs?.availability ?? null) as Any} booked={((p.client?.portal_prefs?.booked ?? []) as Any[])} cta={false} onCircle={() => go("availability")} onToggleDay={toggleDay} /> : null}
       </div>
+      )}
 
-      <div className={`grid gap-5 ${isNat ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
-        {isNat ? boardCard : null}
-        {!isNat ? <MonthCalCard avail={avail} /> : null}
-      </div>
       {!isNat && (
-        <div className="pm-dark p-6">
+      <div className="grid gap-5 lg:grid-cols-2">
+        <MonthCalCard avail={avail} />
+        <div className="pm-dark self-start p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Tasks due</h2>
             <button type="button" aria-label="Open the board" onClick={() => go("board")} className="pm-circle"><ClipboardList className="h-4 w-4" /></button>
           </div>
           {myTasks.length === 0 ? <p className="mt-3 text-sm text-white/60">No dated tasks right now.</p> : (
-            <ul className="mt-4 grid gap-2.5 md:grid-cols-2">
+            <ul className="mt-4 grid gap-2.5">
               {myTasks.map((t: Any) => (
                 <li key={t.id} className="pm-row flex items-center gap-3 px-3 py-2.5">
                   <span className="pm-dot" style={{ background: "#f59a2b" }} />
@@ -721,7 +727,10 @@ export function Dashboard({ p, stats, weeks, maxWeek, rate, unbilledMins, runnin
             </ul>
           )}
         </div>
+      </div>
       )}
+
+      {isNat ? boardCard : null}
     </div>
   );
 }
@@ -998,7 +1007,6 @@ function SectionEditor({ c, act, skey, label, hint, rows }: Any) {
 
 function CaseDetail({ c, act, viewer, onBack }: Any) {
   const [sel, setSel] = useState("home");
-  const [chkOpen, setChkOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
   const [logDate, setLogDate] = useState(new Date().toISOString().slice(0, 10));
@@ -1007,8 +1015,6 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
   const [logNote, setLogNote] = useState("");
   const [logBusy, setLogBusy] = useState(false);
   const prog = caseProgress(c);
-  const isCheck = sel.startsWith("check:");
-  const chkIdx = isCheck ? parseInt(sel.slice(6), 10) : -1;
   const notes: Any[] = Array.isArray(c.notes) ? c.notes : [];
   const log: Any[] = Array.isArray(c.log) ? c.log : [];
   const navBtn = (key: string, label: string, sub = false, dotColor = "") => (
@@ -1028,7 +1034,6 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
           {navBtn("details", "Basic Details & Contact Info")}
           {navBtn("dates", "Important Dates")}
           {navBtn("checklists", "Checklists")}
-          {chkOpen && CASE_CHECKLIST.map((item: string, i: number) => navBtn(`check:${i}`, item, true, c.checks?.[`check:${i}`] ? "#2e9e5b" : "#d5dade"))}
           {navBtn("notes", "Notes")}
           {navBtn("log", "Time Log")}
           {navBtn("interim", "Interim QA")}
@@ -1055,7 +1060,7 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
                 <button type="button" onClick={() => setSel("details")} className="pm-card p-4 text-left"><p className="text-sm font-semibold">Basic details</p><p className="mt-0.5 text-[11px] text-[#5e5e5e]">Names &amp; contact info</p></button>
-                <button type="button" onClick={() => { setChkOpen(true); setSel("check:0"); }} className="pm-card p-4 text-left"><p className="text-sm font-semibold">Checklists</p><p className="mt-0.5 text-[11px] text-[#5e5e5e]">{prog.done}/{prog.total} sections done</p></button>
+                <button type="button" onClick={() => setSel("checklists")} className="pm-card p-4 text-left"><p className="text-sm font-semibold">Checklists</p><p className="mt-0.5 text-[11px] text-[#5e5e5e]">{prog.done}/{prog.total} sections done</p></button>
                 <button type="button" onClick={() => setSel("log")} className="pm-card p-4 text-left"><p className="text-sm font-semibold">Time log</p><p className="mt-0.5 text-[11px] text-[#5e5e5e]">{log.length} entr{log.length === 1 ? "y" : "ies"}</p></button>
               </div>
             </>
@@ -1064,20 +1069,26 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
           {sel === "details" && <SectionEditor c={c} act={act} skey="details" label="Basic Details & Contact Info" hint="Names, ages, addresses, contact details, who's who in the family" rows={12} />}
           {sel === "dates" && <SectionEditor c={c} act={act} skey="dates" label="Important Dates" hint="Hearing dates, deadlines, key appointments, birthdays" rows={12} />}
 
-          {isCheck && chkIdx >= 0 && chkIdx < CASE_CHECKLIST.length && (
-            <div className="space-y-3">
-              <div className="pm-card p-5">
-                <button type="button" aria-pressed={!!c.checks?.[`check:${chkIdx}`]} onClick={async () => { await act({ type: "caseCheck", id: c.id, key: `check:${chkIdx}`, done: !c.checks?.[`check:${chkIdx}`] }); }} className="pm-case-tick">
-                  <span className={`box ${c.checks?.[`check:${chkIdx}`] ? "on" : ""}`}><Check className="h-3.5 w-3.5" /></span>
-                  <span className="text-sm font-semibold">Section {chkIdx + 1} of {CASE_CHECKLIST.length} · {c.checks?.[`check:${chkIdx}`] ? "Complete" : "Mark this section complete"}</span>
-                </button>
-                <p className="mt-2 text-xs text-[#5e5e5e]">{CASE_CHECKLIST[chkIdx]}</p>
+          {sel === "checklists" && (
+            <div className="pm-card p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-semibold">Assessment checklist</h3>
+                <span className="pm-chip">{prog.done}/{prog.total} complete</span>
               </div>
-              <SectionEditor c={c} act={act} skey={`check:${chkIdx}`} label={CASE_CHECKLIST[chkIdx]} hint="Tick the box above when this section is finished · your writing saves here" rows={14} />
-              <div className="flex items-center justify-between">
-                <button type="button" disabled={chkIdx <= 0} onClick={() => setSel(`check:${chkIdx - 1}`)} className="pm-filebtn" style={{ opacity: chkIdx <= 0 ? .4 : 1 }}><ArrowLeft className="h-3.5 w-3.5" /> Previous</button>
-                <button type="button" disabled={chkIdx >= CASE_CHECKLIST.length - 1} onClick={() => setSel(`check:${chkIdx + 1}`)} className="pm-filebtn" style={{ opacity: chkIdx >= CASE_CHECKLIST.length - 1 ? .4 : 1 }}>Next <ChevronRight className="h-3.5 w-3.5" /></button>
-              </div>
+              <div className="pm-case-progress mt-3"><span style={{ width: `${prog.total ? Math.round((prog.done / prog.total) * 100) : 0}%` }} /></div>
+              <ul className="mt-4 space-y-1">
+                {CASE_CHECKLIST.map((item: string, i: number) => {
+                  const on = !!c.checks?.[`check:${i}`];
+                  return (
+                    <li key={i}>
+                      <button type="button" aria-pressed={on} onClick={async () => { await act({ type: "caseCheck", id: c.id, key: `check:${i}`, done: !on }); }} className="pm-check-row w-full">
+                        <span className={`box ${on ? "on" : ""}`}><Check className="h-3.5 w-3.5" /></span>
+                        <span className={`min-w-0 flex-1 text-left text-sm ${on ? "text-[#9aa0a6] line-through" : "font-medium"}`}>{item}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
 
