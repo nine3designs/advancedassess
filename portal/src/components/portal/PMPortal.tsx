@@ -1865,7 +1865,6 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
                 <span className="pm-chip">{prog.done}/{prog.total} complete</span>
               </div>
               <div className="pm-case-progress mt-3"><span style={{ width: `${prog.total ? Math.round((prog.done / prog.total) * 100) : 0}%` }} /></div>
-              <p className="mt-3 rounded-xl bg-[#eef0f2] px-3 py-2 text-[11px] text-[#5e5e5e]">The full Form K checklist below · the DBS / Medical / References quick-checks also live on Case Home. Tap "Colours &amp; notes" on any item for colour-coding and notes.</p>
               <ul className="mt-3 space-y-1">
                 {FORMK_CHECKLIST.map((item: Any, i: number) => (
                   <ChecklistItem key={`fk${i}`} item={item.t} i={i} c={c} act={act} na={!!item.na} />
