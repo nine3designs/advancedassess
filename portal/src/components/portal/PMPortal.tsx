@@ -485,6 +485,12 @@ export const PM_STYLES = `
 .pm .pm-navy-board .pm-col > div > button, .pm .pm-navy-board .pm-col .flex.items-center.gap-1\.5 button { background: rgba(255,255,255,.14) !important; color: #fff !important; }
 .pm .pm-navy-board .pm-task { background: rgba(255,255,255,.12) !important; border: 1px solid rgba(255,255,255,.2) !important; color: #fff; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .pm .pm-navy-board .pm-task-more { background: transparent; }
+.pm .pm-navy-board .pm-task p { color: #fff; }
+.pm .pm-navy-board .pm-task .pm-chip { background: rgba(255,255,255,.15) !important; color: #fff !important; }
+.pm .pm-navy-board .pm-task .pm-chip.orange { background: rgba(229,72,77,.38) !important; color: #ffd9d9 !important; }
+.pm .pm-navy-board .pm-task .pm-urgent-chip { background: rgba(245,154,43,.3) !important; color: #ffe3c2 !important; }
+.pm .pm-navy-board .pm-task .text-\[\#9aa0a6\] { color: rgba(255,255,255,.65) !important; }
+.pm .pm-navy-board .pm-taskactions button { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.25); color: rgba(255,255,255,.85); }
 .pm .pm-navy-board .pm-taskactions { border-color: rgba(255,255,255,.2); }
 `;
 
