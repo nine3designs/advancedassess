@@ -486,6 +486,8 @@ export const PM_STYLES = `
 .pm .pm-check-row:hover { background: var(--pm-soft2); }
 .pm .pm-check-row .box { width: 1.15rem; height: 1.15rem; border-radius: .35rem; border: 1.5px solid var(--pm-line); display: inline-flex; align-items: center; justify-content: center; background: #fff; flex: none; transition: all .15s ease; color: #fff; }
 .pm .pm-check-row .box.on { background: #2e9e5b; border-color: #2e9e5b; }
+.pm .pm-btn-green { background: #2e9e5b !important; color: #fff !important; border-radius: 999px !important; font-weight: 500 !important; font-size: .875rem !important; transition: background .15s ease !important; }
+.pm .pm-btn-green:hover { background: #27894e !important; }
 .pm .pm-navy-board { background: linear-gradient(155deg, #0d1c34 0%, #142a4d 55%, #1d3f63 100%); border-radius: 1.75rem; padding: 1.4rem 1.4rem 1.6rem; box-shadow: 0 18px 44px rgba(13,28,52,.35); }
 .pm .pm-navy-board h2, .pm .pm-navy-board h3 { color: #fff; }
 .pm .pm-navy-board .pm-drag-hint, .pm .pm-navy-board .pm-drag-hide { color: rgba(255,255,255,.65) !important; }
@@ -977,12 +979,15 @@ function qaWrapDone(c: Any) {
   return ["interim", "final", "grammar", "filed"].filter((k) => c?.checks?.[`wrap:${k}`] === true).length;
 }
 function QaChip({ c }: { c: Any }) {
+  if (c?.completed_at) return <span className="pm-chip navy">Complete ✓</span>;
   if (!c?.filing_date) return null;
   const done = qaWrapDone(c);
   return <span className={`pm-chip ${done === 4 ? "navy" : "line"}`}>Wrap-up {done}/4</span>;
 }
 
 function WrapSection({ c, act }: Any) {
+  const [busyDone, setBusyDone] = useState(false);
+  const [confirmDone, setConfirmDone] = useState(false);
   const fd = String(c?.filing_date ?? "");
   const target = (days: number) => {
     if (!fd) return "set the filing date first";
@@ -1014,6 +1019,24 @@ function WrapSection({ c, act }: Any) {
           {step("filed", "Assessment filed", fd ? `due ${fd}` : "set the filing date first")}
         </div>
       </div>
+      <div className="pm-card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold">{c?.completed_at ? "Assessment complete" : "All wrapped up?"}</h3>
+            <p className="mt-0.5 text-xs text-[#5e5e5e]">{c?.completed_at ? `Marked complete ${fmtDate(String(c.completed_at).slice(0, 10))} · tap reopen to bring it back` : "Tick all four steps, then move this case to the completed list"}</p>
+          </div>
+          {c?.completed_at ? (
+            <Button type="button" className="pm-btn h-10 flex-none px-6" disabled={busyDone} onClick={async () => { setBusyDone(true); await act({ type: "caseComplete", id: c.id, done: false }, "Assessment reopened"); setBusyDone(false); }}>Reopen assessment</Button>
+          ) : confirmDone ? (
+            <div className="flex flex-none gap-2">
+              <Button type="button" className="pm-btn-green h-10 px-6" disabled={busyDone} onClick={async () => { setBusyDone(true); await act({ type: "caseComplete", id: c.id, done: true }, "Assessment marked complete 🎉"); setBusyDone(false); setConfirmDone(false); }}>Yes · mark complete</Button>
+              <Button type="button" className="pm-btn h-10 px-5" onClick={() => setConfirmDone(false)}>Cancel</Button>
+            </div>
+          ) : (
+            <Button type="button" className="pm-btn-green h-10 flex-none px-6" onClick={() => setConfirmDone(true)}><Check className="h-4 w-4" /> Mark complete</Button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1036,13 +1059,13 @@ function JermDashboard({ p, rate, viewer, go, act }: Any) {
   const unbilledTotal = unbilled.reduce((s: number, e: Any) => s + (Number(e.minutes) / 60) * rateForDay(String(e.started_at ?? e.created_at).slice(0, 10)), 0);
   const [busy, setBusy] = useState(false);
   const secs = running ? Math.max(0, Math.floor((Date.now() - Date.parse(running.started_at)) / 1000)) : 0;
-  const qaDue = cases.filter((c: Any) => c.filing_date && qaWrapDone(c) < 4).sort((a: Any, b: Any) => String(a.filing_date).localeCompare(String(b.filing_date)));
+  const qaDue = cases.filter((c: Any) => c.filing_date && !c.completed_at && qaWrapDone(c) < 4).sort((a: Any, b: Any) => String(a.filing_date).localeCompare(String(b.filing_date)));
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Tile icon={<Clock className="h-5 w-5" />} label="This week" value={fmtMins(weekMins)} sub="hours logged · your timer" onClick={() => go("time")} />
         <Tile icon={<ListTodo className="h-5 w-5" />} tone="dark" label="My tasks" value={String(openTasks.length)} sub="assigned to you" onClick={() => go("mytodo")} />
-        <Tile icon={<FolderOpen className="h-5 w-5" />} tone="navy" label="My cases" value={String(cases.length)} sub="assessments on your desk" onClick={() => go("cases")} />
+        <Tile icon={<FolderOpen className="h-5 w-5" />} tone="navy" label="My cases" value={String(cases.filter((c: Any) => !c.completed_at).length)} sub="assessments on your desk" onClick={() => go("cases")} />
         <Tile icon={<FileText className="h-5 w-5" />} label="Unbilled" value={money(unbilledTotal)} sub={`${fmtMins(unbilled.reduce((s: number, e: Any) => s + Number(e.minutes), 0))} · ${money(rate)}/hr`} onClick={() => go("time")} />
       </div>
       <div className="grid gap-5 lg:grid-cols-3">
@@ -2195,6 +2218,9 @@ export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
   const [aType, setAType] = useState("standard");
   const [busy, setBusy] = useState(false);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const [showDone, setShowDone] = useState(false);
+  const activeCases: Any[] = cases.filter((c: Any) => !c.completed_at);
+  const completedCases: Any[] = cases.filter((c: Any) => c.completed_at).sort((x: Any, y: Any) => String(y.completed_at ?? "").localeCompare(String(x.completed_at ?? "")));
   const cur = cases.find((c: Any) => c.id === openId);
   if (cur) return <CaseDetail c={cur} act={act} viewer={viewer} onBack={() => setOpenId(null)} />;
   const addCase = async () => {
@@ -2213,15 +2239,15 @@ export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" className="pm-btn h-10" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add new case</Button>
-          <Button type="button" className="pm-btn-orange h-10" onClick={() => setExpandAll((o: boolean) => !o)} disabled={cases.length === 0}>{expandAll ? "Close all cases" : "Open all cases"}</Button>
+          <Button type="button" className="pm-btn-orange h-10" onClick={() => setExpandAll((o: boolean) => !o)} disabled={activeCases.length === 0}>{expandAll ? "Close all cases" : "Open all cases"}</Button>
         </div>
       </div>
 
-      {cases.length === 0 ? (
+      {activeCases.length === 0 ? (
         <div className="pmt-empty">No cases yet · tap "Add new case" to set up the first one.</div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {[...cases].sort((x: Any, y: Any) => String(x.filing_date || "9999-99-99").localeCompare(String(y.filing_date || "9999-99-99"))).map((c: Any) => {
+          {[...activeCases].sort((x: Any, y: Any) => String(x.filing_date || "9999-99-99").localeCompare(String(y.filing_date || "9999-99-99"))).map((c: Any) => {
             const prog = caseProgress(c);
             const notes: Any[] = Array.isArray(c.notes) ? c.notes : [];
             return (
@@ -2258,7 +2284,32 @@ export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
                 </div>
               </div>
             );
-          })}
+      {completedCases.length > 0 && (
+        <div className="pm-card p-5">
+          <button type="button" aria-expanded={showDone} className="flex w-full items-center justify-between gap-3" onClick={() => setShowDone((o: boolean) => !o)}>
+            <span className="flex items-center gap-2">
+              <Check className="h-4 w-4 text-[#2e9e5b]" />
+              <span className="text-base font-semibold">Completed assessments</span>
+              <span className="pm-chip navy">{completedCases.length}</span>
+            </span>
+            <ChevronDown className={`h-4 w-4 flex-none text-[#5e5e5e] transition-transform ${showDone ? "rotate-180" : ""}`} />
+          </button>
+          {showDone && (
+            <ul className="mt-3 space-y-1">
+              {completedCases.map((c: Any) => (
+                <li key={c.id}>
+                  <button type="button" onClick={() => setOpenId(c.id)} className="pm-check-row w-full">
+                    <span className="box on"><Check className="h-3.5 w-3.5" /></span>
+                    <span className="min-w-0 flex-1 text-left">
+                      <span className="block text-sm font-medium">{c.title}</span>
+                      <span className="block text-xs text-[#5e5e5e]">Completed {fmtDate(String(c.completed_at).slice(0, 10))}{c.filing_date ? ` · filed ${fmtDate(c.filing_date)}` : ""} · {c.assigned === "Jermaine" ? "Jermaine" : "Sara"}</span>
+                    </span>
+                    <ArrowUpRight className="h-4 w-4 flex-none text-[#5e5e5e]" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 

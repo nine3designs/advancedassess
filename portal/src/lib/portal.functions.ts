@@ -136,6 +136,7 @@ type Action =
   | { type: "caseDelete"; id: string }
   | { type: "caseSave"; id: string; key: string; content: string }
   | { type: "caseCheck"; id: string; key: string; done: boolean; na?: boolean }
+  | { type: "caseComplete"; id: string; done: boolean }
   | { type: "caseMald"; id: string; item: number; who: string; colour?: string; notes?: string }
   | { type: "caseMaldChildRemove"; id: string; idx: number }
   | { type: "caseFormK"; id: string; item: string; done: boolean; date?: string }
@@ -657,6 +658,10 @@ export const portalAction = createServerFn({ method: "POST" })
       if (a.type === "caseCheck") return await mutate(String(a.id), (c: Any) => {
         c.checks = c.checks ?? {};
         c.checks[String(a.key).slice(0, 60)] = a.na ? "na" : !!a.done;
+        return c;
+      });
+      if (a.type === "caseComplete") return await mutate(String(a.id), (c: Any) => {
+        c.completed_at = a.done ? now() : null;
         return c;
       });
       if (a.type === "caseFormK") return await mutate(String(a.id), (c: Any) => {
