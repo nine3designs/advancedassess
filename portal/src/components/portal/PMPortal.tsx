@@ -35,6 +35,7 @@ export const TAB_ICONS: Record<string, Any> = {
   mileage: Car,
   notes: StickyNote,
   cases: FolderOpen,
+  assess: Flag,
 };
 
 const londonDay = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date(iso));
@@ -194,12 +195,14 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     { v: "dashboard", l: "Dashboard" },
     { v: "tasks", l: "My Tasks" },
     { v: "cases", l: "Cases" },
+    { v: "assess", l: "Assessments" },
     { v: "board", l: "To-Do Board" },
     { v: "time", l: "Time & Invoices" },
   ] : viewer === "Jermaine" ? [
     { v: "dashboard", l: "Dashboard" },
     { v: "mytodo", l: "My Tasks" },
     { v: "cases", l: "Cases" },
+    { v: "assess", l: "Assessments" },
     { v: "time", l: "Time & Invoices" },
     { v: "mileage", l: "Mileage" },
     { v: "notes", l: "Notes" },
@@ -207,6 +210,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     { v: "dashboard", l: "Dashboard" },
     { v: "mytodo", l: "My To Do" },
     { v: "cases", l: "Cases" },
+    { v: "assess", l: "Assessments" },
     { v: "board", l: "Tasks Board" },
     { v: "cal", l: "Calendar" },
     { v: "time", l: "Invoices" },
@@ -311,6 +315,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
         {tab === "notes" && viewer !== "Natalie" && <NotesTab act={act} jerm={viewer === "Jermaine"} notes={((p.client?.portal_prefs?.[viewer === "Jermaine" ? "jerm_notes" : "sara_notes"] ?? []) as Any[])} />}
         {tab === "mytodo" && viewer !== "Natalie" && <MyTodoTab p={p} viewer={viewer} act={act} />}
         {tab === "cases" && <CasesTab p={p} viewer={viewer} act={act} />}
+        {tab === "assess" && <AssessmentsTab />}
       </main>
 
         <footer className="pm-foot">Advanced Assessment &amp; Solutions · HQ Portal - Crafted by <a href="https://nine3designs.co.uk" target="_blank" rel="noreferrer">Nine3 Designs</a></footer>
@@ -2350,7 +2355,76 @@ export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
 const MILEAGE_CAP = 10000;
 const MILEAGE_RATE = 0.55;
 
-export function MileageTab({ act, entries, files, drivers }: { act: Act; entries: Any[]; files?: Any[]; drivers?: string[] }) {
+export function AssessmentsTab() {
+  const standards = [
+    "Read all key documents and cross-reference in brackets for each topic.",
+    "7 assessment sessions and a minimum of 2 observations.",
+    "Provide feedback after each observation.",
+    "Provide teaching and role modelling in family time if you are concerned — make a written record of your teaching.",
+    "Go back and review your teaching and see if the parent can learn and adapt — if not, repeat your teaching.",
+    "Intervene in family time if you are worried about the child's safety (emotional wellbeing and / or physical safety).",
+    "The MALD self assessment questionnaire — do alongside the assessment triangle cards, booklet and / or poster. Take pictures of activities completed.",
+    "Change: refer to adult social care if you are concerned about their safety / welfare.",
+  ];
+  const checklist = [
+    "Read key documents from the Court bundle / paperwork available.",
+    "Assessment sessions and observations should be spread out throughout the course of the assessment period, in line with the parent's needs.",
+    "Plan for 6 assessment sessions minimum where possible (plus two observations if family time is already occurring).",
+    "MALD® Assessment Plan should be completed within 7 days of receiving formal instruction and shared with the parents (and copied to the instructing solicitor / professional).",
+    "Share the MALD® Parent's Explanation Video link with the parent.",
+    "Lead Instructing Professional should complete the MALD® Evaluation Table (Questionnaire) — unless the MALD® Assessor is the child's allocated social worker.",
+    "The MALD® Parent's Self-Assessment Exercise (Questionnaire) should be completed with the parent early in the assessment process, where possible.",
+    "Reminders should be sent to the parent prior to each assessment session (text messages and / or telephone calls and / or voice notes). Refer to Adult Services (Care Act Assessment) if a parent's limited independence may affect their own welfare and / or if they require such support.",
+    "Lead instructing solicitor / professional should be notified if there are two missed sessions, so support can be maximised by advocates / professionals / solicitors (MALD® Missed Appointment Letter).",
+    "Use the MALD® tools, Assessor's Handbook, and practical activities throughout the assessment process; encourage interactive engagement from the parent, in line with their identified needs.",
+    "Identify at an early stage 'three key areas of change' which can be measured throughout the assessment (see the MALD® Assessor's Handbook).",
+    "At the earliest possible stage, all paperwork should be read in full and relevant updates should be received during the course of assessment (i.e. drug testing reports, agency reports, and review of family time records).",
+    "All professionals involved with the family should be interviewed, where possible.",
+    "With permission, all support network (family and friends) involved with the family should be interviewed, where possible.",
+    "The MALD® Assessment Report should be produced.",
+    "The MALD® Simplified Parent's Letter and photographs taken of the completed, interactive exercises should be appended to the assessment.",
+  ];
+  return (
+    <div className="space-y-4">
+      <div className="pm-card p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Practice standards</h2>
+            <p className="mt-1 text-xs text-[#5e5e5e]">What every assessment must include</p>
+          </div>
+          <span className="pm-circle orange"><Flag className="h-4 w-4" /></span>
+        </div>
+        <ol className="mt-5 space-y-3">
+          {standards.map((it, i) => (
+            <li key={i} className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#eef0f2] text-xs font-semibold text-[#1f2630]">{i + 1}</span>
+              <span className="text-sm leading-6 text-[#333]">{it}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+      <div className="pm-card p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">MALD® Assessment Expected Practice Checklist</h2>
+            <p className="mt-1 text-xs text-[#5e5e5e]">Where possible, the following should occur</p>
+          </div>
+          <span className="pm-circle orange"><ClipboardList className="h-4 w-4" /></span>
+        </div>
+        <ul className="mt-5 space-y-3">
+          {checklist.map((it, i) => (
+            <li key={i} className="flex items-start gap-3">
+              <span className="mt-0.5 h-4 w-4 shrink-0 rounded border-2 border-[#c8ccd2]" />
+              <span className="text-sm leading-6 text-[#333]">{it}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function MileageTab({ act, entries, files, drivers }: { act: Act; entries: Any[]; files?: Any[]; drivers?: string[] }) {
   const DRIVERS: string[] = drivers && drivers.length ? drivers : ["Sara", "Kieron"];
   const docs = (files ?? []).filter((f: Any) => f.kind === "mileage-doc");
   const [docBusy, setDocBusy] = useState(false);
