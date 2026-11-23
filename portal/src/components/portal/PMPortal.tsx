@@ -3070,6 +3070,12 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
         )}
       </div>}
 
+      {isJerm && !((client as Any)?.portal_prefs?.jerm_bank?.account_number) && (
+        <div className="pm-card p-5" style={{ borderLeft: "4px solid #e8a13a" }}>
+          <h2 className="text-base font-semibold">Bank details outstanding</h2>
+          <p className="mt-1 text-sm text-[#5e5e5e]">Your sort code and account number haven&apos;t been added yet, so any invoice you raise will show placeholders. Natalie will add them as soon as you send them over &mdash; they&apos;ll appear on every future invoice automatically.</p>
+        </div>
+      )}
       <div className="pm-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Invoices</h2>

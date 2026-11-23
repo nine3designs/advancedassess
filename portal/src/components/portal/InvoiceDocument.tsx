@@ -64,9 +64,12 @@ export function InvoiceDocument({ inv, jermBank }: { inv: Any; jermBank?: Any })
               <p className="font-bold tracking-wide">PAYABLE TO : {isJermInv ? "JERMAINE SMITH" : "NINE3 DESIGNS"}</p>
               <p className="mt-3 font-bold tracking-wide">BANK DETAILS</p>
               <p className="mt-1">SORT CODE:</p>
-              <p className="font-semibold">{isJermInv ? (jermBank?.sort_code ?? "· · ·") : "04-03-33"}</p>
+              <p className="font-semibold">{isJermInv ? (jermBank?.sort_code ?? "(to be confirmed)") : "04-03-33"}</p>
               <p className="mt-1">ACCOUNT NUMBER:</p>
-              <p className="font-semibold">{isJermInv ? (jermBank?.account_number ?? "· · ·") : "40426946"}</p>
+              <p className="font-semibold">{isJermInv ? (jermBank?.account_number ?? "(to be confirmed)") : "40426946"}</p>
+              {isJermInv && !jermBank?.account_number && (
+                <p className="mt-2 text-[12px] italic" style={{ color: INK }}>Bank details to follow — payment details will be confirmed before this invoice is due.</p>
+              )}
             </div>
             <div className="pb-1 text-right">
               <p><span className="font-semibold">DATE OF INVOICE:</span> {dmy(inv.issue_date)}</p>
