@@ -2375,7 +2375,9 @@ export function AssessmentsTab() {
     "Lead Instructing Professional should complete the MALD® Evaluation Table (Questionnaire) — unless the MALD® Assessor is the child's allocated social worker.",
     "The MALD® Parent's Self-Assessment Exercise (Questionnaire) should be completed with the parent early in the assessment process, where possible.",
     "Reminders should be sent to the parent prior to each assessment session (text messages and / or telephone calls and / or voice notes).",
-    "Refer to Adult Services (Care Act Assessment) if a parent's limited independence may affect their own welfare and / or if they require such support.",
+    "Refer to Adult Services where you have concerns about a parent's welfare:",
+    "» Request a Care Act assessment if you think the parent would qualify for support — a parent's limited independence may affect their own welfare and / or they may require such support.",
+    "» Raise safeguarding concerns straight away if you are worried about exploitation / abuse.",
     "Lead instructing solicitor / professional should be notified if there are two missed sessions, so support can be maximised by advocates / professionals / solicitors (MALD® Missed Appointment Letter).",
     "Use the MALD® tools, Assessor's Handbook, and practical activities throughout the assessment process; encourage interactive engagement from the parent, in line with their identified needs.",
     "Identify at an early stage 'three key areas of change' which can be measured throughout the assessment (see the MALD® Assessor's Handbook).",
@@ -2413,7 +2415,12 @@ export function AssessmentsTab() {
           <span className="pm-circle orange"><ClipboardList className="h-4 w-4" /></span>
         </div>
         <ul className="mt-5 space-y-3">
-          {checklist.map((it, i) => (
+          {checklist.map((it, i) => it.startsWith("» ") ? (
+            <li key={i} className="flex items-start gap-3 pl-7">
+              <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--pm-orange)]" />
+              <span className="text-sm leading-6 text-[#333]">{it.slice(2)}</span>
+            </li>
+          ) : (
             <li key={i} className="flex items-start gap-3">
               <span className="mt-0.5 h-4 w-4 shrink-0 rounded border-2 border-[#c8ccd2]" />
               <span className="text-sm leading-6 text-[#333]">{it}</span>
