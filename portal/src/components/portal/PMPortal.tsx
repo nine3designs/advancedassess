@@ -2284,6 +2284,10 @@ export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
                 </div>
               </div>
             );
+          })}
+        </div>
+      )}
+
       {completedCases.length > 0 && (
         <div className="pm-card p-5">
           <button type="button" aria-expanded={showDone} className="flex w-full items-center justify-between gap-3" onClick={() => setShowDone((o: boolean) => !o)}>
