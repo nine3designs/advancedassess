@@ -2378,7 +2378,7 @@ export function AssessmentsTab() {
     "Refer to Adult Services where you have concerns about a parent's welfare:",
     "» Request a Care Act assessment if you think the parent would qualify for support — a parent's limited independence may affect their own welfare and / or they may require such support.",
     "» Raise safeguarding concerns straight away if you are worried about exploitation / abuse.",
-    "Lead instructing solicitor / professional should be notified if there are two missed sessions, so support can be maximised by advocates / professionals / solicitors (MALD® Missed Appointment Letter).",
+    "If two appointments are cancelled, issue a poor engagement letter. Send a copy to Sara to file and share with the other parties, and provide a copy to the parents.",
     "Use the MALD® tools, Assessor's Handbook, and practical activities throughout the assessment process; encourage interactive engagement from the parent, in line with their identified needs.",
     "Identify at an early stage 'three key areas of change' which can be measured throughout the assessment (see the MALD® Assessor's Handbook).",
     "At the earliest possible stage, all paperwork should be read in full and relevant updates should be received during the course of assessment (i.e. drug testing reports, agency reports, and review of family time records).",
