@@ -201,6 +201,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     { v: "mytodo", l: "My Tasks" },
     { v: "cases", l: "Cases" },
     { v: "time", l: "Time & Invoices" },
+    { v: "mileage", l: "Mileage" },
     { v: "notes", l: "Notes" },
   ] : [
     { v: "dashboard", l: "Dashboard" },
@@ -306,7 +307,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
         {tab === "tasks" && <TasksTab p={p} viewer={viewer} act={act} />}
         {tab === "time" && <TimeTab entries={entries} running={running} unbilledMins={unbilledMins} rate={rate} viewer={viewer} act={act} cards={cards} invoices={p.invoices} files={p.deliverables ?? []} client={p.client} />}
         {tab === "cal" && viewer !== "Natalie" && <CalendarTab avail={(p.client?.portal_prefs?.availability ?? null) as Any} />}
-        {tab === "mileage" && <MileageTab act={act} entries={((p.client?.portal_prefs?.mileage ?? []) as Any[])} files={((p.deliverables ?? []) as Any[])} />}
+        {tab === "mileage" && <MileageTab act={act} drivers={viewer === "Jermaine" ? ["Jermaine"] : undefined} entries={((p.client?.portal_prefs?.mileage ?? []) as Any[])} files={((p.deliverables ?? []) as Any[])} />}
         {tab === "notes" && viewer !== "Natalie" && <NotesTab act={act} jerm={viewer === "Jermaine"} notes={((p.client?.portal_prefs?.[viewer === "Jermaine" ? "jerm_notes" : "sara_notes"] ?? []) as Any[])} />}
         {tab === "mytodo" && viewer !== "Natalie" && <MyTodoTab p={p} viewer={viewer} act={act} />}
         {tab === "cases" && <CasesTab p={p} viewer={viewer} act={act} />}
@@ -1062,11 +1063,10 @@ function JermDashboard({ p, rate, viewer, go, act }: Any) {
   const qaDue = cases.filter((c: Any) => c.filing_date && !c.completed_at && qaWrapDone(c) < 4).sort((a: Any, b: Any) => String(a.filing_date).localeCompare(String(b.filing_date)));
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <Tile icon={<Clock className="h-5 w-5" />} label="This week" value={fmtMins(weekMins)} sub="hours logged · your timer" onClick={() => go("time")} />
         <Tile icon={<ListTodo className="h-5 w-5" />} tone="dark" label="My tasks" value={String(openTasks.length)} sub="assigned to you" onClick={() => go("mytodo")} />
         <Tile icon={<FolderOpen className="h-5 w-5" />} tone="navy" label="My cases" value={String(cases.filter((c: Any) => !c.completed_at).length)} sub="assessments on your desk" onClick={() => go("cases")} />
-        <Tile icon={<FileText className="h-5 w-5" />} label="Unbilled" value={money(unbilledTotal)} sub={`${fmtMins(unbilled.reduce((s: number, e: Any) => s + Number(e.minutes), 0))} · ${money(rate)}/hr`} onClick={() => go("time")} />
       </div>
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="pm-card flex flex-col items-center p-6">
@@ -2350,7 +2350,8 @@ export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
 const MILEAGE_CAP = 10000;
 const MILEAGE_RATE = 0.55;
 
-export function MileageTab({ act, entries, files }: { act: Act; entries: Any[]; files?: Any[] }) {
+export function MileageTab({ act, entries, files, drivers }: { act: Act; entries: Any[]; files?: Any[]; drivers?: string[] }) {
+  const DRIVERS: string[] = drivers && drivers.length ? drivers : ["Sara", "Kieron"];
   const docs = (files ?? []).filter((f: Any) => f.kind === "mileage-doc");
   const [docBusy, setDocBusy] = useState(false);
   const uploadDoc = async (f: File | undefined) => {
@@ -2362,7 +2363,7 @@ export function MileageTab({ act, entries, files }: { act: Act; entries: Any[]; 
     } finally { setDocBusy(false); }
   };
   const list = (entries ?? []) as Any[];
-  const [driver, setDriver] = useState("Sara");
+  const [driver, setDriver] = useState<string>(DRIVERS[0]);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [desc, setDesc] = useState("");
   const [miles, setMiles] = useState("");
@@ -2497,7 +2498,7 @@ export function MileageTab({ act, entries, files }: { act: Act; entries: Any[]; 
           <div className="sm:col-span-3">
             <Label className="text-xs font-medium">Who drove</Label>
             <div className="mt-1.5 grid grid-cols-2 gap-1.5 rounded-xl bg-[#eef0f2] p-1">
-              {["Sara", "Kieron"].map((n) => (
+              {DRIVERS.map((n) => (
                 <button key={n} type="button" onClick={() => setDriver(n)} className={`h-9 rounded-lg text-sm font-semibold transition-colors ${driver === n ? "bg-[var(--pm-navy)] text-white" : "text-[#5e5e5e] hover:text-[#1f2630]"}`}>{n}</button>
               ))}
             </div>
@@ -3031,7 +3032,7 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
         )}
       </div>
 
-      {files.filter((f: Any) => f.kind === "invoice").length > 0 && (
+      {!isJerm && files.filter((f: Any) => f.kind === "invoice").length > 0 && (
         <div className="pm-card p-5">
           <h2 className="text-lg font-semibold">Invoices &amp; documents from Natalie</h2>
           <p className="mt-1 text-xs text-[#5e5e5e]">Open to view in your browser · or download the PDF.</p>
