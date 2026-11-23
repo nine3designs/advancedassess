@@ -13,6 +13,8 @@ async function resolveClient(access: Access) {
     if (data) return { client: data, admin: supabaseAdmin };
     const slug = access.token.toLowerCase().replace(/[^a-z0-9]/g, "");
     const { data: candidates } = await supabaseAdmin.from("clients").select("*").eq("access_method", "link").eq("portal_enabled", true);
+    const jerm = (candidates ?? []).find((c: { portal_prefs?: { jermaine_token?: string | null } }) => String(c.portal_prefs?.jermaine_token ?? "") === access.token);
+    if (jerm) return { client: jerm, admin: supabaseAdmin };
     const named = (candidates ?? []).find((c: { portal_prefs?: { slug?: string | null }; company?: string | null; name?: string | null }) => {
       const saved = String(c.portal_prefs?.slug ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
       return saved ? saved === slug : false;
@@ -114,8 +116,8 @@ type Action =
   | { type: "cardEdit"; id: string; title?: string; notes?: string; status?: string; actor?: string; important?: boolean; due_date?: string | null }
   | { type: "cardOrder"; status: string; ids: string[] }
   | { type: "cardDelete"; id: string }
-  | { type: "noteAdd"; text: string }
-  | { type: "noteDelete"; id: string }
+  | { type: "noteAdd"; text: string; store?: "jerm" }
+  | { type: "noteDelete"; id: string; store?: "jerm" }
   | { type: "mileageAdd"; driver: string; date: string; description: string; miles: number }
   | { type: "mileageDelete"; id: string }
   | { type: "mileageCalc"; from: string; to: string }
@@ -124,7 +126,7 @@ type Action =
   | { type: "timeAdd"; date: string; minutes: number; note?: string; cardId?: string; actor?: string }
   | { type: "timeUpdate"; id: string; minutes: number; note?: string }
   | { type: "timeDelete"; id: string }
-  | { type: "timeInvoice"; entryIds?: string[]; tasks?: { id: string; title: string; notes?: string | null; rate: number }[] }
+  | { type: "timeInvoice"; entryIds?: string[]; tasks?: { id: string; title: string; notes?: string | null; rate: number }[]; dueDays?: number; actor?: string }
   | { type: "uploadInvoice"; fileName: string; title?: string; dataUri: string }
   | { type: "fileGet"; id: string }
   | { type: "cardFilesGet"; id: string }
@@ -142,8 +144,8 @@ type Action =
   | { type: "caseNoteDelete"; id: string; noteId: string }
   | { type: "caseLogAdd"; id: string; date: string; hours: number; note?: string }
   | { type: "caseLogDelete"; id: string; logId: string }
-  | { type: "caseQaFiles"; id: string; slot: "interim" | "final"; kind: "report" | "amend"; files: { name: string; dataUri: string }[]; actor?: string }
-  | { type: "caseQaFileDelete"; id: string; slot: "interim" | "final"; kind: "report" | "amend"; fileId: string }
+  | { type: "caseQaFiles"; id: string; slot: "interim" | "final" | "grammar"; kind: "report" | "amend"; files: { name: string; dataUri: string }[]; actor?: string }
+  | { type: "caseQaFileDelete"; id: string; slot: "interim" | "final" | "grammar"; kind: "report" | "amend"; fileId: string }
   | { type: "natNoteAdd"; text: string }
   | { type: "natNoteDelete"; id: string }
   | { type: "mileageDoc"; dataUri: string; fileName: string };
@@ -385,9 +387,9 @@ export const portalAction = createServerFn({ method: "POST" })
         const mins = Math.max(1, Math.round((Date.parse(ended) - Date.parse(running.started_at)) / 60000));
         await admin.from("time_entries").update({ ended_at: ended, minutes: mins }).eq("id", running.id);
       }
-      const { data: row, error } = await admin.from("time_entries").insert({ client_id: cid, card_id: a.cardId || null, started_at: now(), note: a.note ? String(a.note).slice(0, 300) : null, created_by: "Natalie" }).select("id").single();
+      const { data: row, error } = await admin.from("time_entries").insert({ client_id: cid, card_id: a.cardId || null, started_at: now(), note: a.note ? String(a.note).slice(0, 300) : null, created_by: a.actor === "Jermaine" ? "Jermaine" : "Natalie" }).select("id").single();
       if (error || !row) throw new Error("Time tracking isn't ready yet · please check back soon.");
-      await admin.from("activity_log").insert({ client_id: cid, actor: "Natalie", message: `started a work timer` });
+      await admin.from("activity_log").insert({ client_id: cid, actor: a.actor === "Jermaine" ? "Jermaine" : "Natalie", message: `started a work timer` });
       return { ok: true, id: row.id };
     }
     if (a.type === "timeStop") {
@@ -403,9 +405,9 @@ export const portalAction = createServerFn({ method: "POST" })
       const mins = Math.round(Number(a.minutes));
       if (!mins || mins <= 0) throw new Error("Enter how long you worked.");
       if (!/^\d{4}-\d{2}-\d{2}$/.test(String(a.date))) throw new Error("Pick a date.");
-      const { error } = await admin.from("time_entries").insert({ client_id: cid, card_id: a.cardId || null, started_at: `${a.date}T09:00:00Z`, ended_at: `${a.date}T09:00:00Z`, minutes: mins, note: a.note ? String(a.note).slice(0, 300) : null, created_by: a.actor === "Natalie" ? "Natalie" : "Sara" });
+      const { error } = await admin.from("time_entries").insert({ client_id: cid, card_id: a.cardId || null, started_at: `${a.date}T09:00:00Z`, ended_at: `${a.date}T09:00:00Z`, minutes: mins, note: a.note ? String(a.note).slice(0, 300) : null, created_by: a.actor === "Natalie" ? "Natalie" : a.actor === "Jermaine" ? "Jermaine" : "Sara" });
       if (error) throw new Error("Time tracking isn't ready yet · please check back soon.");
-      await admin.from("activity_log").insert({ client_id: cid, actor: a.actor === "Natalie" ? "Natalie" : "client", message: `logged ${fmtMins(mins)} on ${a.date}` });
+      await admin.from("activity_log").insert({ client_id: cid, actor: a.actor === "Natalie" ? "Natalie" : a.actor === "Jermaine" ? "Jermaine" : "client", message: `logged ${fmtMins(mins)} on ${a.date}` });
       return { ok: true };
     }
     if (a.type === "timeUpdate") {
@@ -421,9 +423,10 @@ export const portalAction = createServerFn({ method: "POST" })
       return { ok: true };
     }
     if (a.type === "timeInvoice") {
-      const { data: rows } = await admin.from("time_entries").select("id, started_at, created_at, minutes, note").eq("client_id", cid).eq("billed", false).order("created_at");
+      const { data: rows } = await admin.from("time_entries").select("id, started_at, created_at, minutes, note, created_by").eq("client_id", cid).eq("billed", false).order("created_at");
       const allOpen = ((rows as Any[]) ?? []).filter((e) => Number(e.minutes) > 0);
-      const open = Array.isArray(a.entryIds) && a.entryIds.length ? allOpen.filter((e) => a.entryIds.includes(e.id)) : allOpen;
+      let open = Array.isArray(a.entryIds) && a.entryIds.length ? allOpen.filter((e) => a.entryIds.includes(e.id)) : allOpen;
+      if (a.actor === "Jermaine") open = open.filter((e) => String((e as Any).created_by ?? "") === "Jermaine");
       const taskLines: LineItem[] = Array.isArray(a.tasks) ? a.tasks.slice(0, 40).map((t: Any) => ({
         description: `${String(t.title ?? "Task").slice(0, 200)}${t.notes ? ` · ${String(t.notes).slice(0, 140)}` : ""}`,
         quantity: 1,
@@ -454,7 +457,7 @@ export const portalAction = createServerFn({ method: "POST" })
         const amount = dayEntries.reduce((sum, e) => sum + (Number(e.minutes) / 60) * rateFor(e), 0);
         const hours = Math.round((g.mins / 60) * 100) / 100;
         return {
-          description: `Design & admin support · ${dayFmt.format(new Date(key + "T12:00:00Z"))}${g.notes.length ? ` · ${g.notes.join("; ").slice(0, 180)}` : ""}`,
+          description: `${a.actor === "Jermaine" ? "Assessment & admin support" : "Design & admin support"} · ${dayFmt.format(new Date(key + "T12:00:00Z"))}${g.notes.length ? ` · ${g.notes.join("; ").slice(0, 180)}` : ""}`,
           quantity: hours,
           rate: hours > 0 ? Math.round((amount / hours) * 100) / 100 : rate,
         };
@@ -463,15 +466,16 @@ export const portalAction = createServerFn({ method: "POST" })
       if (items.length === 0) throw new Error("Nothing selected · tick at least one day or task.");
       const totalHours = Math.round(open.reduce((s, e) => s + Number(e.minutes), 0) / 60 * 100) / 100;
       const year = new Date().getFullYear();
-      const { data: nums } = await admin.from("invoices").select("number").like("number", `N3-${year}-%`);
+      const prefix = a.actor === "Jermaine" ? "JS" : "N3";
+      const { data: nums } = await admin.from("invoices").select("number").like("number", `${prefix}-${year}-%`);
       let maxN = 0;
-      for (const r of (nums as Any[]) ?? []) { const m = /^N3-\d{4}-(\d+)$/.exec(String(r.number ?? "")); if (m) maxN = Math.max(maxN, parseInt(m[1], 10)); }
-      const number = `N3-${year}-${String(maxN + 1).padStart(3, "0")}`;
+      for (const r of (nums as Any[]) ?? []) { const m = new RegExp(`^${prefix}-\\d{4}-(\\d+)$`).exec(String(r.number ?? "")); if (m) maxN = Math.max(maxN, parseInt(m[1], 10)); }
+      const number = `${prefix}-${year}-${String(maxN + 1).padStart(3, "0")}`;
       const today = new Date().toISOString().slice(0, 10);
-      const due = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+      const due = new Date(Date.now() + (a.actor === "Jermaine" ? 28 : 7) * 86400000).toISOString().slice(0, 10);
       const usedRates = [...new Set(open.map((e) => rateFor(e)))].sort((x, y) => x - y);
       const rateLabel = usedRates.length === 1 ? `at £${usedRates[0]}/hour` : `at mixed hourly rates (£${usedRates.join("/hr + £")}/hr)`;
-      const draftNotes = `Generated from ${totalHours} logged hours ${rateLabel}` + (taskLines.length ? ` + ${taskLines.length} board ${taskLines.length === 1 ? "task" : "tasks"}` : "");
+      const draftNotes = `Generated from ${totalHours} logged hours ${rateLabel}` + (taskLines.length ? ` + ${taskLines.length} board ${taskLines.length === 1 ? "task" : "tasks"}` : "") + (a.actor === "Jermaine" ? ` · payable within 28 days` : "");
       const { data: inv, error } = await admin.from("invoices").insert({ client_id: cid, number, issue_date: today, due_date: due, status: "draft", items, tax_rate: 0, notes: draftNotes }).select("id,number").single();
       if (error || !inv) throw new Error("Could not create the invoice · please try again.");
       if (open.length) await admin.from("time_entries").update({ billed: true, invoice_id: (inv as Any).id }).in("id", open.map((e) => e.id));
@@ -479,7 +483,7 @@ export const portalAction = createServerFn({ method: "POST" })
         const r2 = await admin.from("board_cards").update({ invoiced: true }).in("id", a.tasks.map((t: Any) => t.id));
         if (r2?.error) { /* invoiced column may not exist yet · task flags stay manual */ }
       }
-      await admin.from("activity_log").insert({ client_id: cid, actor: "Natalie", message: `created invoice ${number} (${fmtMins(Math.round(totalHours * 60))}${taskLines.length ? ` + ${taskLines.length} task${taskLines.length === 1 ? "" : "s"}` : ""})` });
+      await admin.from("activity_log").insert({ client_id: cid, actor: a.actor === "Jermaine" ? "Jermaine" : "Natalie", message: `created invoice ${number} (${fmtMins(Math.round(totalHours * 60))}${taskLines.length ? ` + ${taskLines.length} task${taskLines.length === 1 ? "" : "s"}` : ""})` });
       return { ok: true, number, id: (inv as Any).id };
     }
     if (a.type === "invoiceUpdate") {
@@ -548,17 +552,19 @@ export const portalAction = createServerFn({ method: "POST" })
       if (!text) throw new Error("Write something first.");
       const { data: cur } = await admin.from("clients").select("portal_prefs").eq("id", cid).maybeSingle();
       const prefs = (cur?.portal_prefs ?? {}) as Any;
-      const list = Array.isArray(prefs.sara_notes) ? prefs.sara_notes : [];
+      const noteKey = a.store === "jerm" ? "jerm_notes" : "sara_notes";
+      const list = Array.isArray(prefs[noteKey]) ? prefs[noteKey] : [];
       const item = { id: crypto.randomUUID(), text: text.slice(0, 2000), at: now() };
-      const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, sara_notes: [item, ...list].slice(0, 200) } }).eq("id", cid);
+      const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, [noteKey]: [item, ...list].slice(0, 200) } }).eq("id", cid);
       if (error) throw new Error("Notes aren't ready yet · please check back soon.");
       return { ok: true };
     }
     if (a.type === "noteDelete") {
       const { data: cur } = await admin.from("clients").select("portal_prefs").eq("id", cid).maybeSingle();
       const prefs = (cur?.portal_prefs ?? {}) as Any;
-      const list = (Array.isArray(prefs.sara_notes) ? prefs.sara_notes : []).filter((n: Any) => n?.id !== a.id);
-      const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, sara_notes: list } }).eq("id", cid);
+      const noteKey = a.store === "jerm" ? "jerm_notes" : "sara_notes";
+      const list = ((Array.isArray(prefs[noteKey]) ? prefs[noteKey] : []) as Any[]).filter((n: Any) => n?.id !== a.id);
+      const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, [noteKey]: list } }).eq("id", cid);
       if (error) throw new Error("Could not delete that note · please try again.");
       return { ok: true };
     }
@@ -697,7 +703,7 @@ export const portalAction = createServerFn({ method: "POST" })
         return c;
       });
       if (a.type === "caseQaFiles") {
-        const slot = a.slot === "final" ? "final" : "interim";
+        const slot = a.slot === "final" ? "final" : a.slot === "grammar" ? "grammar" : "interim";
         const kind = a.kind === "amend" ? "amend" : "report";
         const clean: Any[] = [];
         for (const f of (Array.isArray(a.files) ? a.files : [])) {
@@ -715,7 +721,7 @@ export const portalAction = createServerFn({ method: "POST" })
         });
       }
       if (a.type === "caseQaFileDelete") {
-        const slot = a.slot === "final" ? "final" : "interim";
+        const slot = a.slot === "final" ? "final" : a.slot === "grammar" ? "grammar" : "interim";
         const kind = a.kind === "amend" ? "amend" : "report";
         return await mutate(String(a.id), (c: Any) => {
           if (c.qa?.[`${slot}:${kind}`]) c.qa[`${slot}:${kind}`] = (c.qa[`${slot}:${kind}`] as Any[]).filter((x: Any) => x?.id !== a.fileId);

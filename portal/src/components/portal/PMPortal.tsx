@@ -112,7 +112,8 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     } catch (e) { toast.error((e as Error).message); return null; }
   };
 
-  const [viewer, setViewer] = useState<"Sara" | "Natalie">("Sara");
+  const isJermToken = !!token && token === String((p.client?.portal_prefs ?? {}).jermaine_token ?? "");
+  const [viewer, setViewer] = useState<"Sara" | "Natalie" | "Jermaine">(isJermToken ? "Jermaine" : "Sara");
   useEffect(() => {
     (async () => {
       try {
@@ -120,7 +121,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
         const uid = data.session?.user?.id;
         if (!uid) return;
         const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: uid, _role: "admin" });
-        if (isAdmin) setViewer("Natalie");
+        if (isAdmin && !isJermToken) setViewer("Natalie");
       } catch { /* stay as client viewer */ }
     })();
   }, []);
@@ -195,6 +196,12 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
     { v: "cases", l: "Cases" },
     { v: "board", l: "To-Do Board" },
     { v: "time", l: "Time & Invoices" },
+  ] : viewer === "Jermaine" ? [
+    { v: "dashboard", l: "Dashboard" },
+    { v: "mytodo", l: "My Tasks" },
+    { v: "cases", l: "Cases" },
+    { v: "time", l: "Time & Invoices" },
+    { v: "notes", l: "Notes" },
   ] : [
     { v: "dashboard", l: "Dashboard" },
     { v: "mytodo", l: "My To Do" },
@@ -207,7 +214,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
   ];
 
   const first = (p.client.name ?? "").split(" ")[0] || "there";
-  const welcome = viewer === "Natalie" ? "Natalie" : first;
+  const welcome = viewer === "Natalie" ? "Natalie" : viewer === "Jermaine" ? "Jermaine" : first;
 
   return (
     <div className="pm">
@@ -232,7 +239,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
           <span className="pm-side-avatar">{(viewer === "Natalie" ? "Natalie" : welcome).slice(0, 1)}</span>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-white">{viewer === "Natalie" ? "Natalie" : welcome}</p>
-            <p className="text-[11px] text-white/50">{viewer === "Natalie" ? "Admin" : "Client portal"}</p>
+            <p className="text-[11px] text-white/50">{viewer === "Natalie" ? "Admin" : viewer === "Jermaine" ? "Assessor portal" : "Client portal"}</p>
           </div>
         </div>
       </aside>
@@ -289,7 +296,10 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
           )}
         </header>
 
-        {tab === "dashboard" && (
+        {tab === "dashboard" && viewer === "Jermaine" && (
+          <JermDashboard p={p} rate={rate} viewer={viewer} go={setTab} act={act} />
+        )}
+        {tab === "dashboard" && viewer !== "Jermaine" && (
           <Dashboard p={p} stats={stats} weeks={weeks} maxWeek={maxWeek} rate={rate} unbilledMins={unbilledMins} running={running} viewer={viewer} go={setTab} act={act} onQuickAdd={() => { setBoardAdd(true); setTab("board"); }} onQuickUrgent={() => { setBoardAddUrgent(true); setTab("board"); }} />
         )}
         {tab === "board" && <Board p={p} viewer={viewer} act={act} go={setTab} autoAdd={boardAdd} onAutoAddDone={() => setBoardAdd(false)} autoAddUrgent={boardAddUrgent} onAutoAddUrgentDone={() => setBoardAddUrgent(false)} />}
@@ -297,7 +307,7 @@ export function PMPortal({ p, token }: { p: Any; token: string | null }) {
         {tab === "time" && <TimeTab entries={entries} running={running} unbilledMins={unbilledMins} rate={rate} viewer={viewer} act={act} cards={cards} invoices={p.invoices} files={p.deliverables ?? []} client={p.client} />}
         {tab === "cal" && viewer !== "Natalie" && <CalendarTab avail={(p.client?.portal_prefs?.availability ?? null) as Any} />}
         {tab === "mileage" && <MileageTab act={act} entries={((p.client?.portal_prefs?.mileage ?? []) as Any[])} files={((p.deliverables ?? []) as Any[])} />}
-        {tab === "notes" && viewer !== "Natalie" && <NotesTab act={act} notes={((p.client?.portal_prefs?.sara_notes ?? []) as Any[])} />}
+        {tab === "notes" && viewer !== "Natalie" && <NotesTab act={act} jerm={viewer === "Jermaine"} notes={((p.client?.portal_prefs?.[viewer === "Jermaine" ? "jerm_notes" : "sara_notes"] ?? []) as Any[])} />}
         {tab === "mytodo" && viewer !== "Natalie" && <MyTodoTab p={p} viewer={viewer} act={act} />}
         {tab === "cases" && <CasesTab p={p} viewer={viewer} act={act} />}
       </main>
@@ -527,15 +537,16 @@ const BOARD_ICONS = [ClipboardList, CalendarDays, Clock];
 
 function splitAssign(notes?: string | null) {
   const t = String(notes ?? "");
-  const m = t.match(/^\[assign:(Sara|Natalie)\]\s*/i);
+  const m = t.match(/^\[assign:(Sara|Natalie|Jermaine)\]\s*/i);
   return m ? { who: m[1][0].toUpperCase() + m[1].slice(1).toLowerCase(), rest: t.slice(m[0].length) } : { who: "", rest: t };
 }
 function withAssign(who: string, rest: string) {
-  const r = String(rest ?? "").replace(/^\[assign:(Sara|Natalie)\]\s*/i, "");
+  const r = String(rest ?? "").replace(/^\[assign:(Sara|Natalie|Jermaine)\]\s*/i, "");
   return who ? `[assign:${who}] ${r}`.trim() : r;
 }
 function AssignChip({ who }: { who: string }) {
   if (!who) return null;
+  if (who.toLowerCase() === "jermaine") return <span className="pm-chip flex-none" style={{ background: "#e2e6f0", color: "#28345c" }}>{who}</span>;
   const pink = who.toLowerCase().startsWith("sara");
   return <span className="pm-chip flex-none" style={{ background: pink ? "#fbe3ef" : "#e2edfa", color: pink ? "#b23a74" : "#28598f" }}>{who}</span>;
 }
@@ -917,7 +928,7 @@ function CalendarTab({ avail }: { avail: Any }) {
 
 /* ---------------- notes (Sara's brain dump) ---------------- */
 
-function NotesTab({ act, notes }: { act: Act; notes: Any[] }) {
+function NotesTab({ act, notes, jerm }: { act: Act; notes: Any[]; jerm?: boolean }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
@@ -931,7 +942,7 @@ function NotesTab({ act, notes }: { act: Act; notes: Any[] }) {
           </div>
           <span className="pm-circle orange"><Pencil className="h-4 w-4" /></span>
         </div>
-        <form className="mt-4" onSubmit={async (e) => { e.preventDefault(); if (!text.trim() || busy) return; setBusy(true); const r = await act({ type: "noteAdd", text: text.trim() }, "Note saved"); if (r) setText(""); setBusy(false); }}>
+        <form className="mt-4" onSubmit={async (e) => { e.preventDefault(); if (!text.trim() || busy) return; setBusy(true); const r = await act({ type: "noteAdd", text: text.trim(), store: jerm ? "jerm" : undefined }, "Note saved"); if (r) setText(""); setBusy(false); }}>
           <Textarea autoFocus placeholder="Dump a thought..." value={text} onChange={(e) => setText(e.target.value)} rows={3} className="text-sm" />
           <div className="mt-2.5 flex justify-end">
             <Button type="submit" className="pm-btn-orange h-9 px-5" disabled={busy}>Save note</Button>
@@ -948,7 +959,7 @@ function NotesTab({ act, notes }: { act: Act; notes: Any[] }) {
               <div className="mt-3 flex items-center justify-between border-t border-[#00000014] pt-2.5">
                 <span className="text-[11px] text-[#7a7460]">{fmtDate(n.at)}</span>
                 <IconBtn label="Delete note" danger={confirmDel === n.id} onClick={() => {
-                  if (confirmDel === n.id) { act({ type: "noteDelete", id: n.id }, "Note deleted"); setConfirmDel(null); }
+                  if (confirmDel === n.id) { act({ type: "noteDelete", id: n.id, store: jerm ? "jerm" : undefined }, "Note deleted"); setConfirmDel(null); }
                   else { setConfirmDel(n.id); setTimeout(() => setConfirmDel((k) => (k === n.id ? null : k)), 2600); }
                 }}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
               </div>
@@ -960,18 +971,142 @@ function NotesTab({ act, notes }: { act: Act; notes: Any[] }) {
   );
 }
 
+/* ---------------- Jermaine (assessor) ---------------- */
+
+function qaWrapDone(c: Any) {
+  return ["interim", "final", "grammar", "filed"].filter((k) => c?.checks?.[`wrap:${k}`] === true).length;
+}
+function QaChip({ c }: { c: Any }) {
+  if (!c?.filing_date) return null;
+  const done = qaWrapDone(c);
+  return <span className={`pm-chip ${done === 4 ? "navy" : "line"}`}>Wrap-up {done}/4</span>;
+}
+
+function WrapSection({ c, act }: Any) {
+  const fd = String(c?.filing_date ?? "");
+  const target = (days: number) => {
+    if (!fd) return "set the filing date first";
+    const dte = new Date(fd + "T12:00:00Z");
+    dte.setDate(dte.getDate() - days);
+    return `aim for ${dte.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" })}`;
+  };
+  const step = (key: string, title: string, sub: string) => {
+    const on = c?.checks?.[`wrap:${key}`] === true;
+    return (
+      <button key={key} type="button" aria-pressed={on} onClick={async () => { await act({ type: "caseCheck", id: c.id, key: `wrap:${key}`, done: !on }); }} className="pm-check-row w-full">
+        <span className={`box ${on ? "on" : ""}`}><Check className="h-3.5 w-3.5" /></span>
+        <span className="min-w-0 flex-1 text-left">
+          <span className={`block text-sm ${on ? "text-[#9aa0a6] line-through" : "font-medium"}`}>{title}</span>
+          <span className="block text-xs text-[#5e5e5e]">{sub}</span>
+        </span>
+      </button>
+    );
+  };
+  return (
+    <div className="space-y-4">
+      <div className="pm-card p-5">
+        <h3 className="text-lg font-semibold">Wrap-up · from draft to filed</h3>
+        <p className="mt-1 text-xs text-[#5e5e5e]">Tick each step as you go{fd ? ` · filing date ${fd}` : ""} · file early if you can.</p>
+        <div className="mt-3 space-y-1">
+          {step("interim", "Interim QA sent to Sara", target(14))}
+          {step("final", "Final QA done", target(7))}
+          {step("grammar", "Grammar check with Natalie", "send to Natalie after final QA")}
+          {step("filed", "Assessment filed", fd ? `due ${fd}` : "set the filing date first")}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function JermDashboard({ p, rate, viewer, go, act }: Any) {
+  const prefs = (p.client?.portal_prefs ?? {}) as Any;
+  const myEntries: Any[] = (p.time ?? []).filter((e: Any) => String(e.created_by ?? "") === "Jermaine");
+  const running: Any = myEntries.find((e: Any) => !e.ended_at) ?? null;
+  const cards: Any[] = p.board ?? [];
+  const myCards = cards.filter((c: Any) => splitAssign(c.notes).who === "Jermaine");
+  const openTasks = myCards.filter((c: Any) => c.status !== "done");
+  const cases: Any[] = (prefs.cases ?? []).filter((c: Any) => c.assigned === "Jermaine");
+  const doneEntries = myEntries.filter((e: Any) => e.ended_at && Number(e.minutes) > 0);
+  const today = londonDay(new Date().toISOString());
+  const monday = weekStart(today);
+  const weekMins = doneEntries.filter((e: Any) => weekStart(londonDay(e.started_at ?? e.created_at)) === monday).reduce((s: number, e: Any) => s + Number(e.minutes), 0);
+  const unbilled = doneEntries.filter((e: Any) => !e.billed);
+  const periods: Any[] = Array.isArray(prefs.rate_periods) ? prefs.rate_periods : [];
+  const rateForDay = (day: string) => { let r = 17; for (const pp of periods) { const from = String(pp?.from ?? ""); if (from && from <= day) r = Number(pp.rate) || r; } return r; };
+  const unbilledTotal = unbilled.reduce((s: number, e: Any) => s + (Number(e.minutes) / 60) * rateForDay(String(e.started_at ?? e.created_at).slice(0, 10)), 0);
+  const [busy, setBusy] = useState(false);
+  const secs = running ? Math.max(0, Math.floor((Date.now() - Date.parse(running.started_at)) / 1000)) : 0;
+  const qaDue = cases.filter((c: Any) => c.filing_date && qaWrapDone(c) < 4).sort((a: Any, b: Any) => String(a.filing_date).localeCompare(String(b.filing_date)));
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Tile icon={<Clock className="h-5 w-5" />} label="This week" value={fmtMins(weekMins)} sub="hours logged · your timer" onClick={() => go("time")} />
+        <Tile icon={<ListTodo className="h-5 w-5" />} tone="dark" label="My tasks" value={String(openTasks.length)} sub="assigned to you" onClick={() => go("mytodo")} />
+        <Tile icon={<FolderOpen className="h-5 w-5" />} tone="navy" label="My cases" value={String(cases.length)} sub="assessments on your desk" onClick={() => go("cases")} />
+        <Tile icon={<FileText className="h-5 w-5" />} label="Unbilled" value={money(unbilledTotal)} sub={`${fmtMins(unbilled.reduce((s: number, e: Any) => s + Number(e.minutes), 0))} · ${money(rate)}/hr`} onClick={() => go("time")} />
+      </div>
+      <div className="grid gap-5 lg:grid-cols-3">
+        <div className="pm-card flex flex-col items-center p-6">
+          <div className="flex w-full items-center justify-between">
+            <h2 className="text-lg font-semibold">Time tracker</h2>
+            <button type="button" aria-label="Open time tracking" onClick={() => go("time")} className="pm-circle"><Clock className="h-4 w-4" /></button>
+          </div>
+          <div className="mt-2">
+            <Ring frac={running ? (secs % 480) / 480 : 0}>
+              <span className="timer-num text-[1.35rem] font-semibold tracking-tight md:text-2xl">{running ? hms(Date.now() - Date.parse(running.started_at)) : "00:00:00"}</span>
+              <span className="mt-0.5 text-[10px] text-[#5e5e5e]">{running ? "on the clock" : "not tracking"}</span>
+            </Ring>
+          </div>
+          <p className="mt-2 text-center text-xs text-[#5e5e5e]">{running ? (running.note ? `Tracking · ${running.note}` : "Tracking · no note added") : "Ready when you are"}</p>
+          {!running ? (
+            <Button className="pm-btn-orange mt-4 h-10 px-6" disabled={busy} onClick={async () => { setBusy(true); await act({ type: "timeStart", note: "", actor: viewer }, "Timer started"); setBusy(false); }}>
+              <Play className="h-4 w-4" /> Start timer
+            </Button>
+          ) : (
+            <Button className="pm-btn mt-4 h-10 px-6" disabled={busy} onClick={async () => { setBusy(true); await act({ type: "timeStop", id: running.id }, "Timer stopped · hours logged"); setBusy(false); }}>
+              <Square className="h-4 w-4" /> Stop timer
+            </Button>
+          )}
+        </div>
+        <MonthCalCard avail={(prefs.availability ?? null) as Any} booked={((prefs.booked ?? []) as Any[])} cta={false} />
+        <div className="pm-card p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">QA pipeline</h2>
+            <button type="button" aria-label="Open cases" onClick={() => go("cases")} className="pm-circle"><FolderOpen className="h-4 w-4" /></button>
+          </div>
+          <p className="mt-1 text-xs text-[#5e5e5e]">Wrap-up steps left per case · file early if you can</p>
+          {qaDue.length === 0 ? <p className="pmt-empty mt-4">Nothing waiting · your cases are all wrapped up.</p> : (
+            <ul className="mt-4 space-y-3">
+              {qaDue.slice(0, 5).map((c: Any) => (
+                <li key={c.id} className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full text-xs font-bold" style={{ background: daysUntil(c.filing_date) <= 7 ? "rgba(192,57,43,.12)" : "rgba(245,154,43,.14)", color: daysUntil(c.filing_date) <= 7 ? "#c0392b" : "#a35803" }}>{daysUntil(c.filing_date)}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{c.title}</p>
+                    <p className="text-[11px] text-[#5e5e5e]">Wrap-up {qaWrapDone(c)}/4 · files {fmtDate(c.filing_date)}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------------- my to do (Sara) ---------------- */
 
 function MyTodoTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
   const cards: Any[] = p.board ?? [];
-  const mine = cards.filter((c: Any) => { const w = splitAssign(c.notes).who; return w === "Sara" || w === ""; });
+  const me = viewer === "Jermaine" ? "Jermaine" : "Sara";
+  const mine = cards.filter((c: Any) => { const w = splitAssign(c.notes).who; return w === me || (me === "Sara" && w === ""); });
   const [showDone, setShowDone] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [composer, setComposer] = useState<null | "normal" | "urgent">(null);
 
-  const notes: Any[] = ((p.client?.portal_prefs?.sara_notes ?? []) as Any[]);
+  const notes: Any[] = ((p.client?.portal_prefs?.[viewer === "Jermaine" ? "jerm_notes" : "sara_notes"] ?? []) as Any[]);
   const open_ = mine.filter((c: Any) => c.status !== "done");
   const urg = open_.filter((c: Any) => c.important);
   const doing = open_.filter((c: Any) => c.status === "doing");
@@ -1077,7 +1212,7 @@ function MyTodoTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
               <span className="pm-chip">{notes.length}</span>
             </div>
             <p className="mt-1 text-xs text-[#5e5e5e]">Quick jottings · these also appear on your Notes page</p>
-            <form className="mt-3 flex flex-col gap-2 sm:flex-row" onSubmit={async (e: Any) => { e.preventDefault(); if (!noteText.trim() || noteBusy) return; setNoteBusy(true); const r = await act({ type: "noteAdd", text: noteText }, "Noted"); setNoteBusy(false); if (r !== null) setNoteText(""); }}>
+            <form className="mt-3 flex flex-col gap-2 sm:flex-row" onSubmit={async (e: Any) => { e.preventDefault(); if (!noteText.trim() || noteBusy) return; setNoteBusy(true); const r = await act({ type: "noteAdd", text: noteText, store: viewer === "Jermaine" ? "jerm" : undefined }, "Noted"); setNoteBusy(false); if (r !== null) setNoteText(""); }}>
               <Input value={noteText} onChange={(e: Any) => setNoteText(e.target.value)} placeholder="Jot something down…" className="h-10" />
               <Button type="submit" className="pm-btn-orange h-10 px-6" disabled={noteBusy}>{noteBusy ? "…" : "Add"}</Button>
             </form>
@@ -1087,7 +1222,7 @@ function MyTodoTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
                   <li key={n.id} className="pm-row flex items-start gap-2.5 px-3 py-2.5">
                     <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm">{n.text}</p>
                     <span className="flex-none text-[11px] text-[#9aa0a6]">{relDay(n.at)}</span>
-                    <IconBtn label="Delete note" onClick={async () => { await act({ type: "noteDelete", id: n.id }, "Note deleted"); }}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+                    <IconBtn label="Delete note" onClick={async () => { await act({ type: "noteDelete", id: n.id, store: viewer === "Jermaine" ? "jerm" : undefined }, "Note deleted"); }}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
                   </li>
                 ))}
               </ul>
@@ -1897,6 +2032,7 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
           {navBtn("travel", "Travel & Mileage")}
           {navBtn("interim", "Interim QA")}
           {navBtn("final", "Final QA")}
+          {navBtn("wrap", "Wrap-up & File")}
         </nav>
 
         <div className="min-w-0 space-y-4">
@@ -2040,6 +2176,7 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
 
           {sel === "interim" && <QaSection c={c} act={act} slot="interim" label="Interim QA" hint="Upload the report, log the QA date, and attach any amendment files." />}
           {sel === "final" && <QaSection c={c} act={act} slot="final" label="Final QA" hint="Upload the report, log the QA date, and attach any amendment files." />}
+          {sel === "wrap" && <WrapSection c={c} act={act} />}
         </div>
       </div>
     </div>
@@ -2047,13 +2184,14 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
 }
 
 export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
-  const cases: Any[] = ((p.client?.portal_prefs?.cases ?? []) as Any[]);
+  const allCases: Any[] = ((p.client?.portal_prefs?.cases ?? []) as Any[]);
+  const cases: Any[] = viewer === "Jermaine" ? allCases.filter((c: Any) => c.assigned === "Jermaine") : allCases;
   const [openId, setOpenId] = useState<string | null>(null);
   const [expandAll, setExpandAll] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [info, setInfo] = useState("");
-  const [assigned, setAssigned] = useState("Sara");
+  const [assigned, setAssigned] = useState(viewer === "Jermaine" ? "Jermaine" : "Sara");
   const [aType, setAType] = useState("standard");
   const [busy, setBusy] = useState(false);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
@@ -2064,7 +2202,7 @@ export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
     setBusy(true);
     const r = await act({ type: "caseAdd", title: title.trim(), info: info.trim(), assigned, form_k: aType === "formk" }, "Case created");
     setBusy(false);
-    if (r !== null) { setAddOpen(false); setTitle(""); setInfo(""); setAssigned("Sara"); setAType("standard"); if (r?.id) setOpenId(r.id); }
+    if (r !== null) { setAddOpen(false); setTitle(""); setInfo(""); setAssigned(viewer === "Jermaine" ? "Jermaine" : "Sara"); setAType("standard"); if (r?.id) setOpenId(r.id); }
   };
   return (
     <div className="space-y-4">
@@ -2093,6 +2231,7 @@ export function CasesTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
                   <span className="flex flex-none flex-wrap gap-1.5">
                     <span className="pm-chip line">{c.form_k ? "Form K" : "MALD"}</span>
                     <span className={`pm-chip ${c.assigned === "Jermaine" ? "navy" : "orange"}`}>{c.assigned === "Jermaine" ? "Jermaine" : "Sara"}</span>
+                    <QaChip c={c} />
                   </span>
                 </div>
                 {(expandAll || !c.info) ? null : <p className="clamp2 mt-1.5 text-xs text-[#5e5e5e]">{c.info}</p>}
@@ -2629,6 +2768,7 @@ function AddComposer({ col, onSubmit, onCancel, startImportant }: { col: string;
           <option value="">Unassigned</option>
           <option value="Sara">Sara</option>
           <option value="Natalie">Natalie</option>
+          <option value="Jermaine">Jermaine</option>
         </select>
       </div>
       <div className="mt-2">
@@ -2682,26 +2822,32 @@ function EditCard({ card, onSave, onDelete }: { card: Any; onSave: (title: strin
 /* ---------------- time ---------------- */
 
 function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, invoices: allInvoices, files, client }: Any) {
-  const invoices = (allInvoices ?? []).filter((i: Any) => i.status !== "draft");
+  const invoices = (allInvoices ?? []).filter((i: Any) => i.status !== "draft" && (viewer !== "Jermaine" || String(i.number ?? "").startsWith("JS-")));
   const [viewInv, setViewInv] = useState<Any | null>(null);
   const [showPaid, setShowPaid] = useState(false);
   const unpaidInv = invoices.filter((i: Any) => effectiveStatus(i) !== "paid");
   const paidInv = invoices.filter((i: Any) => effectiveStatus(i) === "paid");
   const dueTotal = unpaidInv.reduce((t: number, i: Any) => t + invoiceTotals(i.items as LineItem[], i.tax_rate).total, 0);
   const isNat = viewer === "Natalie";
+  const isJerm = viewer === "Jermaine";
+  const myEntries: Any[] = isJerm ? entries.filter((e: Any) => String(e.created_by ?? "") === "Jermaine") : entries;
+  const doneAll = myEntries.filter((e: Any) => e.ended_at && Number(e.minutes) > 0);
+  const unbilled = doneAll.filter((e: Any) => !e.billed);
+  const myUnbilledMins = unbilled.reduce((s: number, e: Any) => s + Number(e.minutes), 0);
+  const jermRunning = isJerm ? ((running && String(running.created_by ?? "") === "Jermaine") ? running : null) : running;
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [, setTick] = useState(0);
   useEffect(() => {
-    if (!running) return;
+    if (!jermRunning) return;
     const t = setInterval(() => setTick((x) => x + 1), 1000);
     return () => clearInterval(t);
-  }, [running?.id]);
+  }, [jermRunning?.id]);
 
   const todayKey = londonDay(new Date().toISOString());
   const groups = useMemo(() => {
     const map = new Map<string, Any[]>();
-    for (const e of entries.filter((x: Any) => x.ended_at)) {
+    for (const e of (isJerm ? myEntries : entries).filter((x: Any) => x.ended_at)) {
       const day = londonDay(e.started_at ?? e.created_at);
       (map.get(day) ?? map.set(day, []).get(day)!).push(e);
     }
@@ -2710,33 +2856,33 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
   const cardTitle = (id: string) => cards.find((c: Any) => c.id === id)?.title;
   const dayLabel = (key: string) => new Date(key + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" });
 
-  const secs = running ? Math.max(0, Math.floor((Date.now() - Date.parse(running.started_at)) / 1000)) : 0;
-  const frac = running ? (secs % 480) / 480 : 0;
+  const secs = jermRunning ? Math.max(0, Math.floor((Date.now() - Date.parse(jermRunning.started_at)) / 1000)) : 0;
+  const frac = jermRunning ? (secs % 480) / 480 : 0;
 
   return (
     <div className="space-y-5">
-      {isNat && <div className="pm-card p-6 md:p-7">
+      {(isNat || isJerm) && <div className="pm-card p-6 md:p-7">
         <div className="flex flex-col gap-6 md:flex-row md:items-center">
           <div className="flex items-center gap-5">
-            <Ring frac={running ? (secs % 480) / 480 : 0}>
-              <span className="timer-num text-base font-semibold tracking-tight">{running ? hms(Date.now() - Date.parse(running.started_at)) : "00:00:00"}</span>
+            <Ring frac={jermRunning ? (secs % 480) / 480 : 0}>
+              <span className="timer-num text-base font-semibold tracking-tight">{jermRunning ? hms(Date.now() - Date.parse(jermRunning.started_at)) : "00:00:00"}</span>
             </Ring>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#d97406]">Time tracking</p>
-              <p className="mt-1 text-sm text-[#5e5e5e]">{running ? (running.note ? `Tracking · ${running.note}` : "Tracking · no note added") : isNat ? "Ready when you are" : "Natalie's live work timer"}</p>
-              {running && <p className="timer-num mt-1 text-3xl font-semibold tracking-tight md:text-4xl">{hms(Date.now() - Date.parse(running.started_at))}</p>}
+              <p className="mt-1 text-sm text-[#5e5e5e]">{jermRunning ? (jermRunning.note ? `Tracking · ${jermRunning.note}` : "Tracking · no note added") : isNat ? "Ready when you are" : isJerm ? "Ready when you are" : "Natalie's live work timer"}</p>
+              {jermRunning && <p className="timer-num mt-1 text-3xl font-semibold tracking-tight md:text-4xl">{hms(Date.now() - Date.parse(jermRunning.started_at))}</p>}
             </div>
           </div>
-          {isNat && (
+          {(isNat || isJerm) && (
             <div className="md:ml-auto">
-              {running ? (
-                <Button className="pm-btn h-11 px-7" disabled={busy} onClick={async () => { setBusy(true); await act({ type: "timeStop", id: running.id }, "Timer stopped · hours logged"); setBusy(false); }}>
+              {jermRunning ? (
+                <Button className="pm-btn h-11 px-7" disabled={busy} onClick={async () => { setBusy(true); await act({ type: "timeStop", id: jermRunning.id }, "Timer stopped · hours logged"); setBusy(false); }}>
                   <Square className="h-4 w-4" /> Stop timer
                 </Button>
               ) : (
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Input placeholder="What are you working on? (optional)" value={note} onChange={(e) => setNote(e.target.value)} className="h-11 w-full rounded-full sm:w-64" />
-                  <Button className="pm-btn-orange h-11 px-6" disabled={busy} onClick={async () => { setBusy(true); await act({ type: "timeStart", note: note.trim() }, "Timer started"); setBusy(false); setNote(""); }}>
+                  <Button className="pm-btn-orange h-11 px-6" disabled={busy} onClick={async () => { setBusy(true); await act({ type: "timeStart", note: note.trim(), actor: viewer }, "Timer started"); setBusy(false); setNote(""); }}>
                     <Play className="h-4 w-4" /> Start
                   </Button>
                 </div>
@@ -2746,7 +2892,7 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
         </div>
       </div>}
 
-      {isNat && <div className="pm-card p-5">
+      {(isNat || isJerm) && <div className="pm-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Unbilled work</h2>
@@ -2754,26 +2900,26 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
           </div>
           <div className="text-right">
             <p className="text-2xl font-semibold tracking-tight">{money(unbilled.reduce((sum: number, e: Any) => { const day = String(e.started_at ?? e.created_at).slice(0, 10); const periods: Any[] = Array.isArray((client as Any)?.portal_prefs?.rate_periods) ? (client as Any).portal_prefs.rate_periods : []; let r = 17; for (const p of periods) { const from = String(p?.from ?? ""); if (from && from <= day) r = Number(p.rate) || r; } return sum + (Number(e.minutes) / 60) * r; }, 0))}</p>
-            <p className="text-xs text-[#5e5e5e]">{fmtMins(unbilledMins)}</p>
+            <p className="text-xs text-[#5e5e5e]">{fmtMins(myUnbilledMins)}</p>
           </div>
         </div>
-        {isNat && unbilledMins > 0 && (
+        {(isNat || isJerm) && myUnbilledMins > 0 && (
           <div className="mt-4 border-t border-[#f0f1f3] pt-4">
             <Button className="pm-btn-orange h-10" disabled={busy} onClick={async () => {
               setBusy(true);
-              const r = await act({ type: "timeInvoice" });
+              const r = await act({ type: "timeInvoice", actor: viewer, dueDays: isJerm ? 28 : undefined });
               setBusy(false);
               if (r?.number) toast.success(`Invoice ${r.number} created as a draft · review & send it in your studio`);
-            }}><FileText className="h-4 w-4" /> Create invoice · {fmtMins(unbilledMins)} · {money(unbilled.reduce((sum: number, e: Any) => { const day = String(e.started_at ?? e.created_at).slice(0, 10); const periods: Any[] = Array.isArray((client as Any)?.portal_prefs?.rate_periods) ? (client as Any).portal_prefs.rate_periods : []; let r = 17; for (const p of periods) { const from = String(p?.from ?? ""); if (from && from <= day) r = Number(p.rate) || r; } return sum + (Number(e.minutes) / 60) * r; }, 0))}</Button>
+            }}><FileText className="h-4 w-4" /> Create invoice · {fmtMins(myUnbilledMins)} · {money(unbilled.reduce((sum: number, e: Any) => { const day = String(e.started_at ?? e.created_at).slice(0, 10); const periods: Any[] = Array.isArray((client as Any)?.portal_prefs?.rate_periods) ? (client as Any).portal_prefs.rate_periods : []; let r = 17; for (const p of periods) { const from = String(p?.from ?? ""); if (from && from <= day) r = Number(p.rate) || r; } return sum + (Number(e.minutes) / 60) * r; }, 0))}</Button>
             <p className="mt-2 text-xs text-[#5e5e5e]">Creates a draft invoice (one line per day) in your studio · nothing is sent to Sara until you mark it sent.</p>
           </div>
         )}
-        {!isNat && unbilledMins === 0 && <p className="mt-3 text-sm text-[#5e5e5e]">All logged hours have been invoiced.</p>}
+        {(isNat || isJerm) && myUnbilledMins === 0 && <p className="mt-3 text-sm text-[#5e5e5e]">All logged hours have been invoiced.</p>}
       </div>}
 
-      {isNat && <ManualLog act={act} cards={cards} todayKey={todayKey} />}
+      {(isNat || isJerm) && <ManualLog act={act} cards={cards} todayKey={todayKey} actor={viewer} />}
 
-      {isNat && <div className="pm-card p-5">
+      {(isNat || isJerm) && <div className="pm-card p-5">
         <h2 className="text-lg font-semibold">Work log</h2>
         {groups.length === 0 ? <p className="mt-3 text-sm text-[#5e5e5e]">No hours logged yet.</p> : (
           <div className="mt-4 space-y-5">
@@ -2912,7 +3058,7 @@ function EntryRow({ e, cardTitle, isNat, act }: Any) {
   );
 }
 
-function ManualLog({ act, cards, todayKey }: Any) {
+function ManualLog({ act, cards, todayKey, actor }: Any) {
   const [date, setDate] = useState(todayKey);
   const [h, setH] = useState("");
   const [m, setM] = useState("");
@@ -2926,7 +3072,7 @@ function ManualLog({ act, cards, todayKey }: Any) {
       e.preventDefault();
       if (!total) { toast.error("Enter how long you worked."); return; }
       setBusy(true);
-      const r = await act({ type: "timeAdd", date, minutes: total, note: note.trim(), cardId: cardId || undefined }, "Time logged");
+      const r = await act({ type: "timeAdd", date, minutes: total, note: note.trim(), cardId: cardId || undefined, actor }, "Time logged");
       setBusy(false);
       if (r) { setH(""); setM(""); setNote(""); setCardId(""); }
     }}>
@@ -2956,7 +3102,7 @@ export function InvoiceSheet({ inv, client }: Any) {
   const email = client?.email || "";
   return (
     <div className="pm-inv-sheet">
-      <InvoiceDocument inv={{ ...inv, clientName: accName, clientCompany: client?.name ?? null, clientEmail: email }} />
+      <InvoiceDocument inv={{ ...inv, clientName: accName, clientCompany: client?.name ?? null, clientEmail: email }} jermBank={((client as Any)?.portal_prefs?.jerm_bank ?? null)} />
     </div>
   );
 }
@@ -3168,6 +3314,7 @@ export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
                   <option value="">Unassigned</option>
                   <option value="Sara">Sara</option>
                   <option value="Natalie">Natalie</option>
+                  <option value="Jermaine">Jermaine</option>
                 </select>
               </div>
             </div>

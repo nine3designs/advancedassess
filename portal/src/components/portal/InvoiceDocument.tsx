@@ -20,7 +20,8 @@ function lineDesc(s?: string | null) {
   return (s || "·").replace(/^Design & admin support\s*·\s*/i, "");
 }
 
-export function InvoiceDocument({ inv }: { inv: Any }) {
+export function InvoiceDocument({ inv, jermBank }: { inv: Any; jermBank?: Any }) {
+  const isJermInv = String(inv?.number ?? "").startsWith("JS-");
   const t = invoiceTotals((inv.items ?? []) as LineItem[], inv.tax_rate);
   return (
     <div
@@ -33,7 +34,14 @@ export function InvoiceDocument({ inv }: { inv: Any }) {
 
       {/* teal header */}
       <div className="relative z-10 flex items-start justify-between px-10 pt-10">
-        <img src="/branding/nine3-wordmark-light.png" alt="Nine3 Designs" className="h-16 w-auto" />
+        {isJermInv ? (
+          <div className="text-white">
+            <p className="text-[24px] font-bold leading-tight">Jermaine Smith</p>
+            <p className="text-sm text-white/85">Associate Assessor · Self-employed</p>
+          </div>
+        ) : (
+          <img src="/branding/nine3-wordmark-light.png" alt="Nine3 Designs" className="h-16 w-auto" />
+        )}
         <div className="text-right text-white">
           <p className="text-[26px] font-bold leading-tight">{inv.clientName ?? "·"}</p>
           {inv.clientCompany && <p className="text-sm text-white/85">{inv.clientCompany}</p>}
@@ -53,12 +61,12 @@ export function InvoiceDocument({ inv }: { inv: Any }) {
 
           <div className="mt-6 grid grid-cols-[1.2fr_1fr] items-end gap-6 text-[15px]">
             <div>
-              <p className="font-bold tracking-wide">PAYABLE TO : NINE3 DESIGNS</p>
+              <p className="font-bold tracking-wide">PAYABLE TO : {isJermInv ? "JERMAINE SMITH" : "NINE3 DESIGNS"}</p>
               <p className="mt-3 font-bold tracking-wide">BANK DETAILS</p>
               <p className="mt-1">SORT CODE:</p>
-              <p className="font-semibold">04-03-33</p>
+              <p className="font-semibold">{isJermInv ? (jermBank?.sort_code ?? "· · ·") : "04-03-33"}</p>
               <p className="mt-1">ACCOUNT NUMBER:</p>
-              <p className="font-semibold">40426946</p>
+              <p className="font-semibold">{isJermInv ? (jermBank?.account_number ?? "· · ·") : "40426946"}</p>
             </div>
             <div className="pb-1 text-right">
               <p><span className="font-semibold">DATE OF INVOICE:</span> {dmy(inv.issue_date)}</p>
