@@ -2917,7 +2917,7 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
         {(isNat || isJerm) && myUnbilledMins === 0 && <p className="mt-3 text-sm text-[#5e5e5e]">All logged hours have been invoiced.</p>}
       </div>}
 
-      {(isNat || isJerm) && <ManualLog act={act} cards={cards} todayKey={todayKey} actor={viewer} />}
+      {(isNat || isJerm) && <ManualLog act={act} cards={isJerm ? cards.filter((c: Any) => splitAssign(c.notes).who === "Jermaine") : cards} todayKey={todayKey} actor={viewer} />}
 
       {(isNat || isJerm) && <div className="pm-card p-5">
         <h2 className="text-lg font-semibold">Work log</h2>
