@@ -2425,8 +2425,8 @@ export function MileageTab({ act, entries, files, drivers }: { act: Act; entries
   };
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        {["Sara", "Kieron"].map((name) => {
+      <div className={`grid gap-4 ${DRIVERS.length > 1 ? "sm:grid-cols-2" : ""}`}>
+        {DRIVERS.map((name) => {
           const t = total(name);
           const left = Math.max(0, MILEAGE_CAP - t);
           const over = Math.max(0, t - MILEAGE_CAP);
