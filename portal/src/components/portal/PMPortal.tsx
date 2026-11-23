@@ -1321,7 +1321,7 @@ const CASE_CHECKLIST: { k: string; t: string; plain?: boolean; enq?: boolean; he
 
 const ENQ_GROUPS: { label: string; items: string[] }[] = [
   { label: "READING", items: ["Health / medical documents", "Police records / disclosure", "Previous Court bundle/s", "Private law documents", "Social Care case files (if necessary)", "Read contact / Family Time records"] },
-  { label: "INTERVIEW - PROFESSIONALS", items: ["Social worker", "Health visitor", "Foster carers", "Family time supervisors", "School staff", "Nursery staff", "Family support worker"] },
+  { label: "INTERVIEW - PROFESSIONALS", items: ["Social Worker", "Health visitor", "Foster carers", "Family time supervisors", "School staff", "Nursery staff", "Family support worker"] },
   { label: "SUPPORT NETWORK", items: ["Adult children", "Family members", "Friends"] },
 ];
 
@@ -2372,7 +2372,7 @@ export function AssessmentsTab() {
     "Plan for 7 assessment sessions minimum where possible (plus two observations if family time is already occurring).",
     "MALD® Assessment Plan should be completed within 7 days of receiving formal instruction, shared with the parents and sent to Sara to circulate with legal parties.",
     "Share the MALD® Parent's Explanation Video link with the parent.",
-    "Lead Instructing Professional should complete the MALD® Evaluation Table (Questionnaire) — unless the MALD® Assessor is the child's allocated social worker.",
+    "Lead Instructing Professional should complete the MALD® Evaluation Table (Questionnaire) — unless the MALD® Assessor is the child's allocated Social Worker.",
     "The MALD® Parent's Self-Assessment Exercise (Questionnaire) should be completed with the parent early in the assessment process, where possible.",
     "Reminders should be sent to the parent prior to each assessment session (text messages and / or telephone calls and / or voice notes).",
     "Refer to Adult Services where you have concerns about a parent's welfare:",
