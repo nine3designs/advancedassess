@@ -432,6 +432,13 @@ export const portalAction = createServerFn({ method: "POST" })
       if (open.length === 0 && taskLines.length === 0) throw new Error("Nothing selected · tick at least one day or task.");
       const prefs = ((client as Any).portal_prefs ?? {}) as Any;
       const rate = Number(prefs.rate ?? 17);
+      const periods: Any[] = (Array.isArray(prefs.rate_periods) ? prefs.rate_periods : []).slice(0, 50);
+      const rateFor = (e: Any) => {
+        const day = String(e?.started_at ?? e?.created_at ?? "").slice(0, 10);
+        let r = 17;
+        for (const p of periods) { const from = String(p?.from ?? ""); if (from && from <= day) r = Number(p.rate) || r; }
+        return r;
+      };
       const dayFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", day: "numeric", month: "long", year: "numeric" });
       const byDay = new Map<string, { mins: number; notes: string[] }>();
       for (const e of open) {
@@ -442,11 +449,16 @@ export const portalAction = createServerFn({ method: "POST" })
         if (e.note && !g.notes.includes(e.note)) g.notes.push(e.note);
         byDay.set(key, g);
       }
-      const dayItems: LineItem[] = [...byDay.entries()].sort((x, y) => x[0].localeCompare(y[0])).map(([key, g]) => ({
-        description: `Design & admin support · ${dayFmt.format(new Date(key + "T12:00:00Z"))}${g.notes.length ? ` · ${g.notes.join("; ").slice(0, 180)}` : ""}`,
-        quantity: Math.round((g.mins / 60) * 100) / 100,
-        rate,
-      }));
+      const dayItems: LineItem[] = [...byDay.entries()].sort((x, y) => x[0].localeCompare(y[0])).map(([key, g]) => {
+        const dayEntries = open.filter((e) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date(e.started_at ?? e.created_at)) === key);
+        const amount = dayEntries.reduce((sum, e) => sum + (Number(e.minutes) / 60) * rateFor(e), 0);
+        const hours = Math.round((g.mins / 60) * 100) / 100;
+        return {
+          description: `Design & admin support · ${dayFmt.format(new Date(key + "T12:00:00Z"))}${g.notes.length ? ` · ${g.notes.join("; ").slice(0, 180)}` : ""}`,
+          quantity: hours,
+          rate: hours > 0 ? Math.round((amount / hours) * 100) / 100 : rate,
+        };
+      });
       const items: LineItem[] = [...dayItems, ...taskLines];
       if (items.length === 0) throw new Error("Nothing selected · tick at least one day or task.");
       const totalHours = Math.round(open.reduce((s, e) => s + Number(e.minutes), 0) / 60 * 100) / 100;
@@ -457,7 +469,9 @@ export const portalAction = createServerFn({ method: "POST" })
       const number = `N3-${year}-${String(maxN + 1).padStart(3, "0")}`;
       const today = new Date().toISOString().slice(0, 10);
       const due = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
-      const draftNotes = `Generated from ${totalHours} logged hours at £${rate}/hour` + (taskLines.length ? ` + ${taskLines.length} board ${taskLines.length === 1 ? "task" : "tasks"}` : "");
+      const usedRates = [...new Set(open.map((e) => rateFor(e)))].sort((x, y) => x - y);
+      const rateLabel = usedRates.length === 1 ? `at £${usedRates[0]}/hour` : `at mixed hourly rates (£${usedRates.join("/hr + £")}/hr)`;
+      const draftNotes = `Generated from ${totalHours} logged hours ${rateLabel}` + (taskLines.length ? ` + ${taskLines.length} board ${taskLines.length === 1 ? "task" : "tasks"}` : "");
       const { data: inv, error } = await admin.from("invoices").insert({ client_id: cid, number, issue_date: today, due_date: due, status: "draft", items, tax_rate: 0, notes: draftNotes }).select("id,number").single();
       if (error || !inv) throw new Error("Could not create the invoice · please try again.");
       if (open.length) await admin.from("time_entries").update({ billed: true, invoice_id: (inv as Any).id }).in("id", open.map((e) => e.id));

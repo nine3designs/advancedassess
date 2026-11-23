@@ -2750,10 +2750,10 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Unbilled work</h2>
-            <p className="mt-0.5 text-xs text-[#5e5e5e]">Hours logged since the last invoice · {money(rate)} per hour</p>
+            <p className="mt-0.5 text-xs text-[#5e5e5e]">{(() => { const periods: Any[] = Array.isArray((client as Any)?.portal_prefs?.rate_periods) ? (client as Any).portal_prefs.rate_periods : []; const rateForDay = (day: string) => { let r = 17; for (const p of periods) { const from = String(p?.from ?? ""); if (from && from <= day) r = Number(p.rate) || r; } return r; }; const rates = [...new Set(unbilled.map((e: Any) => rateForDay(String(e.started_at ?? e.created_at).slice(0, 10))))].sort((a: number, b: number) => a - b); if (rates.length === 1) return <span>£{rates[0]} per hour</span>; return <span>{rates.map((r: number, i: number) => (i ? " · " : "") + `£${r}/hr`).join(" · ")} (mixed rates)</span>; })()}</p>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-semibold tracking-tight">{money((unbilledMins / 60) * rate)}</p>
+            <p className="text-2xl font-semibold tracking-tight">{money(unbilled.reduce((sum: number, e: Any) => { const day = String(e.started_at ?? e.created_at).slice(0, 10); const periods: Any[] = Array.isArray((client as Any)?.portal_prefs?.rate_periods) ? (client as Any).portal_prefs.rate_periods : []; let r = 17; for (const p of periods) { const from = String(p?.from ?? ""); if (from && from <= day) r = Number(p.rate) || r; } return sum + (Number(e.minutes) / 60) * r; }, 0))}</p>
             <p className="text-xs text-[#5e5e5e]">{fmtMins(unbilledMins)}</p>
           </div>
         </div>
@@ -2764,7 +2764,7 @@ function TimeTab({ entries, running, unbilledMins, rate, viewer, act, cards, inv
               const r = await act({ type: "timeInvoice" });
               setBusy(false);
               if (r?.number) toast.success(`Invoice ${r.number} created as a draft · review & send it in your studio`);
-            }}><FileText className="h-4 w-4" /> Create invoice · {fmtMins(unbilledMins)} · {money((unbilledMins / 60) * rate)}</Button>
+            }}><FileText className="h-4 w-4" /> Create invoice · {fmtMins(unbilledMins)} · {money(unbilled.reduce((sum: number, e: Any) => { const day = String(e.started_at ?? e.created_at).slice(0, 10); const periods: Any[] = Array.isArray((client as Any)?.portal_prefs?.rate_periods) ? (client as Any).portal_prefs.rate_periods : []; let r = 17; for (const p of periods) { const from = String(p?.from ?? ""); if (from && from <= day) r = Number(p.rate) || r; } return sum + (Number(e.minutes) / 60) * r; }, 0))}</Button>
             <p className="mt-2 text-xs text-[#5e5e5e]">Creates a draft invoice (one line per day) in your studio · nothing is sent to Sara until you mark it sent.</p>
           </div>
         )}
