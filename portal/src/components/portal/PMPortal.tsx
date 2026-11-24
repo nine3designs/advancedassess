@@ -3303,7 +3303,7 @@ export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
   const notes: Any[] = ((p.client?.portal_prefs?.nat_notes ?? []) as Any[]);
   const open_ = cards.filter((c: Any) => c.status !== "done");
   const urg = open_.filter((c: Any) => c.important);
-  const assigned = open_.filter((c: Any) => splitAssign(c.notes).who);
+  const assigned = open_.filter((c: Any) => splitAssign(c.notes).who === "Natalie");
   const doneList = cards.filter((c: Any) => c.status === "done").sort((a: Any, b: Any) => String(b.updated_at).localeCompare(String(a.updated_at)));
   const sortDue = (list: Any[]) => [...list].sort((a: Any, b: Any) => ((b.important ? 1 : 0) - (a.important ? 1 : 0)) || String(a.due_date ?? "9999-99-99").localeCompare(String(b.due_date ?? "9999-99-99")) || Number(a.position) - Number(b.position));
 
@@ -3391,12 +3391,12 @@ export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {stat("Urgent tasks", urg.length, "#e5484d", <Flag className="h-5 w-5" />)}
         {stat("Outstanding tasks", open_.length, "#0d1c34", <ClipboardList className="h-5 w-5" />)}
-        {stat("Assigned tasks", assigned.length, "#f59a2b", <ListTodo className="h-5 w-5" />)}
+        {stat("My tasks", assigned.length, "#f59a2b", <ListTodo className="h-5 w-5" />)}
         {stat("Completed tasks", doneList.length, "#2e9e5b", <Check className="h-5 w-5" />)}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {panel("Assigned tasks", "Nearest due date first", sortDue(assigned), "Nothing assigned yet.", "#0d1c34")}
+        {panel("Assigned to you", "Tasks with your name on · nearest due first", sortDue(assigned), "Nothing assigned to you right now.", "#0d1c34")}
         {panel("Urgent tasks", "Flagged · do these first", sortDue(urg), "Nothing urgent · good news.", "#e5484d")}
       </div>
 
