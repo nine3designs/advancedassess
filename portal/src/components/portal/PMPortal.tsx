@@ -1431,6 +1431,8 @@ function ChecklistItem({ label, k, c, act, na, plain, enquiries, tabs, dd }: Any
   const [open, setOpen] = useState(false);
   const [enqOpen, setEnqOpen] = useState(false);
   const [who, setWho] = useState("mum");
+  const [ddLabel, setDdLabel] = useState("");
+  const [ddText, setDdText] = useState("");
   const [addChild, setAddChild] = useState(false);
   const [childName, setChildName] = useState("");
   const childList: string[] = Array.isArray(c.mald_children) ? c.mald_children : [];
@@ -1441,6 +1443,21 @@ function ChecklistItem({ label, k, c, act, na, plain, enquiries, tabs, dd }: Any
   const slotKey = tabs ? who : "all";
   const slot = mald[slotKey] ?? {};
   const save = async (patch: Any) => { await act({ type: "caseMald", id: c.id, item: k, who: slotKey, ...patch }); };
+  const ddEntries: Any[] = Array.isArray(slot.entries) ? slot.entries : [];
+  const saveEntries = async (list: Any[]) => { await save({ entries: list }); };
+  const addDdEntry = async () => {
+    const text = ddText.trim();
+    if (!text || !ddLabel) { toast.error("Pick a category and write the note first."); return; }
+    setDdText(""); setDdLabel("");
+    await saveEntries([...ddEntries, { label: ddLabel, text: text.slice(0, 5000) }]);
+  };
+  const editDdEntry = (i: number) => {
+    const en = ddEntries[i];
+    if (!en) return;
+    setDdLabel(en.label ?? ""); setDdText(en.text ?? "");
+    saveEntries(ddEntries.filter((_x: Any, xi: number) => xi !== i));
+  };
+  const removeDdEntry = (i: number) => { saveEntries(ddEntries.filter((_x: Any, xi: number) => xi !== i)); };
   const saveChildren = async (list: string[]) => { await act({ type: "caseSave", id: c.id, key: "mald_children", content: JSON.stringify(list) }); };
   const addExtraChild = async () => {
     if (childList.length >= 8) { toast.error("Up to 8 extra children per case."); return; }
@@ -1460,7 +1477,7 @@ function ChecklistItem({ label, k, c, act, na, plain, enquiries, tabs, dd }: Any
           <span className={`box ${on ? "on" : ""}`}><Check className="h-3.5 w-3.5" /></span>
           <span className={`min-w-0 flex-1 text-left text-sm ${on || naOn ? "text-[#9aa0a6] line-through" : "font-medium"}`}>{label}</span>
           {naOn ? <span className="pm-chip orange flex-none">N/A</span> : null}
-          {dd && slot.label ? <span className="pm-chip flex-none">{slot.label === "strengths" ? "Strengths" : "Reservations / risks"}</span> : null}
+          {dd && ddEntries.length ? <span className="pm-chip flex-none">{[...new Set(ddEntries.map((en: Any) => (en?.label === "reservations" ? "Reservations / risks" : "Strengths")))].join(" · ")} ({ddEntries.length})</span> : null}
           {mald.all?.colour ? <ColourDot k={mald.all.colour} /> : null}
           {mald.mum?.colour ? <ColourDot k={mald.mum.colour} /> : null}
           {mald.dad?.colour ? <ColourDot k={mald.dad.colour} /> : null}
@@ -1528,12 +1545,35 @@ function ChecklistItem({ label, k, c, act, na, plain, enquiries, tabs, dd }: Any
             </div>
           )}
           {dd ? (
-            <div className="mb-2">
-              <select value={slot.label ?? ""} onChange={(e: Any) => save({ label: e.target.value })} className="h-9 w-full max-w-xs rounded-xl border border-[#d5dade] bg-white px-3 text-sm text-[#0d1c34] outline-none focus:border-[#f59a2b]">
-                <option value="">Choose a category…</option>
-                <option value="strengths">Strengths</option>
-                <option value="reservations">Reservations / risks</option>
-              </select>
+            <div>
+              {(ddEntries.length > 0) && (
+                <ul className="mb-3 space-y-2">
+                  {ddEntries.map((en: Any, i: number) => {
+                    const strong = en.label !== "reservations";
+                    return (
+                      <li key={i} className="rounded-xl border p-3" style={strong ? { background: "#f2faf5", borderColor: "#bfe3cd" } : { background: "#fdf4f3", borderColor: "#f0c9c7" }}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="rounded-full px-2.5 py-1 text-[11px] font-bold" style={strong ? { background: "#2e9e5b", color: "#fff" } : { background: "#e5484d", color: "#fff" }}>{strong ? "Strengths" : "Reservations / risks"}</span>
+                          <span className="flex items-center gap-1">
+                            <button type="button" onClick={() => editDdEntry(i)} className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#5e5e5e] transition-colors hover:text-[#0d1c34]">Edit</button>
+                            <button type="button" aria-label="Delete note" onClick={() => removeDdEntry(i)} className="rounded-full p-1.5 text-[#9aa0a6] transition-colors hover:text-[#a3262b]"><Trash2 className="h-3.5 w-3.5" /></button>
+                          </span>
+                        </div>
+                        <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-[#0d1c34]">{en.text}</p>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <select value={ddLabel} onChange={(e: Any) => setDdLabel(e.target.value)} className="h-10 rounded-xl border border-[#d5dade] bg-white px-3 text-sm text-[#0d1c34] outline-none focus:border-[#f59a2b] sm:w-48">
+                  <option value="">Category…</option>
+                  <option value="strengths">Strengths</option>
+                  <option value="reservations">Reservations / risks</option>
+                </select>
+                <input value={ddText} onChange={(e: Any) => setDdText(e.target.value)} onKeyDown={(e: Any) => { if (e.key === "Enter") { e.preventDefault(); addDdEntry(); } }} placeholder={ddLabel === "reservations" ? "Add a reservation / risk…" : ddLabel === "strengths" ? "Add a strength…" : "Pick a category, then add a note…"} className="h-10 min-w-0 flex-1 rounded-xl border border-[#d5dade] bg-white px-3 text-sm text-[#0d1c34] outline-none focus:border-[#f59a2b]" />
+                <button type="button" onClick={() => addDdEntry()} className="pm-btn h-10 flex-none px-5 text-sm">Add</button>
+              </div>
             </div>
           ) : (
             <div className="flex flex-wrap gap-1.5">
@@ -1542,7 +1582,7 @@ function ChecklistItem({ label, k, c, act, na, plain, enquiries, tabs, dd }: Any
               ))}
             </div>
           )}
-          <NotesBox key={slotKey} initial={slot.notes} onSave={save} />
+          {!dd && <NotesBox key={slotKey} initial={slot.notes} onSave={save} />}
         </div>
       )}
     </li>
