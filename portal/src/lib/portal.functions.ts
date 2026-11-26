@@ -137,7 +137,7 @@ type Action =
   | { type: "caseSave"; id: string; key: string; content: string }
   | { type: "caseCheck"; id: string; key: string; done: boolean; na?: boolean }
   | { type: "caseComplete"; id: string; done: boolean }
-  | { type: "caseMald"; id: string; item: number; who: string; colour?: string; notes?: string }
+  | { type: "caseMald"; id: string; item: number; who: string; colour?: string; notes?: string; label?: string }
   | { type: "caseMaldChildRemove"; id: string; idx: number }
   | { type: "caseFormK"; id: string; item: string; done: boolean; date?: string }
   | { type: "notifSeen" }
@@ -680,6 +680,7 @@ export const portalAction = createServerFn({ method: "POST" })
         const slot = (e[who] = e[who] ?? {});
         if (a.colour != null) slot.colour = ["green", "amber", "red", ""].includes(String(a.colour)) ? String(a.colour) : "";
         if (a.notes != null) slot.notes = String(a.notes).slice(0, 5000);
+        if (a.label != null) slot.label = ["strengths", "reservations", ""].includes(String(a.label)) ? String(a.label) : "";
         c.mald[i] = e;
         return c;
       });

@@ -1272,14 +1272,14 @@ function MyTodoTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
 
 /* ---------------- cases (Sara) ---------------- */
 
-const CASE_CHECKLIST: { k: string; t: string; plain?: boolean; enq?: boolean; heading?: boolean }[] = [
+const CASE_CHECKLIST: { k: string; t: string; plain?: boolean; enq?: boolean; heading?: boolean; dd?: boolean }[] = [
   { k: "0", t: "Instruction", plain: true },
   { k: "1", t: "Format of the assessment", plain: true },
   { k: "2", t: "Enquiries and interviews undertaken", plain: true, enq: true },
   { k: "3", t: "Executive Summary (background)", plain: true },
   { k: "4", t: "Summary of the child's needs", plain: true },
   { k: "5", t: "Analysis - Social, Family & Environment History x2", plain: true },
-  { k: "6", t: "Analysis of ability to meet children's needs", plain: true },
+  { k: "6", t: "Analysis of ability to meet children's needs", plain: true, dd: true },
   { k: "7", t: "Teaching needs", plain: true },
   { k: "8", t: "Recommendation", plain: true },
   { k: "9", t: "Family History & Functioning" },
@@ -1427,7 +1427,7 @@ function NotesBox({ initial, onSave }: Any) {
   );
 }
 
-function ChecklistItem({ label, k, c, act, na, plain, enquiries, tabs }: Any) {
+function ChecklistItem({ label, k, c, act, na, plain, enquiries, tabs, dd }: Any) {
   const [open, setOpen] = useState(false);
   const [enqOpen, setEnqOpen] = useState(false);
   const [who, setWho] = useState("mum");
@@ -1460,6 +1460,7 @@ function ChecklistItem({ label, k, c, act, na, plain, enquiries, tabs }: Any) {
           <span className={`box ${on ? "on" : ""}`}><Check className="h-3.5 w-3.5" /></span>
           <span className={`min-w-0 flex-1 text-left text-sm ${on || naOn ? "text-[#9aa0a6] line-through" : "font-medium"}`}>{label}</span>
           {naOn ? <span className="pm-chip orange flex-none">N/A</span> : null}
+          {dd && slot.label ? <span className="pm-chip flex-none">{slot.label === "strengths" ? "Strengths" : "Reservations / risks"}</span> : null}
           {mald.all?.colour ? <ColourDot k={mald.all.colour} /> : null}
           {mald.mum?.colour ? <ColourDot k={mald.mum.colour} /> : null}
           {mald.dad?.colour ? <ColourDot k={mald.dad.colour} /> : null}
@@ -1469,8 +1470,8 @@ function ChecklistItem({ label, k, c, act, na, plain, enquiries, tabs }: Any) {
         {enquiries ? (
           <button type="button" onClick={() => setEnqOpen((o: boolean) => !o)} aria-expanded={enqOpen} className="flex-none rounded-full bg-[#eef0f2] px-2.5 py-1.5 text-[11px] font-semibold text-[#0d1c34] transition-colors hover:bg-[#e2e5e9]">{enqOpen ? "Hide list" : "Enquiries & interviews"}</button>
         ) : null}
-        {!plain && !enquiries ? (
-          <button type="button" onClick={() => setOpen((o: boolean) => !o)} aria-expanded={open} className="flex-none rounded-full bg-[#eef0f2] px-2.5 py-1.5 text-[11px] font-semibold text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]">{open ? "Close" : "Colours & notes"}</button>
+        {(!plain && !enquiries) || dd ? (
+          <button type="button" onClick={() => setOpen((o: boolean) => !o)} aria-expanded={open} className="flex-none rounded-full bg-[#eef0f2] px-2.5 py-1.5 text-[11px] font-semibold text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]">{open ? "Close" : (dd ? "Strengths / Reservations" : "Colours & notes")}</button>
         ) : null}
       </div>
       {enquiries && enqOpen && (
@@ -1526,11 +1527,21 @@ function ChecklistItem({ label, k, c, act, na, plain, enquiries, tabs }: Any) {
               )}
             </div>
           )}
-          <div className="flex flex-wrap gap-1.5">
-            {MALD_COLOURS.map((col) => (
-              <button key={col.k} type="button" onClick={() => save({ colour: col.k })} aria-pressed={slot.colour === col.k} className="rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all" style={slot.colour === col.k ? { background: col.solid, color: "#fff" } : { background: col.bg, color: col.text }}>{col.k.charAt(0).toUpperCase() + col.k.slice(1)}</button>
-            ))}
-          </div>
+          {dd ? (
+            <div className="mb-2">
+              <select value={slot.label ?? ""} onChange={(e: Any) => save({ label: e.target.value })} className="h-9 w-full max-w-xs rounded-xl border border-[#d5dade] bg-white px-3 text-sm text-[#0d1c34] outline-none focus:border-[#f59a2b]">
+                <option value="">Choose a category…</option>
+                <option value="strengths">Strengths</option>
+                <option value="reservations">Reservations / risks</option>
+              </select>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {MALD_COLOURS.map((col) => (
+                <button key={col.k} type="button" onClick={() => save({ colour: col.k })} aria-pressed={slot.colour === col.k} className="rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all" style={slot.colour === col.k ? { background: col.solid, color: "#fff" } : { background: col.bg, color: col.text }}>{col.k.charAt(0).toUpperCase() + col.k.slice(1)}</button>
+              ))}
+            </div>
+          )}
           <NotesBox key={slotKey} initial={slot.notes} onSave={save} />
         </div>
       )}
@@ -2123,7 +2134,7 @@ function CaseDetail({ c, act, viewer, onBack }: Any) {
                     {CASE_CHECKLIST.map((it: Any) => it.heading ? (
                       <li key={it.k} className="pt-4"><div className="rounded-xl bg-[#0d1c34] px-4 py-2.5"><p className="text-xs font-bold tracking-[0.14em] text-white">{it.t}</p></div></li>
                     ) : (
-                      <ChecklistItem key={it.k} label={it.t} k={it.k} c={c} act={act} plain={!!it.plain} enquiries={!!it.enq} tabs={!it.plain} />
+                      <ChecklistItem key={it.k} label={it.t} k={it.k} c={c} act={act} plain={!!it.plain} enquiries={!!it.enq} tabs={!it.plain} dd={!!it.dd} />
                     ))}
                   </ul>
                 </>
