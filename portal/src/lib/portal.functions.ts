@@ -682,6 +682,7 @@ export const portalAction = createServerFn({ method: "POST" })
         if (a.notes != null) slot.notes = String(a.notes).slice(0, 5000);
         if (a.label != null) slot.label = ["strengths", "reservations", ""].includes(String(a.label)) ? String(a.label) : "";
         if (a.entries != null) slot.entries = (Array.isArray(a.entries) ? a.entries : []).slice(0, 40).map((en: Any) => ({ label: ["strengths", "reservations"].includes(String(en?.label)) ? String(en.label) : "strengths", text: String(en?.text ?? "").slice(0, 5000) })).filter((en: Any) => en.text.length > 0);
+        if (a.flags != null) { const f = (a.flags && typeof a.flags === "object") ? a.flags : {}; slot.flags = { strengths: !!f.strengths, reservations: !!f.reservations }; }
         c.mald[i] = e;
         return c;
       });
