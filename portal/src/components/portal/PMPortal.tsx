@@ -1472,8 +1472,8 @@ function ChecklistItem({ label, k, c, act, na, plain, enquiries, tabs, dd }: Any
         {enquiries ? (
           <button type="button" onClick={() => setEnqOpen((o: boolean) => !o)} aria-expanded={enqOpen} className="flex-none rounded-full bg-[#eef0f2] px-2.5 py-1.5 text-[11px] font-semibold text-[#0d1c34] transition-colors hover:bg-[#e2e5e9]">{enqOpen ? "Hide list" : "Enquiries & interviews"}</button>
         ) : null}
-        {!plain && !enquiries ? (
-          <button type="button" onClick={() => setOpen((o: boolean) => !o)} aria-expanded={open} className="flex-none rounded-full bg-[#eef0f2] px-2.5 py-1.5 text-[11px] font-semibold text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]">{open ? "Close" : "Colours & notes"}</button>
+        {(!plain && !enquiries) || dd ? (
+          <button type="button" onClick={() => setOpen((o: boolean) => !o)} aria-expanded={open} className="flex-none rounded-full bg-[#eef0f2] px-2.5 py-1.5 text-[11px] font-semibold text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]">{open ? "Close" : (dd ? "Strengths / Reservations" : "Colours & notes")}</button>
         ) : null}
       </div>
       {enquiries && enqOpen && (
