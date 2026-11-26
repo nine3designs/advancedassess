@@ -3311,6 +3311,7 @@ export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
   const [assign, setAssign] = useState("");
   const [noteText, setNoteText] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
+  const [viewAll, setViewAll] = useState(false);
 
   const readFile = (f: File) => new Promise<Any>((res) => { const r = new FileReader(); r.onload = () => res({ name: f.name, dataUri: String(r.result) }); r.onerror = () => res(null); r.readAsDataURL(f); });
 
@@ -3399,6 +3400,7 @@ export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
           <p className="mt-0.5 text-xs text-[#5e5e5e]">Everything on the go · tick things off or drag them on the board</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button type="button" className={viewAll ? "h-10 rounded-full border border-[#d5dade] bg-white px-4 text-sm font-medium text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]" : "pm-btn h-10 px-4"} onClick={() => setViewAll((o: boolean) => !o)}>{viewAll ? "Show my tasks only" : "View all tasks"}</Button>
           <Button type="button" className="pm-btn-orange h-10" onClick={() => { setStartUrgent(false); setAddOpen(true); }}><Plus className="h-4 w-4" /> New Task</Button>
           <Button type="button" className="h-10 rounded-full bg-[#b3261e] px-4 text-sm font-medium text-white transition-colors hover:bg-[#9a1f18]" onClick={() => { setStartUrgent(true); setAddOpen(true); }}><Flag className="h-4 w-4" /> Urgent Task</Button>
         </div>
@@ -3412,7 +3414,9 @@ export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {panel("Assigned to you", "Tasks with your name on · nearest due first", sortDue(assigned), "Nothing assigned to you right now.", "#0d1c34")}
+        {viewAll
+          ? panel("All outstanding tasks", "Every open task · nearest due first", sortDue(open_), "Nothing outstanding · all clear.", "#0d1c34")
+          : panel("Assigned to you", "Tasks with your name on · nearest due first", sortDue(assigned), "Nothing assigned to you right now.", "#0d1c34")}
         {panel("Urgent tasks", "Flagged · do these first", sortDue(urg), "Nothing urgent · good news.", "#e5484d")}
       </div>
 
