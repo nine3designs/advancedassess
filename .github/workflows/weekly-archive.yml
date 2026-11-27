@@ -1,0 +1,19 @@
+name: Weekly archive of completed tasks
+
+on:
+  schedule:
+    # Every Friday 07:00 UTC (08:00 during British Summer Time)
+    - cron: "0 7 * * 5"
+  workflow_dispatch:
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Archive completed tasks
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python3 portal/scripts/weekly-archive.py
