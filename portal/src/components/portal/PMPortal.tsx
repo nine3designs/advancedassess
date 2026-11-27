@@ -1128,7 +1128,9 @@ function MyTodoTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
   const cards: Any[] = p.board ?? [];
   const me = viewer === "Jermaine" ? "Jermaine" : "Sara";
   const mine = cards.filter((c: Any) => { const w = splitAssign(c.notes).who; return w === me || (me === "Sara" && w === ""); });
+  const archived: Any[] = Array.isArray(p.archived) ? p.archived : [];
   const [showDone, setShowDone] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -1258,12 +1260,39 @@ function MyTodoTab({ p, viewer, act }: { p: Any; viewer: string; act: Act }) {
           </div>
 
           <div className="pm-card p-5">
-            <button type="button" onClick={() => setShowDone((o: boolean) => !o)} className="flex w-full items-center justify-between">
-              <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><span className="pm-dot" style={{ background: "#2e9e5b" }} /> Completed</h3>
-              <span className="pm-chip">{done.length}{done.length ? (showDone ? " · hide" : " · show") : ""}</span>
-            </button>
+            <div className="flex w-full items-center justify-between gap-2">
+              <button type="button" onClick={() => setShowDone((o: boolean) => !o)} className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><span className="pm-dot" style={{ background: "#2e9e5b" }} /> Completed</h3>
+                <span className="pm-chip">{done.length}{done.length ? (showDone ? " · hide" : " · show") : ""}</span>
+              </button>
+              {done.length > 0 ? <button type="button" onClick={async () => { await act({ type: "cardArchive" }, "Completed tasks archived"); }} className="flex-none rounded-full bg-[#eef0f2] px-3 py-1.5 text-[11px] font-semibold text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]">Archive</button> : null}
+            </div>
             {showDone && (done.length === 0 ? <p className="pmt-empty mt-3">Completed tasks will collect here.</p> : <div className="mt-3 space-y-2">{done.slice(0, 12).map(tickRow)}</div>)}
           </div>
+
+          {archived.length > 0 && (
+            <div className="pm-card p-5">
+              <div className="flex w-full items-center justify-between gap-2">
+                <button type="button" onClick={() => setShowArchived((o: boolean) => !o)} className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><span className="pm-dot" style={{ background: "#9aa0a6" }} /> Archived</h3>
+                  <span className="pm-chip">{archived.length}{showArchived ? " · hide" : " · show"}</span>
+                </button>
+                <button type="button" onClick={async () => { await act({ type: "cardRestore", all: true }, "Archived tasks restored"); }} className="flex-none rounded-full bg-[#eef0f2] px-3 py-1.5 text-[11px] font-semibold text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]">Restore all</button>
+              </div>
+              <p className="mt-1 text-xs text-[#5e5e5e]">Old completed tasks · tucked away to keep your list tidy</p>
+              {showArchived && (
+                <div className="mt-3 space-y-2">
+                  {archived.slice(0, 40).map((c: Any) => (
+                    <div key={c.id} className="pmt-row done flex items-center gap-2.5">
+                      <p className="min-w-0 flex-1 truncate text-sm font-medium text-[#5e5e5e]">{c.title}</p>
+                      <span className="flex-none text-xs text-[#9aa0a6]">{c.updated_at ? relDay(c.updated_at) : ""}</span>
+                      <button type="button" onClick={async () => { await act({ type: "cardRestore", ids: [c.id] }, "Task restored"); }} className="flex-none rounded-full bg-[#eef0f2] px-2.5 py-1 text-[11px] font-semibold text-[#0d1c34] transition-colors hover:bg-[#f59a2b]">Restore</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>
@@ -3312,6 +3341,9 @@ export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
   const [noteText, setNoteText] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
   const [viewAll, setViewAll] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+
+  const archivedCards: Any[] = Array.isArray(p.archived) ? p.archived : [];
 
   const readFile = (f: File) => new Promise<Any>((res) => { const r = new FileReader(); r.onload = () => res({ name: f.name, dataUri: String(r.result) }); r.onerror = () => res(null); r.readAsDataURL(f); });
 
@@ -3444,12 +3476,39 @@ export function TasksTab({ p, viewer, act }: { p: Any; viewer: string; act: Act 
       </div>
 
       <div className="pm-card p-5">
-        <button type="button" onClick={() => setShowDone((o) => !o)} className="flex w-full items-center justify-between">
-          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><span className="pm-dot" style={{ background: "#2e9e5b" }} /> Completed</h3>
-          <span className="pm-chip">{doneList.length}{doneList.length ? (showDone ? " · hide" : " · show") : ""}</span>
-        </button>
+        <div className="flex w-full items-center justify-between gap-2">
+          <button type="button" onClick={() => setShowDone((o) => !o)} className="flex min-w-0 flex-1 items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><span className="pm-dot" style={{ background: "#2e9e5b" }} /> Completed</h3>
+            <span className="pm-chip">{doneList.length}{doneList.length ? (showDone ? " · hide" : " · show") : ""}</span>
+          </button>
+          {doneList.length > 0 ? <button type="button" onClick={async () => { await act({ type: "cardArchive", actor: viewer }, "Completed tasks archived"); }} className="flex-none rounded-full bg-[#eef0f2] px-3 py-1.5 text-[11px] font-semibold text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]">Archive</button> : null}
+        </div>
         {showDone && (doneList.length === 0 ? <p className="pmt-empty mt-3">Completed tasks will collect here.</p> : <div className="mt-3 space-y-2">{doneList.slice(0, 12).map(doneRow)}</div>)}
       </div>
+
+      {archivedCards.length > 0 && (
+        <div className="pm-card p-5">
+          <div className="flex w-full items-center justify-between gap-2">
+            <button type="button" onClick={() => setShowArchived((o) => !o)} className="flex min-w-0 flex-1 items-center justify-between gap-2">
+              <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><span className="pm-dot" style={{ background: "#9aa0a6" }} /> Archived</h3>
+              <span className="pm-chip">{archivedCards.length}{showArchived ? " · hide" : " · show"}</span>
+            </button>
+            <button type="button" onClick={async () => { await act({ type: "cardRestore", all: true, actor: viewer }, "Archived tasks restored"); }} className="flex-none rounded-full bg-[#eef0f2] px-3 py-1.5 text-[11px] font-semibold text-[#0d1c34] transition-colors hover:bg-[#f59a2b] hover:text-[#3d2400]">Restore all</button>
+          </div>
+          <p className="mt-1 text-xs text-[#5e5e5e]">Old completed tasks · archived automatically each Friday</p>
+          {showArchived && (
+            <div className="mt-3 space-y-2">
+              {archivedCards.slice(0, 40).map((c: Any) => (
+                <div key={c.id} className="pmt-row done flex items-center gap-2.5">
+                  <p className="min-w-0 flex-1 truncate text-sm font-medium text-[#5e5e5e]">{c.title}</p>
+                  <span className="flex-none text-xs text-[#9aa0a6]">{c.updated_at ? relDay(c.updated_at) : ""}</span>
+                  <button type="button" onClick={async () => { await act({ type: "cardRestore", ids: [c.id], actor: viewer }, "Task restored"); }} className="flex-none rounded-full bg-[#eef0f2] px-2.5 py-1 text-[11px] font-semibold text-[#0d1c34] transition-colors hover:bg-[#f59a2b]">Restore</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="max-w-md">

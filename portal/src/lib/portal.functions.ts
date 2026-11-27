@@ -74,10 +74,29 @@ export const getPortal = createServerFn({ method: "POST" })
       }));
       return { ...fx, graphics };
     }));
-    const boardSlim = ((board as Any[]) ?? []).map((c: Any) => ({
-      ...c,
-      files: Array.isArray(c.files) ? c.files.map((x: Any) => ({ name: String(x?.name ?? "file").slice(0, 200) })) : [],
-    }));
+    /* ---- weekly auto-archive of completed tasks (Friday anchored) ---- */
+    const todayKey = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    const isFriday = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", weekday: "short" }).format(new Date()) === "Fri";
+    const prefs0 = (((client as Any).portal_prefs ?? {}) as Any);
+    let archivedIds: string[] = Array.isArray(prefs0.archived_ids) ? prefs0.archived_ids.map(String) : [];
+    let lastArchive = String(prefs0.last_archive ?? "");
+    const daysSinceArchive = lastArchive ? Math.floor((Date.now() - new Date(`${lastArchive}T09:00:00Z`).getTime()) / 86400000) : 999;
+    const archiveDue = (isFriday && lastArchive !== todayKey) || daysSinceArchive >= 7;
+    if (archiveDue) {
+      const setId = new Set(archivedIds);
+      const toArchive = ((board as Any[]) ?? []).filter((c: Any) => c.status === "done" && !setId.has(String(c.id))).map((c: Any) => String(c.id));
+      archivedIds = Array.from(new Set([...archivedIds, ...toArchive]));
+      lastArchive = todayKey;
+      const { error: archErr } = await admin.from("clients").update({ portal_prefs: { ...prefs0, archived_ids: archivedIds, last_archive: lastArchive } }).eq("id", cid);
+      if (!archErr && toArchive.length) {
+        await admin.from("activity_log").insert({ client_id: cid, actor: "system", message: `archived ${toArchive.length} completed task${toArchive.length === 1 ? "" : "s"} (weekly Friday tidy-up)` });
+      }
+    }
+    const archivedSet = new Set(archivedIds);
+    const slimCard = (c: Any) => ({ ...c, files: Array.isArray(c.files) ? c.files.map((x: Any) => ({ name: String(x?.name ?? "file").slice(0, 200) })) : [] });
+    const activeBoard = ((board as Any[]) ?? []).filter((c: Any) => !archivedSet.has(String(c.id)));
+    const archivedBoard = ((board as Any[]) ?? []).filter((c: Any) => archivedSet.has(String(c.id))).map(slimCard);
+    const boardSlim = activeBoard.map(slimCard);
     return {
       client: { id: cid, name: client.name, company: client.company, portal_type: client.portal_type, home_kit: client.home_kit, away_kit: client.away_kit, monthly_fee: client.monthly_fee, notes: client.notes, portal_prefs: (client as Any).portal_prefs ?? null },
       onboarding: onb.data ?? [],
@@ -89,6 +108,8 @@ export const getPortal = createServerFn({ method: "POST" })
       tasks: tasks.data ?? [],
       activity: activity.data ?? [],
       board: boardSlim,
+      archived: archivedBoard,
+      last_archive: lastArchive,
       time,
       rate: Number(((client as Any).portal_prefs ?? {})?.rate ?? 17),
     };
@@ -116,6 +137,8 @@ type Action =
   | { type: "cardEdit"; id: string; title?: string; notes?: string; status?: string; actor?: string; important?: boolean; due_date?: string | null }
   | { type: "cardOrder"; status: string; ids: string[] }
   | { type: "cardDelete"; id: string }
+  | { type: "cardArchive"; ids?: string[]; actor?: string }
+  | { type: "cardRestore"; ids?: string[]; all?: boolean }
   | { type: "noteAdd"; text: string; store?: "jerm" }
   | { type: "noteDelete"; id: string; store?: "jerm" }
   | { type: "mileageAdd"; driver: string; date: string; description: string; miles: number }
@@ -378,6 +401,34 @@ export const portalAction = createServerFn({ method: "POST" })
       const { data: row } = await admin.from("board_cards").delete().eq("id", a.id).eq("client_id", cid).select("title").maybeSingle();
       if (!row) throw new Error("Task not found.");
       await admin.from("activity_log").insert({ client_id: cid, actor: a.actor === "Natalie" ? "Natalie" : "client", message: `removed a task` });
+      return { ok: true };
+    }
+    if (a.type === "cardArchive") {
+      const { data: cur } = await admin.from("clients").select("portal_prefs").eq("id", cid).maybeSingle();
+      const prefs = (((cur as Any)?.portal_prefs ?? {}) as Any);
+      const existing: string[] = Array.isArray(prefs.archived_ids) ? prefs.archived_ids.map(String) : [];
+      let targets: string[] = Array.isArray(a.ids) && a.ids.length ? a.ids.map(String) : [];
+      if (!targets.length) {
+        const { data: doneRows } = await admin.from("board_cards").select("id").eq("client_id", cid).eq("status", "done");
+        targets = (((doneRows as Any[]) ?? []).map((r: Any) => String(r.id)));
+      }
+      if (!targets.length) return { archived: 0 };
+      const ids = Array.from(new Set([...existing, ...targets]));
+      const todayKey = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+      const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, archived_ids: ids, last_archive: todayKey } }).eq("id", cid);
+      if (error) throw new Error("Couldn't archive just now · please try again.");
+      await admin.from("activity_log").insert({ client_id: cid, actor: a.actor === "Natalie" ? "Natalie" : "client", message: `archived ${targets.length} completed task${targets.length === 1 ? "" : "s"}` });
+      return { archived: targets.length };
+    }
+    if (a.type === "cardRestore") {
+      const { data: cur } = await admin.from("clients").select("portal_prefs").eq("id", cid).maybeSingle();
+      const prefs = (((cur as Any)?.portal_prefs ?? {}) as Any);
+      const existing: string[] = Array.isArray(prefs.archived_ids) ? prefs.archived_ids.map(String) : [];
+      const drop = new Set(Array.isArray(a.ids) && a.ids.length ? a.ids.map(String) : []);
+      const ids = a.all ? [] : existing.filter((id: string) => !drop.has(id));
+      const { error } = await admin.from("clients").update({ portal_prefs: { ...prefs, archived_ids: ids } }).eq("id", cid);
+      if (error) throw new Error("Couldn't restore just now · please try again.");
+      await admin.from("activity_log").insert({ client_id: cid, actor: a.actor === "Natalie" ? "Natalie" : "client", message: a.all ? "restored all archived tasks" : "restored an archived task" });
       return { ok: true };
     }
     if (a.type === "timeStart") {
